@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Full-planet build, then publish to R2. Runs on a big build box (~128GB RAM, or
+# less RAM + fast NVMe via mmap). See bin/publish for the required R2 env vars.
+#
+# Config (with defaults):
+#   OSM_URL   planet PBF to download
+#   TMP_DIR   scratch dir (needs ~120GB fast disk)
+#   THREADS   defaults to all cores
+#   JAVA_OPTS heap; keep modest so the OS can page-cache the mmap'd node map
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+OSM_URL="${OSM_URL:-https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf}"
+TMP_DIR="${TMP_DIR:-data/tmp}"
+THREADS="${THREADS:-$(nproc)}"
+export JAVA_OPTS="${JAVA_OPTS:--Xmx40g -XX:+UseParallelGC}"
+
+bin/run \
+  --download --osm-url="$OSM_URL" \
+  --maxzoom=14 \
+  --tmp="$TMP_DIR" \
+  --nodemap-type=array --storage=mmap \
+  --threads="$THREADS" --download-threads=10 --http-retries=3 \
+  --force
+
+bin/publish

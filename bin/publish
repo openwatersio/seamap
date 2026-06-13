@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Publish a built PMTiles to R2.
+#
+# Uploads an immutable, versioned object (seamap@<version>.pmtiles) plus a
+# manifest, then flips the `latest` pointer. Atomic from a reader's view: the
+# big pmtiles are immutable and cached forever; only the tiny seamap@latest.json
+# pointer is overwritten, so in-flight range requests never see mixed bytes.
+#
+# rclone reads the R2 remote ("r2") from env, so no config file is needed:
+#   RCLONE_CONFIG_R2_TYPE=s3
+#   RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+#   RCLONE_CONFIG_R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
+#   RCLONE_CONFIG_R2_ACCESS_KEY_ID=...
+#   RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=...
+#
+# Config (with defaults):
+#   R2_BUCKET=tiles
+#   PUBLIC_BASE_URL=https://pub-f8e3a6cde1304526acfa7eae3e9c78ec.r2.dev
+#   VERSION=<UTC date>
+#   PMTILES=data/seamarks.pmtiles
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+R2_BUCKET="${R2_BUCKET:-tiles}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://pub-f8e3a6cde1304526acfa7eae3e9c78ec.r2.dev}"
+VERSION="${VERSION:-$(date -u +%Y-%m-%d)}"
+PMTILES="${PMTILES:-data/seamarks.pmtiles}"
+
+[ -f "$PMTILES" ] || { echo "missing $PMTILES — build it first" >&2; exit 1; }
+
+key="seamap@${VERSION}.pmtiles"
+echo "Uploading $PMTILES -> r2:$R2_BUCKET/$key"
+rclone copyto "$PMTILES" "r2:$R2_BUCKET/$key" \
+  --progress --s3-no-check-bucket \
+  --header-upload "Cache-Control: public, max-age=31536000, immutable"
+
+manifest="$(mktemp)"
+cat > "$manifest" <<EOF
+{
+  "name": "seamap",
+  "version": "${VERSION}",
+  "generated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "pmtiles": "${PUBLIC_BASE_URL}/${key}",
+  "minzoom": 0,
+  "maxzoom": 14
+}
+EOF
+
+# Immutable per-version manifest, then the short-cached `latest` pointer.
+rclone copyto "$manifest" "r2:$R2_BUCKET/seamap@${VERSION}.json" --s3-no-check-bucket \
+  --header-upload "Cache-Control: public, max-age=31536000, immutable"
+rclone copyto "$manifest" "r2:$R2_BUCKET/seamap@latest.json" --s3-no-check-bucket \
+  --header-upload "Cache-Control: public, max-age=60"
+rm -f "$manifest"
+
+echo "Published seamap@${VERSION} -> latest"

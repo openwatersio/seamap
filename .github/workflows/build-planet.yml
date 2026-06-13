@@ -1,0 +1,102 @@
+name: Build planet & publish
+
+# Boots an ephemeral Hetzner Cloud box, runs the full planet build, publishes
+# PMTiles to R2, and always destroys the box. Compute is pay-per-build; this
+# runner only orchestrates.
+#
+# Required repo secrets:
+#   HCLOUD_TOKEN            Hetzner Cloud API token
+#   R2_ACCESS_KEY_ID        R2 (S3) access key
+#   R2_SECRET_ACCESS_KEY    R2 (S3) secret key
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: build-planet
+  cancel-in-progress: false
+
+env:
+  SERVER_TYPE: ccx53 # 32 vCPU / 128 GB
+  SERVER_IMAGE: ubuntu-24.04
+  SERVER_LOCATION: fsn1
+  R2_ENDPOINT: https://7822da9c68cfce969e63d07534969359.r2.cloudflarestorage.com
+  R2_BUCKET: tiles
+  PUBLIC_BASE_URL: https://pub-f8e3a6cde1304526acfa7eae3e9c78ec.r2.dev
+  SSH_OPTS: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
+  NAME: seamap-build-${{ github.run_id }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install hcloud CLI
+        run: |
+          curl -fsSL https://github.com/hetznercloud/cli/releases/latest/download/hcloud-linux-amd64.tar.gz \
+            | tar xz hcloud
+          sudo mv hcloud /usr/local/bin/
+
+      - name: Boot ephemeral server
+        run: |
+          ssh-keygen -t ed25519 -N "" -f id_build -q
+          hcloud ssh-key create --name "$NAME" --public-key-from-file id_build.pub
+          hcloud server create --name "$NAME" \
+            --type "$SERVER_TYPE" --image "$SERVER_IMAGE" --location "$SERVER_LOCATION" \
+            --ssh-key "$NAME"
+          IP=$(hcloud server ip "$NAME")
+          echo "IP=$IP" >> "$GITHUB_ENV"
+          for i in $(seq 1 60); do
+            ssh $SSH_OPTS -i id_build "root@$IP" true 2>/dev/null && exit 0
+            sleep 5
+          done
+          echo "server never became reachable" >&2; exit 1
+
+      - name: Build & publish
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          # Secrets/config to source on the box (kept off the command line).
+          cat > build.env <<EOF
+          export RCLONE_CONFIG_R2_TYPE=s3
+          export RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+          export RCLONE_CONFIG_R2_ENDPOINT=$R2_ENDPOINT
+          export RCLONE_CONFIG_R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID
+          export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY
+          export R2_BUCKET=$R2_BUCKET
+          export PUBLIC_BASE_URL=$PUBLIC_BASE_URL
+          EOF
+
+          rsync -az --exclude .git --exclude node_modules --exclude data \
+            -e "ssh $SSH_OPTS -i id_build" ./ "root@$IP:/root/seamap/"
+          scp $SSH_OPTS -i id_build build.env "root@$IP:/root/seamap/build.env"
+
+          ssh $SSH_OPTS -i id_build "root@$IP" bash -se <<'REMOTE'
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq openjdk-21-jdk-headless rclone unzip curl
+          cd /root/seamap
+          set -a; source build.env; set +a
+          # Pre-fetch land polygons with retries (the build's own downloader has none).
+          mkdir -p data
+          if [ ! -f data/land-polygons-split-4326/land_polygons.shp ]; then
+            curl -fSL --retry 5 --retry-all-errors --connect-timeout 30 \
+              -o /tmp/land.zip \
+              https://osmdata.openstreetmap.de/download/land-polygons-split-4326.zip
+            unzip -q /tmp/land.zip -d data
+          fi
+          bin/build-planet
+          REMOTE
+
+      - name: Destroy server
+        if: always()
+        run: |
+          hcloud server delete "$NAME" || true
+          hcloud ssh-key delete "$NAME" || true
