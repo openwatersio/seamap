@@ -13,7 +13,9 @@ cd "$(dirname "$0")/.."
 OSM_URL="${OSM_URL:-https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf}"
 TMP_DIR="${TMP_DIR:-data/tmp}"
 THREADS="${THREADS:-$(nproc)}"
-export JAVA_OPTS="${JAVA_OPTS:--Xmx40g -XX:+UseParallelGC}"
+# Keep heap modest; planetiler wants most RAM free for the OS to page-cache the
+# mmap'd node map. -Xmx16g fits a 32GB box and is plenty even on bigger ones.
+export JAVA_OPTS="${JAVA_OPTS:--Xmx16g -XX:+UseParallelGC}"
 
 bin/run \
   --download --osm-url="$OSM_URL" \

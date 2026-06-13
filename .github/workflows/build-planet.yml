@@ -13,13 +13,21 @@ on:
   schedule:
     - cron: "0 3 * * 1" # Mondays 03:00 UTC
   workflow_dispatch:
+    inputs:
+      server_type:
+        description: "Hetzner type (smoke: ccx23; planet: ccx33 until quota raised)"
+        default: ccx33
+      area:
+        description: "Geofabrik area for a cheap smoke build, lowercase (blank = full planet)"
+        default: ""
 
 concurrency:
   group: build-planet
   cancel-in-progress: false
 
 env:
-  SERVER_TYPE: ccx53 # 32 vCPU / 128 GB
+  SERVER_TYPE: ${{ inputs.server_type || 'ccx33' }} # ccx33 = 8 vCPU / 32 GB (fits the 8 dedicated-vCPU account limit)
+  AREA: ${{ inputs.area }}
   SERVER_IMAGE: ubuntu-24.04
   SERVER_LOCATION: fsn1
   R2_ENDPOINT: https://7822da9c68cfce969e63d07534969359.r2.cloudflarestorage.com
@@ -41,6 +49,10 @@ jobs:
           curl -fsSL https://github.com/hetznercloud/cli/releases/latest/download/hcloud-linux-amd64.tar.gz \
             | tar xz hcloud
           sudo mv hcloud /usr/local/bin/
+
+      # Print the valid type names for this account so we never guess them.
+      - name: List server types
+        run: hcloud server-type list -o columns=name,cores,memory,cpu_type,architecture
 
       - name: Boot ephemeral server
         run: |
@@ -71,6 +83,7 @@ jobs:
           export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY
           export R2_BUCKET=$R2_BUCKET
           export PUBLIC_BASE_URL=$PUBLIC_BASE_URL
+          export AREA=$AREA
           EOF
 
           rsync -az --exclude .git --exclude node_modules --exclude data \
@@ -92,7 +105,14 @@ jobs:
               https://osmdata.openstreetmap.de/download/land-polygons-split-4326.zip
             unzip -q /tmp/land.zip -d data
           fi
-          bin/build-planet
+          if [ -n "${AREA:-}" ]; then
+            # Smoke build: small regional extract, do not touch the `latest` pointer.
+            AREA="$(echo "$AREA" | tr '[:upper:]' '[:lower:]')"
+            JAVA_OPTS="-Xmx8g" bin/run --area="$AREA" --force
+            VERSION="smoke-$AREA" UPDATE_LATEST=false bin/publish
+          else
+            bin/build-planet
+          fi
           REMOTE
 
       - name: Destroy server
