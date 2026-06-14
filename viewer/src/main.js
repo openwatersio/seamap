@@ -1,7 +1,14 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { colorful } from '@versatiles/style'
+import { Protocol } from 'pmtiles'
 import mlcontour from '../vendor/maplibre-contour.mjs'
+
+// Self-hosted seamap tiles: register the pmtiles protocol; the source `url` is a
+// TileJSON manifest MapLibre fetches directly. ?tiles=<url> previews a build.
+maplibregl.addProtocol('pmtiles', new Protocol().tile)
+const tilesUrl = new URLSearchParams(location.search).get('tiles')
+    || 'https://tiles.openwaters.io/seamap/latest.json'
 
 const style = colorful({
     baseUrl: 'https://tiles.versatiles.org',
@@ -14,12 +21,10 @@ style.sprite.push({
     id: 'seamap',
     url: 'https://icons.maptoolkit.net/seamap'
 });
-// add maptoolkit seamap source
+// self-hosted seamap vector tiles (TileJSON manifest → pmtiles)
 style.sources.seamap = {
     type: 'vector',
-    tiles: ["https://dataconnector-cdn.maptoolkit.net/seamap/seamap/{z}/{x}/{y}.pbf?api_key=seamap"],
-    attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank">© OSM</a>',
-    maxzoom: 14,
+    url: tilesUrl,
 };
 // add mapterhorn hillshading & contour sources
 var demSource = new mlcontour.DemSource({
