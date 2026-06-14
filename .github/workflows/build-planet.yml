@@ -63,6 +63,10 @@ jobs:
             --ssh-key "$NAME"
           IP=$(hcloud server ip "$NAME")
           echo "IP=$IP" >> "$GITHUB_ENV"
+          # Planet builds need scratch beyond the box's ~240GB disk; attach a volume.
+          if [ -z "${AREA:-}" ]; then
+            hcloud volume create --name "$NAME" --size 200 --server "$NAME"
+          fi
           for i in $(seq 1 60); do
             ssh $SSH_OPTS -i id_build "root@$IP" true 2>/dev/null && exit 0
             sleep 5
@@ -84,6 +88,7 @@ jobs:
           export R2_BUCKET=$R2_BUCKET
           export PUBLIC_BASE_URL=$PUBLIC_BASE_URL
           export AREA=$AREA
+          export TMP_DIR=/root/tmp
           EOF
 
           rsync -az --exclude .git --exclude node_modules --exclude data \
@@ -94,9 +99,25 @@ jobs:
           set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
-          apt-get install -y -qq openjdk-21-jdk-headless rclone unzip curl
+          apt-get install -y -qq openjdk-21-jdk-headless rclone unzip curl e2fsprogs
           cd /root/seamap
           set -a; source build.env; set +a
+          # If a build volume is attached (planet builds), put bulky data (PBF,
+          # output, land) on it and keep planetiler's nodemap on the local NVMe
+          # (TMP_DIR=/root/tmp) so its heavy random I/O stays fast.
+          # Planet builds (no AREA) get a volume; wait for it, fail loudly if absent
+          # (so we never silently fall back to the too-small root disk).
+          if [ -z "${AREA:-}" ]; then
+            for i in $(seq 1 12); do
+              DEV=$(ls /dev/disk/by-id/scsi-0HC_Volume_* 2>/dev/null | head -1 || true)
+              [ -n "${DEV:-}" ] && break || sleep 5
+            done
+            [ -n "${DEV:-}" ] || { echo "build volume never attached" >&2; exit 1; }
+            mkfs.ext4 -qF "$DEV"
+            mkdir -p /mnt/data && mount "$DEV" /mnt/data
+            rm -rf data && ln -s /mnt/data data
+          fi
+          mkdir -p data "$TMP_DIR"
           # Pre-fetch land polygons with retries (the build's own downloader has none).
           mkdir -p data
           if [ ! -f data/land-polygons-split-4326/land_polygons.shp ]; then
@@ -119,4 +140,8 @@ jobs:
         if: always()
         run: |
           hcloud server delete "$NAME" || true
+          # Volume (planet builds only) detaches when the server is deleted; then remove it.
+          if hcloud volume describe "$NAME" >/dev/null 2>&1; then
+            for i in $(seq 1 12); do hcloud volume delete "$NAME" && break || sleep 5; done
+          fi
           hcloud ssh-key delete "$NAME" || true
