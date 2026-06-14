@@ -32,7 +32,7 @@ env:
   SERVER_LOCATION: fsn1
   R2_ENDPOINT: https://7822da9c68cfce969e63d07534969359.r2.cloudflarestorage.com
   R2_BUCKET: tiles
-  PUBLIC_BASE_URL: https://pub-f8e3a6cde1304526acfa7eae3e9c78ec.r2.dev
+  PUBLIC_BASE_URL: https://tiles.openwaters.io
   SSH_OPTS: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
   NAME: seamap-build-${{ github.run_id }}
 

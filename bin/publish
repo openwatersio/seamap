@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Publish a built PMTiles to R2.
 #
-# Uploads an immutable, versioned object (seamap@<version>.pmtiles) plus a
+# Uploads an immutable, versioned object (seamap/<version>.pmtiles) plus a
 # manifest, then flips the `latest` pointer. Atomic from a reader's view: the
-# big pmtiles are immutable and cached forever; only the tiny seamap@latest.json
+# big pmtiles are immutable and cached forever; only the tiny seamap/latest.json
 # pointer is overwritten, so in-flight range requests never see mixed bytes.
 #
 # rclone reads the R2 remote ("r2") from env, so no config file is needed:
@@ -15,7 +15,7 @@
 #
 # Config (with defaults):
 #   R2_BUCKET=tiles
-#   PUBLIC_BASE_URL=https://pub-f8e3a6cde1304526acfa7eae3e9c78ec.r2.dev
+#   PUBLIC_BASE_URL=https://tiles.openwaters.io
 #   VERSION=<UTC date>
 #   PMTILES=data/seamarks.pmtiles
 #   UPDATE_LATEST=true   # set false for smoke builds so `latest` isn't flipped
@@ -23,14 +23,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 R2_BUCKET="${R2_BUCKET:-tiles}"
-PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://pub-f8e3a6cde1304526acfa7eae3e9c78ec.r2.dev}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://tiles.openwaters.io}"
 VERSION="${VERSION:-$(date -u +%Y-%m-%d)}"
 PMTILES="${PMTILES:-data/seamarks.pmtiles}"
 UPDATE_LATEST="${UPDATE_LATEST:-true}"
 
 [ -f "$PMTILES" ] || { echo "missing $PMTILES — build it first" >&2; exit 1; }
 
-key="seamap@${VERSION}.pmtiles"
+key="seamap/${VERSION}.pmtiles"
 echo "Uploading $PMTILES -> r2:$R2_BUCKET/$key"
 rclone copyto "$PMTILES" "r2:$R2_BUCKET/$key" \
   --progress --s3-no-check-bucket \
@@ -49,13 +49,13 @@ cat > "$manifest" <<EOF
 EOF
 
 # Immutable per-version manifest, then (optionally) the short-cached `latest`.
-rclone copyto "$manifest" "r2:$R2_BUCKET/seamap@${VERSION}.json" --s3-no-check-bucket \
+rclone copyto "$manifest" "r2:$R2_BUCKET/seamap/${VERSION}.json" --s3-no-check-bucket \
   --header-upload "Cache-Control: public, max-age=31536000, immutable"
 if [ "$UPDATE_LATEST" = "true" ]; then
-  rclone copyto "$manifest" "r2:$R2_BUCKET/seamap@latest.json" --s3-no-check-bucket \
+  rclone copyto "$manifest" "r2:$R2_BUCKET/seamap/latest.json" --s3-no-check-bucket \
     --header-upload "Cache-Control: public, max-age=60"
-  echo "Published seamap@${VERSION} -> latest"
+  echo "Published seamap/${VERSION} -> latest"
 else
-  echo "Published seamap@${VERSION} (latest unchanged)"
+  echo "Published seamap/${VERSION} (latest unchanged)"
 fi
 rm -f "$manifest"
