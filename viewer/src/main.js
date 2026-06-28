@@ -61,79 +61,16 @@ style.sources.contours = {
     maxzoom: 15
 };
 
-// add maptoolkit emod bathymetry source
-
-var bathymetrySource = {
-    emod: new mlcontour.DemSource({
-        url: 'https://dataconnector-cdn-3.maptoolkit.net/seamap/emod/{z}/{x}/{y}.webp?api_key=seamap',
-        attribution: '<a href="https://emodnet.ec.europa.eu" target="_blank">© EMODnet</a>',
-        encoding: "terrarium",
-        maxzoom: 11,
-        cacheSize: 100,
-    }),
-    gebco: new mlcontour.DemSource({
-        url: 'https://dataconnector-cdn-3.maptoolkit.net/seamap/gebco/{z}/{x}/{y}.webp?api_key=seamap',
-        attribution: '<a href="https://www.gebco.net" target="_blank">© GEBCO</a>',
-        encoding: "terrarium",
-        maxzoom: 9,
-        cacheSize: 100,
-    }),
-    ddm: new mlcontour.DemSource({
-        url: 'https://dataconnector-cdn-3.maptoolkit.net/seamap/ddm/{z}/{x}/{y}.webp?api_key=seamap',
-        attribution: '<a href="https://sdfi.dk" target="_blank">© SDFI</a>',
-        encoding: "terrarium",
-        maxzoom: 12,
-        cacheSize: 100,
-    }),
+style.sources.bathymetryshading = {
+    type: 'raster-dem',
+    url: 'https://tiles.openwaters.io/bathymetry/raster.json',
+    encoding: 'terrarium', // not read from TileJSON by MapLibre
+    tileSize: 512,
 };
-bathymetrySource.emod.setupMaplibre(maplibregl);
-bathymetrySource.gebco.setupMaplibre(maplibregl);
-bathymetrySource.ddm.setupMaplibre(maplibregl);
-window.setBathymetry = (name) => {
-    style.sources.bathymetryshading = {
-        type: 'raster-dem',
-        tiles: [bathymetrySource[name].sharedDemProtocolUrl],
-        attribution: name == 'emod'
-            ? '<a href="https://emodnet.ec.europa.eu" target="_blank">© EMODnet</a>'
-            : name == 'ddm'
-                ? '<a href="https://sdfi.dk" target="_blank">© SDFI</a>'
-                : '<a href="https://www.gebco.net" target="_blank">© GEBCO</a>',
-        encoding: "terrarium",
-        tileSize: 512,
-        maxzoom: 9
-    };
-    style.sources.bathymetry = {
-        type: 'vector',
-        tiles: [
-            bathymetrySource[name].contourProtocolUrl({
-                overzoom: 1,
-                multiplier: name == 'ddm' ? 1 : -1,
-                contourLayer: "contours",
-                lineLevels: {
-                    5: [0, 2, 5, 10, 20, 50, 100, 250, 500, 1000, 2000, 3000, 4000, 5000],
-                },
-                elevationKey: "ele",
-                levelKey: "level",
-                polygonLayer: "bathymetry",
-                lowerElevationKey: "min",
-                upperElevationKey: "max",
-                polygonLevels: {
-                    5: [-100000, 0, 2, 5, 10, 20, 50],
-                },
-                spotGridSpacing: 32,
-                spotSortOrder: "asc",
-                spotLayer: "soundings"
-            })
-        ],
-        maxzoom: 15
-    };
+style.sources.bathymetry = {
+    type: 'vector',
+    url: 'https://tiles.openwaters.io/bathymetry/vector.json',
 };
-// Get bathymetry from URL parameter or default to 'ddm'
-const urlParams = new URLSearchParams(window.location.search);
-const selectedBathymetry = urlParams.get('bathymetry') || 'emod';
-setBathymetry(selectedBathymetry);
-// Update dropdown to match
-document.getElementById('bathymetry-select').value = selectedBathymetry;
 
 // draw sea
 style.layers.splice(0, 2, {
@@ -141,29 +78,9 @@ style.layers.splice(0, 2, {
     "type": "background",
     "paint": {"background-color": "#e9f7ff"}
 }, {
-    "id": "bathymetry",
-    "type": "fill",
-    "source": "bathymetry",
-    "source-layer": "bathymetry",
-    "minzoom": 8,
-    "paint": {
-        "fill-antialias": false,
-        "fill-color": ["match", ["get", "max"],
-            0, "#cadbc1",
-            2, "#68cafe",
-            5, "#73cefe",
-            10, "#83d4fe",
-            20, "#9adcfe",
-            50, "#bae7fe",
-            "#68cafe",
-        ]
-    },
-    "layout": { "fill-sort-key": ["*", ["get", "max"], -1] }
-}, {
     "id": "bathymetry-relief",
     "type": "color-relief",
     "source": "bathymetryshading",
-    "maxzoom": 8,
     "paint": {
         "color-relief-color": [
             "interpolate",
@@ -227,46 +144,11 @@ style.layers.splice(0, 2, {
     "layout": {
         "symbol-placement": "line",
         "symbol-spacing": 200,
-        "text-field": ["to-string", ["round", ["get", "ele"]]],
+        "text-field": ["to-string", ["round", ["get", "depth_abs_m"]]],
         "text-font": ["Noto Sans Regular"],
         "text-letter-spacing": 0.1,
         "text-line-height": 1.6,
         "text-max-width": 5,
-        "text-offset": [0, -0.65],
-        "text-pitch-alignment": "viewport",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10],
-    },
-    "paint": {"text-color": "#777"}
-}, {
-    "id": "spot-soundings",
-    "type": "symbol",
-    "source": "bathymetry",
-    "source-layer": "soundings",
-    "filter": [">", ["get", "ele"], 5],
-    "layout": {
-        "text-field": ["to-string", ["round", ["get", "ele"]]],
-        "text-font": ["Noto Sans Regular"],
-        "text-letter-spacing": 0.1,
-        "text-max-width": 5,
-        "text-padding": 50,
-        "text-offset": [0, -0.65],
-        "text-pitch-alignment": "viewport",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10],
-    },
-    "paint": {"text-color": "#777"}
-}, {
-    "id": "spot-soundings-shallow",
-    "type": "symbol",
-    "source": "bathymetry",
-    "source-layer": "soundings",
-    "filter": ["all", ["<=", ["get", "ele"], 5], [">", ["get", "ele"], 0.1]],
-    "layout": {
-        "symbol-sort-key": ["get", "ele"],
-        "text-field": ["to-string", ["/", ["round", ["*", ["get", "ele"], 10]], 10]],
-        "text-font": ["Noto Sans Regular"],
-        "text-letter-spacing": 0.1,
-        "text-max-width": 5,
-        "text-padding": 10,
         "text-offset": [0, -0.65],
         "text-pitch-alignment": "viewport",
         "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10],
@@ -729,12 +611,4 @@ var map = new maplibregl.Map({
     zoom: 13.4,
     container: 'map',
     style
-});
-
-// Add event listener for bathymetry selection
-document.getElementById('bathymetry-select').addEventListener('change', function(e) {
-    const selectedBathymetry = e.target.value;
-    const url = new URL(window.location);
-    url.searchParams.set('bathymetry', selectedBathymetry);
-    window.location = url;
 });
