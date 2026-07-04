@@ -265,28 +265,23 @@ npm --prefix viewer run build    # static build → viewer/dist/
   - Dynamically generated contour lines
   - Contour intervals: 200m/1000m (z7), 100m/500m (z8-9), 50m/200m (z10), 20m/100m (z11), 10m/50m (z12)
 
-#### 5. Bathymetry (EMODnet)
-- **Source**: MapToolkit Data Connector (EMODnet Bathymetry 2024)
-- **Tile Endpoint**: `https://dataconnector.maptoolkit.net/seamap/emod/{z}/{x}/{y}.webp?api_key=seamap`
-- **Gebco Pmtiles Source**: `https://fsn1.your-objectstorage.com/mtk-seamap/emod.pmtiles`
-- **Emodnet Pmtiles Source**: `https://fsn1.your-objectstorage.com/mtk-seamap/gebco.pmtiles`
-- **Encoding**: Terrarium (RGB-encoded depth values)
-- **Max Zoom**: 11 (9 for Gebco)
-- **Coverage**: European waters (worldwide for Gebco)
+#### 5. Bathymetry (Seascape)
+- **Source**: [Seascape](https://github.com/openwatersio/seascape) — GEBCO + regional high-res mosaic (NOAA S-102/CUDEM, EMODnet, and more)
+- **Raster DEM TileJSON**: `https://tiles.openwaters.io/seascape/raster.json` (Terrarium-encoded depth, tiles to z14 where high-res sources exist)
+- **Vector TileJSON**: `https://tiles.openwaters.io/seascape/vector.json`
 - **Features**:
-  - Bathymetric hillshading (0.2 exaggeration)
-  - Dynamically generated depth contours
-  - Contour lines at: 0m, 2m, 5m, 10m, 20m, 50m, 100m, 250m, 500m, 1000m, 2000m, 3000m, 4000m, 5000m
-  - Depth area fills: 0-2m, 2-5m, 5-10m, 10-20m, 20-50m
-  - Spot soundings (depth labels) with 32-pixel grid spacing
-  - All Contour/Bathymetry/Spotsounding features a created ondemand in the browser via the [maplibre-contours](https://github.com/prozessor13/maplibre-contour) plugin
+  - Depth-shaded color relief + bathymetric hillshading from the raster DEM
+  - Server-rendered depth contours at non-uniform intervals (`contours` layer, metric set)
+  - Spot soundings, shoalest-per-cell (`soundings` layer)
+  - Drying areas / foreshore polygons (`drying` layer)
+  - Attribution is carried in the TileJSONs and credited automatically
 
 ### Technology Stack
 
 - **MapLibre GL JS**: Open-source map rendering engine
-- **maplibre-contour** (v0.2.8): Plugin for dynamic contour generation from DEM tiles
+- **maplibre-contour** (v0.2.8): Plugin for dynamic land contour generation from DEM tiles
 - **VersaTiles Style**: Base map styling library
-- **Maptoolkit Servers**: Serve Seamap and bathymetry tiles
+- **tiles.openwaters.io**: Serves the Seamap vector tiles and Seascape bathymetry
 
 ### Features Rendered
 

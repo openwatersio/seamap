@@ -63,13 +63,14 @@ style.sources.contours = {
 
 style.sources.bathymetryshading = {
     type: 'raster-dem',
-    url: 'https://tiles.openwaters.io/bathymetry/raster.json',
+    url: 'https://tiles.openwaters.io/seascape/raster.json',
     encoding: 'terrarium', // not read from TileJSON by MapLibre
     tileSize: 512,
 };
+// Contours, spot soundings, and drying areas, pre-rendered server-side.
 style.sources.bathymetry = {
     type: 'vector',
-    url: 'https://tiles.openwaters.io/bathymetry/vector.json',
+    url: 'https://tiles.openwaters.io/seascape/vector.json',
 };
 
 // draw sea
@@ -104,6 +105,13 @@ style.layers.splice(0, 2, {
         'hillshade-method': 'combined'
     }
 }, {
+    // chart-green foreshore (dries at low water), seaward of the OSM land line
+    "id": "drying",
+    "type": "fill",
+    "source": "bathymetry",
+    "source-layer": "drying",
+    "paint": {"fill-color": "#a8d5ba", "fill-opacity": 0.55}
+}, {
     "id": "rocks",
     "source": "seamap",
     "source-layer": "seamark",
@@ -133,6 +141,8 @@ style.layers.splice(0, 2, {
     "source": "bathymetry",
     "minzoom": 5,
     "source-layer": "contours",
+    // the layer carries a second feet/fathom isobath set (sys=ft); draw metric only
+    "filter": ["!=", ["get", "sys"], "ft"],
     "paint": {"line-color": "#777", "line-width": 0.5, "line-opacity": 0.5}
 }, {
     "id": "bathymetry_contours_label",
@@ -141,10 +151,11 @@ style.layers.splice(0, 2, {
     "type": "symbol",
     "minzoom": 8,
     "maxzoom": 22,
+    "filter": ["!=", ["get", "sys"], "ft"],
     "layout": {
         "symbol-placement": "line",
         "symbol-spacing": 200,
-        "text-field": ["to-string", ["round", ["get", "depth_abs_m"]]],
+        "text-field": ["to-string", ["get", "depth_abs_m"]],
         "text-font": ["Noto Sans Regular"],
         "text-letter-spacing": 0.1,
         "text-line-height": 1.6,
@@ -166,6 +177,28 @@ style.layers.splice(0, 2, {
     "source-layer": "land",
     "type": "fill",
     "paint": {"fill-color": "#fdf1d2"}
+});
+
+// Spot soundings: shoalest-per-cell depths from the vector source. depth_m is
+// already floored server-side (1 decimal < 6 m, whole metres above) — print as-is.
+style.layers.splice(style.layers.findIndex(l => l.id == 'bathymetry_contours_label') + 1, 0, {
+    "id": "spot-soundings",
+    "type": "symbol",
+    "source": "bathymetry",
+    "source-layer": "soundings",
+    "minzoom": 7,
+    "layout": {
+        "symbol-sort-key": ["get", "depth_m"], // shoalest first → wins collisions
+        "text-field": ["to-string", ["get", "depth_m"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-letter-spacing": 0.1,
+        "text-max-width": 5,
+        "text-padding": 10,
+        "text-offset": [0, -0.65],
+        "text-pitch-alignment": "viewport",
+        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10],
+    },
+    "paint": {"text-color": "#777"}
 });
 
 // draw hillshading
@@ -599,6 +632,15 @@ style.layers = style.layers.concat({
     }
 });
 
+// versatiles' opaque water-polygon fills (estuaries, rivers, docks) paint over the
+// bathymetry. Move them *below* it and restyle as a stipple, so they only show
+// through where there's no depth data — the chart cue for unsurveyed water.
+const waterFillIds = ['water-area', 'water-area-river', 'water-area-small'];
+const unsurveyed = style.layers.filter(l => waterFillIds.includes(l.id));
+style.layers = style.layers.filter(l => !waterFillIds.includes(l.id));
+unsurveyed.forEach(l => l.paint = { 'fill-pattern': 'unsurveyed' });
+style.layers.splice(1, 0, ...unsurveyed); // index 1: just above `background`, below bathymetry
+
 console.log(style);
 
 // add the MapLibre GL RTL text plugin for proper rendering of right-to-left languages
@@ -610,5 +652,21 @@ var map = new maplibregl.Map({
     center: [10.2351, 56.16858],
     zoom: 13.4,
     container: 'map',
-    style
+    style,
+    attributionControl: { compact: true } // collapsed to the ⓘ toggle by default
+});
+
+// register the 'unsurveyed' stipple: faint blue base + one sparse dot,
+// the chart cue for water with no depth data
+map.on('load', () => {
+    const px = 12, cv = document.createElement('canvas');
+    cv.width = cv.height = px;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#d6ebfa';
+    ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = 'rgba(60,120,170,0.7)';
+    ctx.beginPath();
+    ctx.arc(px / 2, px / 2, 1.1, 0, 7);
+    ctx.fill();
+    map.addImage('unsurveyed', ctx.getImageData(0, 0, px, px), { pixelRatio: 1 });
 });
