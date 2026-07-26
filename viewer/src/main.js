@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { colorful } from '@versatiles/style'
 import { Protocol } from 'pmtiles'
+import { day, sources, layers } from '@openwaters/seascape'
 import mlcontour from '../vendor/maplibre-contour.mjs'
 
 // Self-hosted seamap tiles: register the pmtiles protocol; the source `url` is a
@@ -61,57 +62,19 @@ style.sources.contours = {
     maxzoom: 15
 };
 
-style.sources.bathymetryshading = {
-    type: 'raster-dem',
-    url: 'https://tiles.openwaters.io/seascape/raster.json',
-    encoding: 'terrarium', // not read from TileJSON by MapLibre
-    tileSize: 512,
-};
-// Contours, spot soundings, and drying areas, pre-rendered server-side.
-style.sources.bathymetry = {
-    type: 'vector',
-    url: 'https://tiles.openwaters.io/seascape/vector.json',
-};
+// Seascape bathymetry: depth shading, depth areas, contours, soundings.
+// Sources + layer groups come from @openwaters/seascape; unit/safety changes
+// at runtime go through its applyState().
+Object.assign(style.sources, sources({ tilesBase: 'https://tiles.openwaters.io/seascape' }))
+const bathymetry = layers({ ...day, font: ['noto_sans_regular'] }) // versatiles glyph names are lowercase
+bathymetry.find(l => l.id === 'hillshade').layout.visibility = 'visible' // library defaults it off
 
 // draw sea
 style.layers.splice(0, 2, {
     "id": "background",
     "type": "background",
     "paint": {"background-color": "#e9f7ff"}
-}, {
-    "id": "bathymetry-relief",
-    "type": "color-relief",
-    "source": "bathymetryshading",
-    "paint": {
-        "color-relief-color": [
-            "interpolate",
-            ["linear"],
-            ["elevation"],
-            -10000, "#bae7fe", -50.1, "#e9f7ff",
-            -50, "#bae7fe", -20.1, "#bae7fe",
-            -20, "#9adcfe", -10.1, "#9adcfe",
-            -10, "#83d4fe", -5.1, "#83d4fe",
-            -5, "#73cefe", -2.1, "#73cefe",
-            -2, "#68cafe", -0.01, "#68cafe",
-            0, "#cadbc1",
-        ],
-    }
-}, {
-    "id": 'bathymetryshading',
-    "type": 'hillshade',
-    "source": 'bathymetryshading',
-    "paint": {
-        'hillshade-exaggeration': 0.14,
-        'hillshade-method': 'combined'
-    }
-}, {
-    // chart-green foreshore (dries at low water), seaward of the OSM land line
-    "id": "drying",
-    "type": "fill",
-    "source": "bathymetry",
-    "source-layer": "drying",
-    "paint": {"fill-color": "#a8d5ba", "fill-opacity": 0.55}
-}, {
+}, ...bathymetry, {
     "id": "rocks",
     "source": "seamap",
     "source-layer": "seamark",
@@ -136,36 +99,6 @@ style.layers.splice(0, 2, {
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.10, 16, 0.5]
     }
 }, {
-    "id": "bathymetry_contours",
-    "type": "line",
-    "source": "bathymetry",
-    "minzoom": 5,
-    "source-layer": "contours",
-    // the layer carries a second feet/fathom isobath set (sys=ft); draw metric only
-    "filter": ["!=", ["get", "sys"], "ft"],
-    "paint": {"line-color": "#777", "line-width": 0.5, "line-opacity": 0.5}
-}, {
-    "id": "bathymetry_contours_label",
-    "source": "bathymetry",
-    "source-layer": "contours",
-    "type": "symbol",
-    "minzoom": 8,
-    "maxzoom": 22,
-    "filter": ["!=", ["get", "sys"], "ft"],
-    "layout": {
-        "symbol-placement": "line",
-        "symbol-spacing": 200,
-        "text-field": ["to-string", ["get", "depth_abs_m"]],
-        "text-font": ["Noto Sans Regular"],
-        "text-letter-spacing": 0.1,
-        "text-line-height": 1.6,
-        "text-max-width": 5,
-        "text-offset": [0, -0.65],
-        "text-pitch-alignment": "viewport",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10],
-    },
-    "paint": {"text-color": "#777"}
-}, {
     "id": "land_outline",
     "source": "seamap",
     "source-layer": "land",
@@ -177,28 +110,6 @@ style.layers.splice(0, 2, {
     "source-layer": "land",
     "type": "fill",
     "paint": {"fill-color": "#fdf1d2"}
-});
-
-// Spot soundings: shoalest-per-cell depths from the vector source. depth_m is
-// already floored server-side (1 decimal < 6 m, whole metres above) — print as-is.
-style.layers.splice(style.layers.findIndex(l => l.id == 'bathymetry_contours_label') + 1, 0, {
-    "id": "spot-soundings",
-    "type": "symbol",
-    "source": "bathymetry",
-    "source-layer": "soundings",
-    "minzoom": 7,
-    "layout": {
-        "symbol-sort-key": ["get", "depth_m"], // shoalest first → wins collisions
-        "text-field": ["to-string", ["get", "depth_m"]],
-        "text-font": ["Noto Sans Regular"],
-        "text-letter-spacing": 0.1,
-        "text-max-width": 5,
-        "text-padding": 10,
-        "text-offset": [0, -0.65],
-        "text-pitch-alignment": "viewport",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10],
-    },
-    "paint": {"text-color": "#777"}
 });
 
 // draw hillshading
