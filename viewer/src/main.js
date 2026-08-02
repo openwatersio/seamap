@@ -4,6 +4,7 @@ import { colorful } from '@versatiles/style'
 import { Protocol } from 'pmtiles'
 import { day, sources, layers } from '@openwaters/seascape'
 import mlcontour from '../vendor/maplibre-contour.mjs'
+import chartStyle from '../vendor/freenauticalchart.style.json'
 
 // Self-hosted seamap tiles: register the pmtiles protocol; the source `url` is a
 // TileJSON manifest MapLibre fetches directly. ?tiles=<url> previews a build.
@@ -17,10 +18,10 @@ const style = colorful({
     colors: { label: '#000' },
     recolor: { saturate: -0.3 },
 });
-// add seamap sprites
+// chart symbols, served from the viewer alongside the style that names them
 style.sprite.push({
-    id: 'seamap',
-    url: 'https://icons.maptoolkit.net/seamap'
+    id: 'freenauticalchart',
+    url: new URL('sprites/freenauticalchart', document.baseURI).href
 });
 // self-hosted seamap vector tiles (TileJSON manifest → pmtiles)
 style.sources.seamap = {
@@ -69,36 +70,25 @@ Object.assign(style.sources, sources({ tilesBase: 'https://tiles.openwaters.io/s
 const bathymetry = layers({ ...day, font: ['noto_sans_regular'] }) // versatiles glyph names are lowercase
 bathymetry.find(l => l.id === 'hillshade').layout.visibility = 'visible' // library defaults it off
 
+// Chart symbology comes from the vendored freenauticalchart style; take only its
+// seamark and light layers, since land and bathymetry are drawn from VersaTiles
+// and Seascape here. Upstream puts sea areas below its land layers and all the
+// symbology above, so split on those to preserve the intended draw order.
+const isSeamark = l => ['seamark', 'light'].includes(l['source-layer'])
+const chartLandIndex = chartStyle.layers.findIndex(l => l['source-layer'] === 'land')
+const chartAreas = chartStyle.layers.slice(0, chartLandIndex).filter(isSeamark)
+const chartSymbols = chartStyle.layers.slice(chartLandIndex).filter(isSeamark)
+for (const { layout } of [...chartAreas, ...chartSymbols]) {
+    const font = layout?.['text-font']
+    if (font) layout['text-font'] = font.map(f => f.toLowerCase().replaceAll(' ', '_')) // versatiles glyph names
+}
+
 // draw sea
 style.layers.splice(0, 2, {
     "id": "background",
     "type": "background",
     "paint": {"background-color": "#e9f7ff"}
-}, ...bathymetry, {
-    "id": "rocks",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["in", ["get", "type"], ["literal", ["rock", "wreck"]]],
-    "minzoom": 8,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-anchor": "bottom",
-        "icon-ignore-placement": true,
-        "icon-image": ["case",
-            ["==", ["get", "category"], "hull_showing"],
-            "seamap:K_K24",
-            ["==", ["get", "type"], "wreck"],
-            "seamap:K_K28",
-            ["==", ["get", "category"], "awash"],
-            "seamap:K_K12",
-            ["==", ["get", "category"], "covers"],
-            "seamap:K_K11",
-            "seamap:K_K13_"
-        ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.10, 16, 0.5]
-    }
-}, {
+}, ...bathymetry, ...chartAreas, {
     "id": "land_outline",
     "source": "seamap",
     "source-layer": "land",
@@ -147,401 +137,12 @@ style.layers.splice(style.layers.findIndex(l => l.id == 'land-wetland') + 1, 0, 
         'symbol-placement': 'line',
         'text-size': 8,
         'text-field': ['number-format', ['get', 'ele'], {}],
-        'text-font': ['Noto Sans Bold']
+        'text-font': ['noto_sans_bold']
     }
 });
 
-// draw sea fill and line layers
-style.layers.splice(style.layers.findIndex(l => l.id == 'land-wetland') + 1, 0, {
-    "id": "restricted_area",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": [ "in", ["get", "type"], ["literal", ["production_area", "restricted_area", "military_area"]]],
-    "layout": {"line-join": "round"},
-    "paint": {
-        "line-color": "#ff1b1b",
-        "line-dasharray": [2, 2],
-        "line-opacity": 0.9,
-        "line-width": {"base": 1.2, "stops": [[8, 1], [14, 2]]}
-    }
-}, {
-    "id": "sea_areas",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": ["in", ["get", "type"], ["literal", ["harbour", "sea_area"]]],
-    "minzoom": 10,
-    "layout": {"line-join": "round"},
-    "paint": {
-        "line-color": ["case", ["==", ["get", "type"], "sea_area"], "#ff6540", "#666"],
-        "line-dasharray": [2, 2],
-        "line-opacity": 0.5,
-        "line-width": {"base": 1.2, "stops": [[8, 0.7], [14, 2]]}
-    }
-}, {
-    "id": "separation_zone",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "fill",
-    "filter": ["all", ["==", "type", "separation_zone"], ["==", "$type", "Polygon"]],
-    "minzoom": 5,
-    "paint": {"fill-color": "#ff1bff", "fill-opacity": 0.1},
-}, {
-    "id": "separation_line",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": ["==", "type", "separation_line"],
-    "minzoom": 5,
-    "layout": {"line-join": "round", "visibility": "visible"},
-    "paint": {
-        "line-color": "#ff1bff",
-        "line-opacity": 0.5,
-        "line-width": {"base": 1.2, "stops": [[8, 0.7], [14, 2]]}
-    }
-}, {
-    "id": "separation_lane",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["==", "type", "separation_lane"],
-    "minzoom": 5,
-    "layout": {
-        "icon-image": "seamap:M_M10",
-        "icon-size": {"stops": [[5, 0.7], [14, 1.8]]},
-        "symbol-placement": "line",
-        "symbol-spacing": 20,
-    },
-    "paint": {"icon-opacity": 0.7}
-},{
-    "id": "separation_boundary",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": ["==", "type", "separation_boundary"],
-    "minzoom": 5,
-    "layout": {"line-join": "round"},
-    "paint": {
-        "line-color": "#ff1bff",
-        "line-dasharray": [4, 4],
-        "line-opacity": 0.5,
-        "line-width": {"base": 1.2, "stops": [[5, 0.7], [14, 2]]}
-    }
-}, {
-    "id": "anchorage",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": ["in", ["get", "type"], ["literal", ["anchorage"]]],
-    "minzoom": 8,
-    "layout": {"line-join": "round", "visibility": "visible"},
-    "paint": {
-        "line-color": "#ff1bff",
-        "line-dasharray": [2, 2],
-        "line-opacity": 0.5,
-        "line-width": {"base": 1.2, "stops": [[8, 1], [14, 2]]}
-    }
-}, {
-    "id": "fairway",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": ["==", ["get", "type"], "fairway"],
-    "minzoom": 5,
-    "maxzoom": 22,
-    "layout": {"line-join": "round", "visibility": "visible"},
-    "paint": {
-        "line-color": "#000",
-        "line-dasharray": [2, 2],
-        "line-opacity": 0.5,
-        "line-width": {"base": 1.2, "stops": [[8, 0.7], [14, 2]]}
-    }
-}, {
-    "id": "cable_submarine",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": ["in", ["get", "type"], ["literal", ["cable_submarine", "pipeline_submarine"]]],
-    "minzoom": 8,
-    "paint": {
-        "line-pattern": ["case", ["==", ["get", "type"], "pipeline_submarine"], "seamap:L_L40", "seamap:L_L31"],
-        "line-width": [ "interpolate", ["linear"], ["zoom"],
-            8, ["case", ["==", ["get", "type"], "pipeline_submarine"], 5, 2],
-            16, ["case", ["==", ["get", "type"], "pipeline_submarine"], 15, 10]
-        ]
-    }
-}, {
-    "id": "ferry",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "line",
-    "filter": ["==", "type", "ferry_route"],
-    "minzoom": 5,
-    "maxzoom": 22,
-    "layout": {"line-join": "round"},
-    "paint": {
-        "line-color": "#7c8af6",
-        "line-dasharray": [2, 2],
-        "line-opacity": 0.5,
-        "line-width": {"base": 1.2, "stops": [[8, 0.7], [14, 2]]}
-    }
-}, {
-    "id": "light_ray",
-    "source": "seamap",
-    "source-layer": "light",
-    "type": "line",
-    "filter": ["==", ["get", "subtype"], "ray"],
-    "minzoom": 5,
-    "layout": {
-        "line-cap": "round",
-        "line-join": "round",
-    },
-    "paint": {
-        "line-color": "#666",
-        "line-dasharray": [2, 3],
-        "line-opacity": 0.8,
-        "line-width": {"base": 1, "stops": [[3, 0.5], [10, 1]]}
-    }
-}, {
-    "id": "light_arc",
-    "source": "seamap",
-    "source-layer": "light",
-    "type": "line",
-    "filter": ["==", ["get", "subtype"], "arc"],
-    "minzoom": 5,
-    "layout": {
-        "line-cap": "round",
-        "line-join": "round",
-    },
-    "paint": {
-        "line-color": ["case",
-            ["==", ["get", "color"], "green"], "#009a00",
-            ["==", ["get", "color"], "red"], "#F00",
-            "#FF0"
-        ],
-        "line-opacity": 1,
-        "line-width": {"base": 1, "stops": [[3, 0.5], [14, 3]]}
-    }
-}, {
-    "id": "area_symbols",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["any",
-        ["in", ["get", "type"], ["literal", ["anchorage"]]],
-        ["in", ["get", "category"], ["literal", ["wind_farm"]]]
-    ],
-    "minzoom": 8,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-        "icon-image": ["case",
-            ["==", ["get", "type"], "anchorage"], "seamap:N_N12",
-            ["==", ["get", "category"], "wind_farm"], "seamap:L_L5.2",
-            ""
-        ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.1, 16, 1]
-    }
-}, {
-    "id": "line_symbols",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["all", ["has", "name"], ["in", ["get", "type"], ["literal", ["ferry_route"]]]],
-    "minzoom": 10,
-    "layout": {
-        "symbol-placement": "line",
-        "text-field": ["get", "name"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 8, 16, 10],
-    },
-    "paint": {
-        "text-color": ["case", ["==", ["get", "type"], "ferry_route"], "#7c8af6", "#666"],
-        "text-halo-color": "#FFF",
-        "text-halo-width": 1
-    }
-}, {
-    "id": "line_center_symbols",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["all", ["has", "name"], ["in", ["get", "type"], ["literal", ["mooring"]]]],
-    "minzoom": 10,
-    "layout": {
-        "symbol-placement": "line-center",
-        "text-field": ["get", "name"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 8, 16, 10],
-        "visibility": "visible"
-    },
-    "paint": {
-        "text-color": "#666",
-        "text-halo-color": "hsl(35, 8%, 85%)",
-        "text-halo-width": 1
-    }
-});
-
-// add semarks
-style.layers = style.layers.concat({
-    "id": "light_minor",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["in", ["get", "type"], ["literal", ["light_minor", "light_major"]]],
-    "minzoom": 7,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-        "icon-image": "seamap:P_P1.minor",
-        "icon-offset": [0, -8],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.1, 16, 0.8],
-        "text-anchor": "left",
-        "text-field": "{light}",
-        "text-font": ["Noto Sans Bold"],
-        "text-offset": [1, 0],
-        "text-optional": true,
-        "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14],
-        "visibility": "visible"
-    },
-    "paint": {
-        "text-halo-color": "white",
-        "text-halo-width": 2,
-        "text-opacity": ["interpolate", ["linear"], ["zoom"], 9.99, 0, 10, 0.8]
-    }
-}, {
-    "id": "buoy_beacon",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["in", ["get", "type"], ["literal", [
-        "buoy_cardinal",
-        "beacon_cardinal",
-        "buoy_lateral",
-        "beacon_lateral",
-        "buoy_special_purpose",
-        "beacon_special_purpose",
-        "buoy_isolated_danger",
-        "beacon_isolated_danger",
-        "buoy_safe_water",
-        "beacon_safe_water"
-        ]]
-    ],
-    "minzoom": 8,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-anchor": "bottom",
-        "icon-ignore-placement": true,
-        "icon-image": ["concat",
-            "seamap:Q_",
-            ["get", "shape"],
-            "_",
-            ["case", ["has", "color_pattern"], ["concat", ["get", "color_pattern"], "_"], ""],
-            ["coalesce", ["get", "color"], "black"]
-        ],
-        "icon-offset": ["case",
-            ["==", ["get", "shape"], "pillar"], ["literal", [0, -3]],
-            ["==", ["get", "shape"], "spar"], ["literal", [5, 1]],
-            ["==", ["get", "shape"], "barrel"], ["literal", [-1, -2]],
-            ["==", ["get", "shape"], "buoyant"], ["literal", [0, 2]],
-            ["==", ["get", "shape"], "can"], ["literal", [0, -1]],
-            ["literal", [0, 0]]
-        ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"],
-            10, ["case", ["==", ["get", "shape"], "stake"], 0.07, 0.2],
-            16, ["case", ["==", ["get", "shape"], "stake"], 0.3, 0.7]
-        ],
-    }
-}, {
-    "id": "topmark",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["has", "topmark_shape"],
-    "minzoom": 8,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-anchor": "bottom",
-        "icon-ignore-placement": true,
-        "icon-image": ["concat", "seamap:Q_Q9_",
-            ["get", "topmark_shape"],
-            "_",
-            ["get", "topmark_color"]
-        ],
-        "icon-offset": ["case",
-            ["==", ["get", "shape"], "pillar"], ["literal", [-6, -80]],
-            ["==", ["get", "shape"], "spar"], ["literal", [-6, -103]],
-            ["==", ["get", "shape"], "stake"], ["literal", [0, -59]],
-            ["==", ["get", "shape"], "barrel"], ["literal", [-5, -26]],
-            ["==", ["get", "shape"], "conical"], ["literal", [-3, -40]],
-            ["in", "beacon", ["get", "type"]], ["literal", [0, -112]],
-            ["==", ["get", "type"], "light_minor"], ["literal", [0, -32]],
-            ["==", ["get", "type"], "light_mayor"], ["literal", [0, -32]],
-            ["literal", [-4, -74]]
-        ],
-        "icon-rotate": [ "case", ["in", "buoy", ["get", "type"]], 20, ["in", "pillar", ["get", "shape"]], 20, 0],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.11, 16, 0.4],
-    }
-}, {
-    "id": "landmark_symbols",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["any", ["in", ["get", "type"], ["literal", ["landmark", "platform"]]]],
-    "minzoom": 8,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-anchor": "bottom",
-        "icon-ignore-placement": true,
-        "icon-image": ["case",
-            ["==", ["get", "type"], "platform"], "seamap:L_L10",
-            ["==", ["get", "category"], "windmotor"], "seamap:E_E26.1",
-            ["==", ["get", "category"], "tower"], "seamap:E_E20",
-            ["==", ["get", "category"], "mast"], "seamap:E_E28",
-            "seamap:E_E20"
-        ],
-        "icon-offset": ["case", ["==", ["get", "type"], "platform"], ["literal", [0, 10]], ["literal", [0, 0]]],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.15, 16, 1],
-    }
-}, {
-    "id": "mooring_symbols",
-    "source": "seamap",
-    "source-layer": "seamarks",
-    "type": "symbol",
-    "filter": ["any", ["in", ["get", "type"], ["literal", ["mooring"]]]],
-    "minzoom": 12,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-anchor": "bottom",
-        "icon-ignore-placement": true,
-        "icon-image": ["case", ["==", ["get", "category"], "buoy"], "seamap:Q_Q40_generic", ""],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.2, 16, 0.8],
-    }
-}, {
-    "id": "light",
-    "source": "seamap",
-    "source-layer": "seamark",
-    "type": "symbol",
-    "filter": ["has", "light_color"],
-    "minzoom": 8,
-    "layout": {
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-        "icon-image": ["concat", "seamap:P_P10.4_", ["get", "light_color"]],
-        "icon-offset": [15, 16],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.2, 16, 1],
-        "text-anchor": "left",
-        "text-field": "{light}",
-        "text-font": ["Noto Sans Bold"],
-        "text-offset": [1.2, -0.7],
-        "text-optional": true,
-        "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14],
-        "visibility": "visible"
-    },
-    "paint": {
-        "text-halo-color": "white",
-        "text-halo-width": 2,
-        "text-opacity": ["interpolate", ["linear"], ["zoom"], 9.99, 0, 10, 0.8]
-    }
-});
+// draw seamarks: buoys, lights, topmarks, landmarks, labels
+style.layers = style.layers.concat(...chartSymbols);
 
 // versatiles' opaque water-polygon fills (estuaries, rivers, docks) paint over the
 // bathymetry. Move them *below* it and restyle as a stipple, so they only show
@@ -551,8 +152,6 @@ const unsurveyed = style.layers.filter(l => waterFillIds.includes(l.id));
 style.layers = style.layers.filter(l => !waterFillIds.includes(l.id));
 unsurveyed.forEach(l => l.paint = { 'fill-pattern': 'unsurveyed' });
 style.layers.splice(1, 0, ...unsurveyed); // index 1: just above `background`, below bathymetry
-
-console.log(style);
 
 // add the MapLibre GL RTL text plugin for proper rendering of right-to-left languages
 maplibregl.setRTLTextPlugin('https://tiles.versatiles.org/assets/lib/mapbox-gl-rtl-text/mapbox-gl-rtl-text.js', true);
@@ -564,7 +163,21 @@ var map = new maplibregl.Map({
     zoom: 13.4,
     container: 'map',
     style,
-    attributionControl: { compact: true } // collapsed to the ⓘ toggle by default
+    attributionControl: {
+        compact: true, // collapsed to the ⓘ toggle by default
+        // sprites aren't a source, so their credit can't ride along on one
+        customAttribution: 'Chart symbols <a href="https://github.com/quantenschaum/mapping" target="_blank">© Adam Lucke</a> (GPL-3.0)'
+    }
+});
+
+// Buoy, topmark and light icon names are built from tag values, and the sprite
+// sheet carries only the colour combinations charts normally use. Substitute the
+// shape's generic icon for anything else, so an unusual colour on a real mark
+// never renders as nothing at all.
+map.on('styleimagemissing', ({ id }) => {
+    const generic = id.replace(/^(freenauticalchart:[^/]+)\/.*/, '$1/generic');
+    const fallback = generic === id ? null : map.getImage(generic);
+    if (fallback) map.addImage(id, fallback.data, { pixelRatio: fallback.pixelRatio, sdf: fallback.sdf });
 });
 
 // register the 'unsurveyed' stipple: faint blue base + one sparse dot,

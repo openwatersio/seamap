@@ -1,0 +1,522 @@
+{
+    "version": 8,
+    "name": "seamap-slim",
+    "metadata": { "license": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    "sprite": [
+        { "id": "versatiles", "url": "{BASE_URL}/plugins/signalk-seamap-plugin/sprites/versatiles" },
+        { "id": "freenauticalchart", "url": "{BASE_URL}/plugins/signalk-seamap-plugin/sprites/freenauticalchart" }
+    ],
+    "glyphs": "{BASE_URL}/plugins/signalk-seamap-plugin/glyphs/{fontstack}/{range}.pbf",
+    "sources": {
+        "seamap": { "type": "vector", "url": "{BASE_URL}/plugins/signalk-seamap-plugin/composite/{BATHYMETRY}.json?base_url={BASE_URL_ENCODED}" }
+    },
+    "layers": [{
+        "id": "background", "type": "background",
+        "paint": { "background-color": "#e9f7ff" }
+    },
+    {
+        "id": "bathymetry_fill", "type": "fill", "source": "seamap", "source-layer": "depth_areas", "minzoom": 5,
+        "filter": ["<=", ["get", "depth_max"], 50],
+        "paint": {
+            "fill-color": ["match", ["get", "level"], 0, "#cadbc1", 1, "#73cefe", 2, "#83d4fe", 3, "#9adcfe", 4, "#bae7fe", 5, "#d4f1f9", 6, "#e9f7ff", "#73cefe"],
+            "fill-opacity": 1
+        }
+    },
+    {
+        "id": "rocks_outline", "type": "symbol", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==", ["get","type"], "rock"],
+        "layout": { "icon-overlap": "always", "icon-image": "freenauticalchart:obstruction", "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.4, 12, 0.8] }
+    },
+    {
+        "id": "rocks", "type": "symbol", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==", ["get","type"], "rock"],
+        "layout": { "icon-overlap": "always", "icon-image": ["concat","freenauticalchart:rock-",["get", "water_level"]], "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1] }
+    },
+    {
+        "id": "obstructions", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["in", ["get","type"], "wreck"],
+        "layout": {
+         "icon-image": ["case",
+           ["in", ["get", "category"], ["literal", ["non-dangerous", "distributed_remains"]]],"freenauticalchart:wreck-non-dangerous",
+           ["in", ["get", "category"], ["literal", ["dangerous", "mast_showing"]]],"freenauticalchart:wreck-dangerous",
+           ["==", ["get", "category"], "hull_showing"],"freenauticalchart:wreck-hull_showing",
+           "freenauticalchart:wreck-non-dangerous"],
+         "icon-overlap": "always", "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1]
+        }
+    },
+    {
+        "id": "bathymetry_contours_deep", "type": "line", "source": "seamap", "source-layer": "depth_contours", "minzoom": 5,
+        "filter": [">", ["get", "depth"], 50],
+        "paint": {
+            "line-color": "#4a7a8f",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 12, 1],
+            "line-opacity": 0.6
+        }
+    },
+    {
+        "id": "bathymetry_contours_shallow", "type": "line", "source": "seamap", "source-layer": "depth_contours", "minzoom": 5,
+        "filter": ["<=", ["get", "depth"], 50],
+        "paint": {
+            "line-color": "#5a9cb8",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.3, 12, 0.8],
+            "line-opacity": 0.5
+        }
+    },
+    {
+        "id": "spot_soundings_deep", "type": "symbol", "source": "seamap", "source-layer": "soundings",
+        "filter": [">", ["get", "depth"], 5],
+        "layout": {
+            "text-field": ["to-string", ["round", ["get", "depth"]]],
+            "text-font": ["Noto Sans Regular"],
+            "text-letter-spacing": 0.1, "text-max-width": 5, "text-padding": 50,
+            "text-offset": [0, -0.65], "text-pitch-alignment": "viewport",
+            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10]
+        },
+        "paint": { "text-color": "#777" }
+    },
+    {
+        "id": "spot_soundings_shallow", "type": "symbol", "source": "seamap", "source-layer": "soundings",
+        "filter": ["all", ["<=", ["get", "depth"], 5], [">", ["get", "depth"], 0.1]],
+        "layout": {
+            "symbol-sort-key": ["get", "elevation"],
+            "text-field": ["to-string", ["/", ["round", ["*", ["get", "depth"], 10]], 10]],
+            "text-font": ["Noto Sans Regular"],
+            "text-letter-spacing": 0.1, "text-max-width": 5, "text-padding": 10,
+            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10]
+        },
+        "paint": { "text-color": "#777" }
+    },
+    {
+        "id": "seabed", "type": "symbol", "source": "seamap", "source-layer": "seamark",
+        "filter": ["has", "seabed_surface"],
+        "layout": {
+            "text-field": ["get", "seabed_surface"],
+            "text-font": ["Noto Sans Regular"],
+            "text-letter-spacing": 0.1, "text-max-width": 5, "text-padding": 10,
+            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10]
+        },
+        "paint": { "text-color": "#333" }
+    },
+    {
+        "id": "bathymetry_contours_label", "type": "symbol", "source": "seamap", "source-layer": "depth_contours", "minzoom": 8, "maxzoom": 22,
+        "layout": {
+            "symbol-placement": "line", "symbol-spacing": 200,
+            "text-field": ["concat", ["to-string", ["get", "depth"]], "m"],
+            "text-font": ["Noto Sans Regular"],
+            "text-letter-spacing": 0.1, "text-line-height": 1.6, "text-max-width": 5,
+            "text-offset": [0, -0.65], "text-pitch-alignment": "viewport",
+            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10]
+        },
+        "paint": { "text-color": "#4a7a8f", "text-halo-color": "#ffffff", "text-halo-width": 1 }
+    },
+    {
+        "id": "restricted-areas", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": ["in", ["get", "type"], ["literal", ["restricted_area","military_area","production_area", "cable_area", "dumping_ground","pipeline_area"]]],
+        "paint": {
+            "line-color": ["case",
+                ["in", ["get", "type"], ["literal", ["military_area"]]], "magenta",
+                ["in", ["get", "category"], ["literal", ["military"]]], "magenta",
+                ["in", ["get", "category"], ["literal", ["nature_reserve", "bird_sanctuary", "game_reserve", "seal_sanctuary","fish_sanctuary", "ecological_reserve", "essa", "pssa"]]], "green",
+                "red"
+            ],
+            "line-dasharray": [4,2], "line-opacity": 0.8, "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.5, 10, 1.5]
+        }
+    },
+    {
+        "id": "restricted-areas-label", "type": "symbol", "source": "seamap", "source-layer": "seamark",
+        "filter": ["in", ["get", "type"], ["literal", ["restricted_area","military_area","production_area"]]],
+        "layout": {
+            "symbol-placement": "line",
+            "text-field": ["get", "name"],
+            "text-font": ["Noto Sans Regular"],
+            "text-size": 11
+        },
+        "paint": {
+            "text-color": ["case",
+                ["in", ["get", "type"], ["literal", ["military_area"]]], "magenta",
+                ["in", ["get", "category"], ["literal", ["military"]]], "magenta",
+                ["in", ["get", "category"], ["literal", ["nature_reserve", "bird_sanctuary", "game_reserve", "seal_sanctuary","fish_sanctuary", "ecological_reserve", "essa", "pssa"]]], "green",
+                "red"
+            ],
+            "text-halo-color": "white",
+            "text-halo-width": 1.5
+        }
+    },
+    {
+        "id": "restricted-areas-fill", "type": "fill", "source": "seamap", "source-layer": "seamark",
+        "filter": ["in", ["get", "type"], ["literal", ["restricted_area","military_area","production_area", "cable_area", "dumping_ground","pipeline_area"]]],
+        "paint": {
+            "fill-color": ["case",
+                ["in", ["get", "type"], ["literal", ["military_area"]]], "magenta",
+                ["in", ["get", "category"], ["literal", ["military"]]], "magenta",
+                ["in", ["get", "category"], ["literal", ["nature_reserve", "bird_sanctuary", "game_reserve", "seal_sanctuary","fish_sanctuary", "ecological_reserve", "essa", "pssa"]]], "green",
+                "red"
+            ],
+            "fill-opacity": 0.04
+        }
+    },
+    {
+        "id": "restricted-areas-fill-pattern", "type": "fill", "source": "seamap", "source-layer": "seamark",
+        "filter": ["any",
+            ["==", ["get", "type"], "military_area"],
+            ["==", ["get", "category"], "military"],
+            ["in", "no_entry", ["coalesce", ["get", "restriction"], ""]],
+            ["in", "restricted_entry", ["coalesce", ["get", "restriction"], ""]],
+            ["in", "no_anchoring", ["coalesce", ["get", "restriction"], ""]]
+        ],
+        "paint": {
+            "fill-pattern": ["case",
+                ["==", ["get", "type"], "military_area"], "freenauticalchart:military",
+                ["==", ["get", "category"], "military"], "freenauticalchart:military",
+                ["in", "no_entry", ["get", "restriction"]], "freenauticalchart:no-entry",
+                ["in", "restricted_entry", ["get", "restriction"]], "freenauticalchart:no-anchor",
+                ["in", "no_anchoring", ["get", "restriction"]], "freenauticalchart:no-anchor",
+                ""
+            ],
+            "fill-opacity": ["case",
+                ["==", ["get", "type"], "military_area"], 0.1,
+                ["==", ["get", "category"], "military"], 0.1,
+                0.4
+            ]
+        }
+    },
+    {
+        "id": "allowed-areas", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": ["in", ["get", "type"], ["literal", ["anchorage","anchor_berth","mooring","dredged_area","marine_farm","harbour"]]],
+        "paint": {
+            "line-color": ["case",
+                ["in", ["get", "type"], ["literal", ["anchorage", "anchor_berth", "mooring"]]], "magenta",
+                "black"
+            ],
+            "line-dasharray": [4,4], "line-opacity": 0.8, "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.5, 10, 1.5]
+        }
+    },
+    {
+        "id": "allowed-areas-labels", "type": "symbol", "source": "seamap", "source-layer": "seamark",
+        "filter": ["in", ["get", "type"], ["literal", ["anchorage","anchor_berth","mooring","marine_farm"]]],
+        "layout": { "icon-image": ["case",
+            ["in", ["get", "type"], ["literal", ["anchorage", "anchor_berth", "mooring"]]], "freenauticalchart:anchor",
+            ["in", ["get", "category"], ["literal", ["crustaceans", "oysters_mussels", "pearl_culture"]]], "freenauticalchart:shellfish",
+            "freenauticalchart:marine-farm"
+        ], "icon-overlap": "always", "symbol-placement": "line", "symbol-spacing": 90, "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.2, 12, 0.8]  },
+        "paint": { "icon-opacity": 0.8 }
+    },
+    {
+        "id": "land_area", "type": "fill", "source": "seamap", "source-layer": "land",
+        "paint": { "fill-color": "#fdf1d2" }
+    },
+    {
+        "id": "land_water_area", "type": "fill", "source": "seamap", "source-layer": "water",
+        "paint": { "fill-color": "#73cefe" }
+    },
+    {
+        "id": "land_outline", "type": "line", "source": "seamap", "source-layer": "land",
+        "filter": ["!", ["has", "kind"]],
+        "paint": { "line-color": "#3d3d3d", "line-width": 1.4, "line-opacity": 1 }
+    },
+    {
+        "id": "cables-pipes", "type": "symbol", "source": "seamap", "source-layer": "seamark",
+        "filter": ["in",["get","type"],["literal", ["cable_submarine", "pipeline_submarine"]]],
+        "layout": {
+            "icon-image": ["case",["==",["get","type"],"pipeline_submarine"],"freenauticalchart:pipeline","freenauticalchart:cable"],
+            "icon-overlap": "always", "symbol-placement": "line", "symbol-spacing": 1,
+            "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1]
+        },
+        "paint": { "icon-opacity": 0.5 }
+    },
+    {
+        "id": "TSS-separation-zone", "type": "fill", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==",["get","type"],"separation_zone"],
+        "paint": { "fill-color": "magenta", "fill-opacity": 0.15 }
+    },
+    {
+        "id": "TSS-crossing-zone", "type": "fill", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==",["get","type"],"separation_crossing"],
+        "paint": { "fill-color": "yellow", "fill-opacity": 0.1 }
+    },
+    {
+        "id": "TSS-separation-lane-arrows", "type": "symbol", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==",["get","type"],"separation_lane"],
+        "layout": {
+            "icon-image": "freenauticalchart:TSS-arrow",
+            "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.1, 14, 0.6],
+            "symbol-placement": "line",
+            "icon-padding": 0,
+            "symbol-spacing": 1,
+            "icon-rotate": 90,
+            "icon-overlap": "always"
+        },
+        "paint": { "icon-opacity": 0.4 }
+    },
+    {
+        "id": "TSS-separation-boundary", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==",["get","type"],"separation_boundary"],
+        "paint": { "line-color": "magenta", "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2], "line-dasharray": [4,4], "line-opacity": 0.4 }
+    },
+    {
+        "id": "TSS-separation-line", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==",["get","type"],"separation_line"],
+        "paint": { "line-color": "magenta", "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2], "line-opacity": 0.4 }
+    },
+    {
+        "id": "traffic-lane", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==",["get","type"],"separation_lane"],
+        "paint": { "line-color": "yellow", "line-opacity": 0.05 }
+    },
+    {
+        "id": "ferry", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": [ "==", "type", "ferry_route" ],
+        "layout": {"line-join": "round"},
+        "paint": {
+           "line-color": "#7c8af6",
+           "line-dasharray": [2, 2],
+           "line-opacity": 0.6,
+           "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.7, 14, 2]
+        }
+    },
+    {
+        "id": "piles", "type": "circle", "source": "seamap", "source-layer": "seamark", "minzoom": 11,
+        "filter": ["in", ["get","type"], ["literal", ["pile", "morring"]]],
+        "paint": { "circle-radius": 3 }
+    },
+    {
+        "id": "platforms", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["==",["get","type"],"platform"],
+        "layout": { "icon-image": "freenauticalchart:platform", "icon-overlap": "always", "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 10, 1] }
+    },
+    {
+        "id": "radio_station", "type": "circle", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["has","radio_station"],
+        "paint": { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 5, 12, 40], "circle-opacity": 0, "circle-stroke-color": "magenta", "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1.5] }
+    },
+    {
+        "id": "lights", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 10,
+        "filter": ["has", "light_color"],
+        "layout": {
+          "icon-image": ["concat", "freenauticalchart:", ["case", ["==",["get","light_category"], "floodlight"],"floodlight/","light/"], ["get","light_color"]],
+          "icon-anchor": "top",
+          "icon-offset": [0, 2],
+          "icon-rotate": -45, "icon-overlap": "always", "icon-rotation-alignment": "viewport",
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1]
+        }
+    },
+    {
+        "id": "light_ray", "type": "line", "source": "seamap", "source-layer": "light", "minzoom": 5,
+        "filter": ["==",["get","subtype"],"ray"],
+        "layout": {"line-cap": "round","line-join": "round"},
+        "paint": {
+            "line-color": "#666",
+            "line-dasharray": [2,3],
+            "line-opacity": 0.8,
+            "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 10, 1]
+        }
+    },
+    {
+        "id": "light_arc", "type": "line", "source": "seamap", "source-layer": "light", "minzoom": 5,
+        "filter": ["==", ["get", "subtype"], "arc"],
+        "layout": {"line-cap": "round", "line-join": "round"},
+        "paint": {
+            "line-color": ["case", ["==", ["get", "color"], "green"], "#009a00", ["==", ["get", "color"], "red"], "#F00", "#FF0"],
+            "line-opacity": 1,
+            "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 14, 3]
+        }
+    },
+    {
+        "id": "light-minor", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["==", ["get", "type"], "light_minor"],
+        "layout": { "icon-image": "freenauticalchart:light-minor", "icon-overlap": "always", "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.2] }
+    },
+    {
+        "id": "light-major", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 6,
+        "filter": ["==", ["get", "type"], "light_major"],
+        "layout": { "icon-image": "freenauticalchart:light-major", "icon-overlap": "always", "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.2] }
+    },
+    {
+        "id": "fogsignals", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 10,
+        "filter": ["has","fog_signal"],
+        "layout": { "icon-image": "freenauticalchart:fogsignal", "icon-overlap": "always", "icon-rotate": 90, "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1] }
+    },
+    {
+        "id": "radar-reflectors", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 10,
+        "filter": ["has","radar_reflector"],
+        "layout": { "icon-image": "freenauticalchart:radar-reflector", "icon-rotate": -60, "icon-offset": [0,-8], "icon-overlap": "always", "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1] }
+    },
+    {
+        "id": "topmarks", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["has", "topmark_shape"],
+        "layout": {
+          "icon-image": ["case",
+            ["has", "topmark_color_pattern"], ["concat", "freenauticalchart:", ["get","topmark_shape"], "/", ["get","topmark_color_pattern"], "/", ["get","topmark_color"]],
+            ["concat", "freenauticalchart:", ["get","topmark_shape"], "/", ["get","topmark_color"]]
+          ],
+          "icon-overlap": "always",
+          "icon-offset": ["case",
+            ["in",["get","shape"],["literal", ["buoyant", "lattice", "pile", "tower"]]], ["literal",[0,-20]],
+            ["in",["get","shape"],["literal", ["stake", "pole"]]],["literal",[0,-19]],
+            ["==",["get","shape"],"conical"],["literal",[0,-12]],
+            ["==",["get","shape"],"can"],["literal",[0,-8]],
+            ["==",["get","shape"],"spherical"],["literal",[0,-9]],
+            ["==",["get","shape"],"barrel"],["literal",[0,-9]],
+            ["literal",[0,-22]]
+          ],
+          "icon-rotate": ["case", ["in",["get","shape"], ["literal", ["pillar", "barrel","conical", "spar","can"]]],15,0],
+          "icon-size": ["interpolate", ["linear"], ["zoom"],
+            8, ["case",["any",["in","buoy",["get","type"]],["in","beacon",["get","type"]]], 0.3, 0.4],
+            12, ["case",["any",["in","buoy",["get","type"]],["in","beacon",["get","type"]]], 1, 1.2]
+          ]
+        }
+    },
+    {
+        "id": "buoys", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["any", ["in","buoy",["get","type"]], ["in","beacon",["get","type"]]],
+        "layout": {
+          "icon-image": ["case",
+            ["all", ["has","color_pattern"], ["!", ["==", ["get", "color_pattern"], "no"]]], ["concat","freenauticalchart:", ["case",
+                ["in",["get","shape"], ["literal", ["buoyant", "lattice"]]], "pile",
+                ["in",["get","shape"], ["literal", ["pole", "perch", "post"]]], "stake",
+                ["get", "shape"]
+            ],"/",["get","color_pattern"],"/",["get","color"]],
+            ["concat","freenauticalchart:",["case",
+                ["in",["get","shape"], ["literal", ["buoyant", "lattice"]]], "pile",
+                ["in",["get","shape"], ["literal", ["pole", "perch", "post"]]], "stake",
+                ["get", "shape"]
+            ],"/",["coalesce", ["get","color"], "generic"]]
+          ],
+          "icon-anchor": "bottom",
+          "icon-offset": [0, 4],
+          "icon-overlap": "always", "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1]
+        }
+    },
+    {
+        "id": "landmarks", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["all",
+          ["==", ["get", "type"], "landmark"],
+          ["any",
+            ["!=", ["get", "category"], "tower"],
+            ["has", "color"],
+            ["has", "name"],
+            ["in", ["get", "function"], ["literal", ["radio", "radar", "television", "light_support", "leading"]]]
+          ]
+        ],
+        "layout": {
+          "icon-image": ["case",
+          ["in", ["get","function"], ["literal", ["church", "chapel"]]], "freenauticalchart:church",
+          ["==",["get","category"],"cairn"], "freenauticalchart:cairn-lmk",
+          ["==",["get","category"],"chimney"], "freenauticalchart:chimney",
+          ["==",["get","category"],"column"], "freenauticalchart:column",
+          ["==",["get","category"],"cross"], "freenauticalchart:cross-lmk",
+          ["==",["get","category"],"dish_aerial"], "freenauticalchart:dish_aerial",
+          ["==",["get","category"],"dome"], "freenauticalchart:dome",
+          ["==",["get","category"],"flagstaff"], "freenauticalchart:flagstaff",
+          ["==",["get","category"],"flare_stack"], "freenauticalchart:flare-stack",
+          ["==",["get","category"],"mast"], "freenauticalchart:mast",
+          ["==",["get","category"],"monument"], "freenauticalchart:monument",
+          ["==",["get","category"],"obelisk"], "freenauticalchart:obelisk",
+          ["==",["get","category"],"radar_scanner"], "freenauticalchart:radar_scanner",
+          ["==",["get","category"],"spire"], "freenauticalchart:spire",
+          ["==",["get","category"],"statue"], "freenauticalchart:statue",
+          ["==",["get","category"],"tower"], "freenauticalchart:tower-lmk",
+          ["==",["get","category"],"windmill"], "freenauticalchart:windmill",
+          ["==",["get","category"],"windmotor"], "freenauticalchart:windmotor",
+          ["==",["get","category"],"windsock"], "freenauticalchart:windsock",
+          "freenauticalchart:monument"],
+          "icon-overlap": "always", "text-field": ["get", "name"], "text-size": 12, "text-font": ["Noto Sans Regular"],
+          "text-anchor": "left", "text-offset": [1,-0.5], "text-optional": true,
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.3]
+        },
+        "paint": { "text-halo-color": "white", "text-halo-width": 2 }
+    },
+    {
+        "id": "navigation-lines", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==", ["get", "type"], "navigation_line"],
+        "paint": { "line-color": "black", "line-width": 0.8, "line-dasharray": [4,2] }
+    },
+    {
+        "id": "navigation-tracks", "type": "line", "source": "seamap", "source-layer": "seamark",
+        "filter": ["==", ["get", "type"], "recommended_track"],
+        "paint": { "line-color": "gray", "line-width": 1 }
+    },
+    {
+        "id": "line_symbols","type": "symbol","source": "seamap","source-layer": "seamark","minzoom": 10,
+        "filter": ["all",["has","name"],["in",["get","type"],["literal",["ferry_route"]]]],
+        "layout": {
+            "symbol-placement": "line",
+            "text-field": ["get", "name"],
+            "text-size": ["interpolate",["linear"],["zoom"],10,10,16,12],
+            "text-font": ["Noto Sans Regular"]
+        },
+        "paint": {
+            "text-color": ["case",
+                ["==",["get","type"],"ferry_route"],"#7c8af6",
+                "#666"
+            ],
+            "text-halo-color": "#FFF",
+            "text-halo-width": 1
+        }
+    },
+    {
+        "id": "seamark-line-label", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 13,
+        "filter": ["all", ["==", ["geometry-type"], "LineString"], ["has", "name"], ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour"]]]]],
+        "layout": {
+            "symbol-placement": "line-center",
+            "text-field":["get", "name"],
+            "text-font": ["Noto Sans Bold"],
+            "text-letter-spacing": 0.1, "text-line-height": 1.6, "text-max-width": 5,
+            "text-offset": [0, -0.65], "text-pitch-alignment": "viewport",
+            "text-size": ["interpolate", ["linear"], ["zoom"], 13, 8, 16, 12]
+        },
+        "paint": {
+            "text-color": "#888",
+            "text-halo-color": "white",
+            "text-halo-width": 1
+        }
+    },
+    {
+        "id": "seamark-label", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 12,
+        "filter": ["all", ["==", ["geometry-type"], "Point"], ["has", "name"], ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour"]]]]],
+        "layout": {
+          "text-anchor": "right", "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"],
+          "text-offset": [-1.3, -0.3],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 12, 8, 16, 12]
+        },
+        "paint": {
+            "text-color": "#888",
+            "text-halo-color": "white",
+            "text-halo-width": 1
+        }
+    },
+    {
+        "id": "harhours", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
+        "filter": ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "category"], ["literal", ["marina", "fishing"]]]],
+        "layout": {
+          "icon-image": ["case",
+            ["==", ["get", "category"], "marina"], "freenauticalchart:marina",
+            ["==", ["get", "category"], "fishing"], "freenauticalchart:fishingharbour",
+            ""
+          ],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],
+          "icon-overlap": "always",
+          "text-font": ["Noto Sans Bold"],
+          "text-field": ["get", "name"],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 12, 12],
+          "text-anchor": "left", "text-optional": true, "text-offset": [1,0]
+        },
+        "paint": { "text-color": "magenta", "text-halo-color": "white", "text-halo-width": 2 }
+
+    },
+    {
+        "id": "lights-label", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 11,
+        "filter": ["has", "light_color"],
+        "layout": {
+          "text-anchor": "left", "text-field": ["get", "light"], "text-font": ["Noto Sans Bold"],
+          "text-offset": [1.2, -0.3],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14]
+        },
+        "paint": {
+            "text-halo-color": "white",
+            "text-halo-width": 2
+        }
+    }
+
+  ]
+}
