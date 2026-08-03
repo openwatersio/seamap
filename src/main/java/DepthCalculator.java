@@ -1,5 +1,4 @@
 import com.onthegomap.planetiler.pmtiles.ReadablePmtiles;
-import com.onthegomap.planetiler.archive.ReadableTileArchive;
 import com.onthegomap.planetiler.geo.TileCoord;
 import com.onthegomap.planetiler.geo.GeoUtils;
 import org.locationtech.jts.geom.Coordinate;
@@ -8,6 +7,10 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,7 +24,16 @@ import java.util.Map;
  */
 public class DepthCalculator {
 
-  private final ReadableTileArchive pmtiles;
+  /** Where DEM tiles come from: a local PMTiles archive or a z/x/y tile server. */
+  private interface TileSource {
+    byte[] fetch(TileCoord coord) throws IOException;
+  }
+
+  // ~40m/px: plenty for the charted depth of a point hazard, coarse enough that
+  // clustered features share cache hits when fetching over HTTP.
+  private static final int HTTP_ZOOM = 11;
+
+  private final TileSource tiles;
   private final int maxZoom;
   private final int tileSize;
   private final Map<String, BufferedImage> cache;
@@ -34,21 +46,71 @@ public class DepthCalculator {
    */
   public DepthCalculator(Path path, int tileSize) throws IOException {
     ReadablePmtiles pm = (ReadablePmtiles) ReadablePmtiles.newReadFromFile(path);
-    this.pmtiles = pm;
+    this.tiles = pm::getTile;
     this.maxZoom = pm.getHeader().maxZoom();
     this.tileSize = tileSize;
     this.cacheSize = 100;
+    this.cache = newCache();
+  }
 
-    this.cache = new LinkedHashMap<>(cacheSize, 0.75f, true) {
+  public DepthCalculator(Path path) throws IOException {
+    this(path, 512);
+  }
+
+  /**
+   * Constructor with a {z}/{x}/{y} tile URL template (e.g. Seascape's raster
+   * endpoint). Tiles are fetched at a fixed zoom with retries.
+   */
+  public DepthCalculator(String urlTemplate, int tileSize) {
+    HttpClient http = HttpClient.newHttpClient();
+    this.tiles = coord -> {
+      String url = urlTemplate
+        .replace("{z}", Integer.toString(coord.z()))
+        .replace("{x}", Integer.toString(coord.x()))
+        .replace("{y}", Integer.toString(coord.y()));
+      IOException last = null;
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          HttpResponse<byte[]> resp = http.send(
+            HttpRequest.newBuilder(URI.create(url)).GET().build(),
+            HttpResponse.BodyHandlers.ofByteArray());
+          if (resp.statusCode() == 200) {
+            return resp.body();
+          }
+          if (resp.statusCode() == 404 || resp.statusCode() == 204) {
+            return null;
+          }
+          last = new IOException("HTTP " + resp.statusCode() + " for " + url);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new IOException(e);
+        } catch (IOException e) {
+          last = e;
+        }
+        try {
+          Thread.sleep(500L * (attempt + 1));
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new IOException(e);
+        }
+      }
+      throw last;
+    };
+    this.maxZoom = HTTP_ZOOM;
+    this.tileSize = tileSize;
+    // Planet pass2 visits features in OSM-id order, not spatially, so hits come
+    // from a big window, not locality. ~1MB per decoded 512px tile → ~1GB ceiling.
+    this.cacheSize = 1024;
+    this.cache = newCache();
+  }
+
+  private Map<String, BufferedImage> newCache() {
+    return new LinkedHashMap<>(16, 0.75f, true) {
       @Override
       protected boolean removeEldestEntry(Map.Entry<String, BufferedImage> eldest) {
         return size() > DepthCalculator.this.cacheSize;
       }
     };
-  }
-
-  public DepthCalculator(Path path) throws IOException {
-    this(path, 512);
   }
 
   /**
@@ -94,18 +156,21 @@ public class DepthCalculator {
   /**
    * Loads a DEM tile
    */
-  private BufferedImage loadTile(TileCoord coord) throws IOException {
+  // synchronized: planetiler calls processFeature from many workers, and both
+  // the LRU map and its miss entries are shared state.
+  private synchronized BufferedImage loadTile(TileCoord coord) throws IOException {
     String key = getTileKey(coord);
 
-    // Check cache
+    // Check cache (misses are cached as null so they aren't re-fetched)
     if (cache.containsKey(key)) {
       return cache.get(key);
     }
 
-    byte[] tileData = pmtiles.getTile(coord);
+    byte[] tileData = tiles.fetch(coord);
 
     if (tileData == null || tileData.length == 0) {
       System.err.println("No depth tile found for " + key + " (coord=" + coord + ")");
+      cache.put(key, null);
       return null;
     }
 
@@ -115,6 +180,7 @@ public class DepthCalculator {
       if (image == null) {
         System.err.println("Error decoding tile " + key);
         System.err.println("Make sure imageio-webp.jar and dependencies are in classpath.");
+        cache.put(key, null);
         return null;
       }
     } catch (IOException e) {

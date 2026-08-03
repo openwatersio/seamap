@@ -17,8 +17,13 @@ THREADS="${THREADS:-$(nproc)}"
 # mmap'd node map. -Xmx16g fits a 32GB box and is plenty even on bigger ones.
 export JAVA_OPTS="${JAVA_OPTS:--Xmx16g -XX:+UseParallelGC}"
 
+# Rock/wreck depths come straight from Seascape's live raster tiles; features
+# without a depth tag get one sampled from the DEM.
+DEPTH_URL="${DEPTH_URL:-https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp}"
+
 bin/run \
   --download --osm-url="$OSM_URL" \
+  --depth="$DEPTH_URL" \
   --maxzoom=14 \
   --tmp="$TMP_DIR" \
   --nodemap-type=array --storage=mmap \

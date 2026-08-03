@@ -43,10 +43,13 @@ public class Seamap implements Profile {
     Path dataDir = Path.of("data");
 
     // Initialize depth calculator only if --depth parameter is provided
-    String depthPath = arguments.getString("depth", "path to depth.pmtiles file", null);
+    String depthPath = arguments.getString("depth",
+      "depth DEM: path to a Terrarium PMTiles file, or a {z}/{x}/{y} tile URL template", null);
     if (depthPath != null) {
       System.out.println("Loading depth data from: " + depthPath);
-      Seamark.depthCalculator = new DepthCalculator(Path.of(depthPath));
+      Seamark.depthCalculator = depthPath.startsWith("http")
+        ? new DepthCalculator(depthPath, 512)
+        : new DepthCalculator(Path.of(depthPath));
       System.out.println("Depth data loaded successfully");
     }
 
