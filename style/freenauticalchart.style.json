@@ -276,7 +276,7 @@
     },
     {
         "id": "piles", "type": "circle", "source": "seamap", "source-layer": "seamark", "minzoom": 11,
-        "filter": ["in", ["get","type"], ["literal", ["pile", "morring"]]],
+        "filter": ["in", ["get","type"], ["literal", ["pile", "mooring"]]],
         "paint": { "circle-radius": 3 }
     },
     {
@@ -420,7 +420,12 @@
           ["==",["get","category"],"windmotor"], "freenauticalchart:windmotor",
           ["==",["get","category"],"windsock"], "freenauticalchart:windsock",
           "freenauticalchart:monument"],
-          "icon-overlap": "always", "text-field": ["get", "name"], "text-size": 12, "text-font": ["Noto Sans Regular"],
+          "icon-overlap": "always",
+          "text-field": ["step", ["zoom"],
+            ["get", "name"],
+            11, ["case", ["has", "light_color"], "", ["get", "name"]]
+          ],
+          "text-size": 12, "text-font": ["Noto Sans Regular"],
           "text-anchor": "left", "text-offset": [1,-0.5], "text-optional": true,
           "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.3]
         },
@@ -508,8 +513,14 @@
         "id": "lights-label", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 11,
         "filter": ["has", "light_color"],
         "layout": {
-          "text-anchor": "left", "text-field": ["get", "light"], "text-font": ["Noto Sans Bold"],
-          "text-offset": [1.2, -0.3],
+          "text-anchor": "left",
+          "text-field": ["case",
+            ["all", ["==", ["get", "type"], "landmark"], ["has", "name"]],
+            ["concat", ["get", "name"], "\n", ["get", "light"]],
+            ["get", "light"]
+          ],
+          "text-font": ["Noto Sans Bold"], "text-justify": "left",
+          "text-offset": [1.2, 0.2],
           "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14]
         },
         "paint": {
