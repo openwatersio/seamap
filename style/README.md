@@ -11,13 +11,13 @@ import { style, setup, attribution } from "@openwaters/seamap";
 
 const map = new maplibregl.Map({
   container: "map",
-  style: style({ spriteBase: new URL("sprites", document.baseURI).href }),
+  style: await style({ spriteBase: new URL("sprites", document.baseURI).href }),
   attributionControl: { customAttribution: attribution },
 });
 setup(map);
 ```
 
-Options: `tiles` (seamark TileJSON URL), `seascape`, `versatiles`, `language`, `spriteBase`, and optional `hillshading`/`contours` source specs for land elevation (see the viewer's `main.js` for wiring them from maplibre-contour — they need runtime protocol registration, so they can't live here).
+`style()` is async: land hillshading comes from the VersaTiles elevation tiles, and the builder fetches their TileJSON. Options: `tiles` (seamark TileJSON URL), `seascape`, `versatiles`, `language`, `spriteBase`, `hillshade` (on by default; `false` to skip, or an object to tune the shading), and the seascape passthroughs — `flavor` (overrides merged over its `day`), `unit`, `safety`, `shading`, and the `dem`/`vector`/`coverage` source id overrides.
 
 ## Composed
 

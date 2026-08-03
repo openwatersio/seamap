@@ -18,20 +18,47 @@ it("produces a valid style", () => {
   expect(validateStyleMin(style)).toEqual([]);
 });
 
-it("assembles a valid whole style", () => {
-  const whole = style({
+it("assembles a valid whole style", async () => {
+  const whole = await style({
     spriteBase: "https://example.com/sprites",
-    hillshading: { type: "raster-dem", tiles: ["dem://{z}/{x}/{y}"] },
-    contours: { type: "vector", tiles: ["contour://{z}/{x}/{y}"] },
+    hillshade: false, // keeps the builder offline (no elevation TileJSON fetch)
+    // seascape passthrough options
+    unit: "ft",
+    safety: 3,
+    shading: "bands",
+    flavor: { hazard: "#c00" },
   });
   expect(validateStyleMin(whole)).toEqual([]);
   const ids = whole.layers.map((l) => l.id);
-  for (const id of ["background", "buoys", "lights", "land_area", "hillshading", "contours"]) {
+  for (const id of ["background", "buoys", "lights", "land_area"]) {
     expect(ids).toContain(id);
   }
   // chart symbols end the stack, sea areas sit below land
   expect(ids.indexOf("rocks")).toBeLessThan(ids.indexOf("land_area"));
   expect(ids.at(-1)).toBe("lights-label");
+});
+
+it("carries both land and sea hillshade layers without id collisions", async () => {
+  const tilejson = {
+    tilejson: "3.0.0",
+    tiles: ["dem://{z}/{x}/{y}"],
+    minzoom: 0,
+    maxzoom: 12,
+    bounds: [-180, -85, 180, 85],
+    attribution: "elevation",
+    encoding: "terrarium",
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify(tilejson))) as typeof fetch;
+  try {
+    const whole = await style({ spriteBase: "https://example.com/sprites" });
+    expect(validateStyleMin(whole)).toEqual([]);
+    const hillshades = whole.layers.filter((l) => l.type === "hillshade").map((l) => l.id);
+    expect(hillshades).toContain("hillshade"); // land (versatiles elevation)
+    expect(hillshades).toContain("depth-hillshade"); // sea (seascape bathymetry)
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 // Consumers splice these into their own stacks and key runtime tweaks off ids,

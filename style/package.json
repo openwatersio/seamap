@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@maplibre/maplibre-gl-style-spec": "^25.0.0",
-    "@openwaters/seascape": "^0.2.0",
+    "@openwaters/seascape": "^0.2.1",
     "@versatiles/style": "^5.12.1"
   },
   "devDependencies": {

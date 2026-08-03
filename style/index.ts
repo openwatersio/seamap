@@ -37,6 +37,9 @@ import {
   day,
   layers as seascapeLayers,
   sources as seascapeSources,
+  type Flavor,
+  type Shading,
+  type Unit,
 } from "@openwaters/seascape";
 import chartStyle from "./freenauticalchart.style.json";
 
@@ -118,18 +121,45 @@ export interface StyleOptions {
   language?: string;
   /** URL of the directory serving this package's sprites/dist/ files. */
   spriteBase?: string;
-  /** raster-dem source for land hillshading; omit to skip those layers. */
-  hillshading?: SourceSpecification;
-  /** Vector land-contour source (e.g. from maplibre-contour); omit to skip. */
-  contours?: SourceSpecification;
+  /**
+   * Land hillshading from the VersaTiles elevation tiles, on by default;
+   * false skips it, an object customizes the builder's hillshade paint.
+   */
+  hillshade?:
+    | boolean
+    | {
+        exaggeration?: number;
+        shadowColor?: string;
+        highlightColor?: string;
+        accentColor?: string;
+        illuminationDirection?: number;
+        illuminationAltitude?: number;
+        illuminationAnchor?: "map" | "viewport";
+      };
+  /**
+   * Seascape flavor overrides, merged over its `day` (the font defaults to the
+   * versatiles glyph name; set your own to override).
+   */
+  flavor?: Partial<Flavor>;
+  /** Depth unit for seascape contour labels and soundings. */
+  unit?: Unit;
+  /** Safety contour depth in metres, 0 = off (seascape). */
+  safety?: number;
+  /** Water shading: raster relief or ENC depth bands (seascape). */
+  shading?: Shading;
+  /** Seascape source id overrides, applied to sources and layers together. */
+  dem?: string;
+  vector?: string;
+  coverage?: string;
 }
 
 /**
  * The whole chart style: VersaTiles base map, Seascape bathymetry, and the
- * chart symbology, in nautical draw order. Pair with setup() on the map, which
- * registers the images the style references at runtime.
+ * chart symbology, in nautical draw order. Async because the builder fetches
+ * the VersaTiles elevation TileJSON for land hillshading. Pair with setup() on
+ * the map, which registers the images the style references at runtime.
  */
-export function style({
+export async function style({
   tiles,
   seascape = "https://tiles.openwaters.io/seascape",
   versatiles = "https://tiles.versatiles.org",
@@ -137,23 +167,49 @@ export function style({
   spriteBase = typeof document === "undefined"
     ? "sprites"
     : new URL("sprites", document.baseURI).href,
-  hillshading,
-  contours,
-}: StyleOptions = {}): StyleSpecification {
-  const s = colorful({
+  hillshade = true,
+  flavor,
+  unit,
+  safety,
+  shading,
+  dem,
+  vector,
+  coverage,
+}: StyleOptions = {}): Promise<StyleSpecification> {
+  const s = await colorful({
     baseUrl: versatiles,
     language,
     colors: { label: "#000" },
-    recolor: { saturate: -0.3 },
+    // the base map is context, not content: desaturate and lighten it so the
+    // chart symbology reads first
+    recolor: { saturate: -0.3, blend: 0.2, blendColor: "#ffffff" },
+    textScale: 0.9,
+    iconScale: 0.8,
+    // ESA WorldCover fills land/water below the zooms where OSM polygons appear
+    experimental: { landcover: true },
+    hillshade,
   });
+  // the chart draws its own ferry routes and lighthouse symbols; drop the
+  // base map's duplicates
+  s.layers = s.layers.filter((l) => !l.id.startsWith("transport-ferry"));
+  const poi = s.layers.find((l) => l.id === "poi-man_made") as
+    | { filter?: unknown }
+    | undefined;
+  if (poi?.filter) {
+    poi.filter = ["all", poi.filter, ["!=", ["get", "man_made"], "lighthouse"]];
+  }
+
   (s.sprite as { id: string; url: string }[]).push(sprite(spriteBase));
   Object.assign(s.sources, sources({ url: tiles }));
 
   // Seascape bathymetry: depth shading, depth areas, contours, soundings.
-  Object.assign(s.sources, seascapeSources({ tilesBase: seascape }));
-  const bathymetry = seascapeLayers({ ...day, font: [versatilesFont(day.font[0])] });
-  const hillshade = bathymetry.find((l) => l.id === "hillshade");
-  if (hillshade?.layout) hillshade.layout.visibility = "visible"; // seascape defaults it off
+  Object.assign(s.sources, seascapeSources({ tilesBase: seascape, dem, vector, coverage }));
+  const bathymetry = seascapeLayers(
+    { ...day, font: [versatilesFont(day.font[0])], ...flavor },
+    { dem, vector, coverage, unit, safety, shading },
+  );
+  const seaHillshade = bathymetry.find((l) => l.id === "depth-hillshade");
+  if (seaHillshade?.layout) seaHillshade.layout.visibility = "visible"; // seascape defaults it off
 
   const { areas, symbols } = layers({ font: versatilesFont });
 
@@ -168,7 +224,12 @@ export function style({
     source: "seamap",
     "source-layer": "land",
     type: "line",
-    paint: { "line-color": "#3d3d3d", "line-width": 3, "line-opacity": 0.8 },
+    paint: {
+      "line-color": "#3d3d3d",
+      // thin at low zoom or world-view coastlines read as heavy black blobs
+      "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 12, 3],
+      "line-opacity": 0.8,
+    },
   }, {
     id: "land_area",
     source: "seamap",
@@ -176,49 +237,6 @@ export function style({
     type: "fill",
     paint: { "fill-color": "#fdf1d2" },
   });
-
-  // land elevation, when the consumer wires up DEM-backed sources
-  if (hillshading) {
-    s.sources.hillshading = hillshading;
-    s.layers.splice(s.layers.findIndex((l) => l.id == "land-wetland") + 1, 0, {
-      id: "hillshading",
-      type: "hillshade",
-      source: "hillshading",
-      paint: { "hillshade-exaggeration": 0.2, "hillshade-method": "combined" },
-    });
-  }
-  if (contours) {
-    s.sources.contours = contours;
-    s.layers.splice(s.layers.findIndex((l) => l.id == "land-wetland") + 2, 0, {
-      id: "contours",
-      type: "line",
-      source: "contours",
-      "source-layer": "contours",
-      filter: [">", ["get", "ele"], 0],
-      paint: {
-        "line-opacity": 0.3,
-        "line-width": ["match", ["get", "level"], 1, 0.5, 0.2],
-      },
-    }, {
-      id: "contour-label",
-      type: "symbol",
-      source: "contours",
-      "source-layer": "contours",
-      filter: [">", ["get", "ele"], 0],
-      minzoom: 10,
-      paint: {
-        "text-halo-color": "white",
-        "text-halo-width": 0.8,
-        "text-opacity": 0.3,
-      },
-      layout: {
-        "symbol-placement": "line",
-        "text-size": 8,
-        "text-field": ["number-format", ["get", "ele"], {}],
-        "text-font": ["noto_sans_bold"],
-      },
-    });
-  }
 
   // draw seamarks: buoys, lights, topmarks, landmarks, labels
   s.layers = s.layers.concat(symbols);

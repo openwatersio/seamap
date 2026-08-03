@@ -231,9 +231,8 @@ npm run dev --workspace viewer    # local dev server
 npm run build --workspace viewer  # static build → viewer/dist/
 ```
 
-`maplibre-gl` and `@versatiles/style` are npm dependencies; the patched
-`maplibre-contour` (bathymetry contours/soundings) is vendored at
-`viewer/vendor/maplibre-contour.mjs` (see `viewer/vendor/README.md`).
+`maplibre-gl`, `pmtiles`, and `@openwaters/seamap` are its only dependencies —
+the style package brings `@versatiles/style` and `@openwaters/seascape` along.
 
 ### Data Sources for the Demopage
 
@@ -259,15 +258,10 @@ npm run build --workspace viewer  # static build → viewer/dist/
 - **Format**: Sprite sheets with S-57 nautical symbols
 - **Purpose**: Icon rendering for buoys, beacons, landmarks, etc.
 
-#### 4. Land Hillshading & Contours
-- **Provider**: [Mapterhorn](https://tiles.mapterhorn.com)
-- **Tile Endpoint**: `https://tiles.mapterhorn.com/{z}/{x}/{y}.webp`
-- **Encoding**: Terrarium (RGB-encoded elevation)
-- **Max Zoom**: 12
-- **Features**:
-  - Hillshading with 0.2 exaggeration
-  - Dynamically generated contour lines
-  - Contour intervals: 200m/1000m (z7), 100m/500m (z8-9), 50m/200m (z10), 20m/100m (z11), 10m/50m (z12)
+#### 4. Land Hillshading
+- **Provider**: [VersaTiles](https://tiles.versatiles.org) elevation tiles (Mapterhorn data)
+- **TileJSON**: `https://tiles.versatiles.org/tiles/elevation/tiles.json`
+- **Features**: hillshade layer added by the style builder; attribution rides in via the TileJSON
 
 #### 5. Bathymetry (Seascape)
 - **Source**: [Seascape](https://github.com/openwatersio/seascape) — GEBCO + regional high-res mosaic (NOAA S-102/CUDEM, EMODnet, and more)
@@ -283,7 +277,6 @@ npm run build --workspace viewer  # static build → viewer/dist/
 ### Technology Stack
 
 - **MapLibre GL JS**: Open-source map rendering engine
-- **maplibre-contour** (v0.2.8): Plugin for dynamic land contour generation from DEM tiles
 - **VersaTiles Style**: Base map styling library
 - **tiles.openwaters.io**: Serves the Seamap vector tiles and Seascape bathymetry
 
@@ -291,7 +284,7 @@ npm run build --workspace viewer  # static build → viewer/dist/
 
 The demo visualizes:
 - **Bathymetry**: Colored depth zones with contours and soundings
-- **Land**: Coastline with terrain hillshading and elevation contours
+- **Land**: Coastline with terrain hillshading
 - **Seamarks**: Buoys, beacons, lights with IALA colors and symbols
 - **Light Sectors**: Colored arcs and rays showing navigational light coverage
 - **Navigation**: Traffic separation schemes, fairways, anchorages
