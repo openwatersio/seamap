@@ -245,13 +245,14 @@ public class Seamap implements Profile {
 
   private static Geometry unionGeometries(List<VectorTile.Feature> features, java.util.function.Predicate<VectorTile.Feature> include)
       throws com.onthegomap.planetiler.geo.GeometryException {
-    Geometry result = null;
+    // Cascaded union: low-zoom tiles hold tens of thousands of land grid
+    // cells, and pairwise union is O(n²) over them.
+    List<Geometry> geoms = new ArrayList<>();
     for (VectorTile.Feature f : features) {
-      if (!include.test(f)) continue;
-      Geometry geom = f.geometry().decode();
-      result = result == null ? geom : result.union(geom);
+      if (include.test(f)) geoms.add(f.geometry().decode());
     }
-    return result;
+    if (geoms.isEmpty()) return null;
+    return org.locationtech.jts.operation.union.UnaryUnionOp.union(geoms);
   }
 
 }

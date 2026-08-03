@@ -141,7 +141,10 @@ public class LandPolygons {
    * @param features FeatureCollector to add the processed feature to
    */
   public static void processLandFeature(SourceFeature sf, FeatureCollector features) {
-    features.polygon("land").setBufferPixels(4);
+    // The shapefile splits continents into grid cells that fall below
+    // planetiler's default 1px minimum at low zooms and vanish wholesale;
+    // keep them all — postProcessTileFeatures unions them back together.
+    features.polygon("land").setBufferPixels(4).setMinPixelSize(0);
   }
 
   /**
