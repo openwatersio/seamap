@@ -340,7 +340,18 @@
     {
         "id": "radar-reflectors", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 10,
         "filter": ["has","radar_reflector"],
-        "layout": { "icon-image": "freenauticalchart:radar-reflector", "icon-rotate": -60, "icon-offset": [0,-8], "icon-overlap": "always", "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1] }
+        "layout": {
+          "icon-image": "freenauticalchart:radar-reflector", "icon-rotate": -60, "icon-overlap": "always",
+          "icon-offset": ["case",
+            ["in",["get","shape"],["literal", ["buoyant", "lattice", "pile", "tower"]]], ["literal",[0,-28]],
+            ["in",["get","shape"],["literal", ["stake", "pole"]]], ["literal",[0,-27]],
+            ["==",["get","shape"],"conical"], ["literal",[0,-20]],
+            ["==",["get","shape"],"can"], ["literal",[0,-16]],
+            ["in",["get","shape"],["literal", ["spherical", "barrel"]]], ["literal",[0,-17]],
+            ["literal",[0,-30]]
+          ],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1]
+        }
     },
     {
         "id": "topmarks", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
