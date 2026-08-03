@@ -15,8 +15,8 @@ on:
   workflow_dispatch:
     inputs:
       server_type:
-        description: "Hetzner type (smoke: ccx23; planet: ccx33 until quota raised)"
-        default: ccx33
+        description: "Hetzner type (needs ~250GB disk for planet; cpx51 = 360GB)"
+        default: cpx51
       area:
         description: "Geofabrik area for a cheap smoke build, lowercase (blank = full planet)"
         default: ""
@@ -26,7 +26,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SERVER_TYPE: ${{ inputs.server_type || 'ccx33' }} # ccx33 = 8 vCPU / 32 GB (fits the 8 dedicated-vCPU account limit)
+  # cpx51 = 16 shared vCPU / 32 GB / 360 GB NVMe. The disk fits the whole planet
+  # build (~82 PBF + ~110 nodemap + ~25 output + scratch ≈ 235 GB) so no Hetzner
+  # volume is needed — the account's volume quota is taken by another project.
+  SERVER_TYPE: ${{ inputs.server_type || 'cpx51' }}
   AREA: ${{ inputs.area }}
   SERVER_IMAGE: ubuntu-24.04
   SERVER_LOCATION: fsn1
@@ -63,10 +66,6 @@ jobs:
             --ssh-key "$NAME"
           IP=$(hcloud server ip "$NAME")
           echo "IP=$IP" >> "$GITHUB_ENV"
-          # Planet builds need scratch beyond the box's ~240GB disk; attach a volume.
-          if [ -z "${AREA:-}" ]; then
-            hcloud volume create --name "$NAME" --size 200 --server "$NAME"
-          fi
           for i in $(seq 1 60); do
             ssh $SSH_OPTS -i id_build "root@$IP" true 2>/dev/null && exit 0
             sleep 5
@@ -99,27 +98,17 @@ jobs:
           set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
-          apt-get install -y -qq openjdk-21-jdk-headless rclone unzip curl e2fsprogs
+          apt-get install -y -qq openjdk-21-jdk-headless rclone unzip curl
           cd /root/seamap
           set -a; source build.env; set +a
-          # If a build volume is attached (planet builds), put bulky data (PBF,
-          # output, land) on it and keep planetiler's nodemap on the local NVMe
-          # (TMP_DIR=/root/tmp) so its heavy random I/O stays fast.
-          # Planet builds (no AREA) get a volume; wait for it, fail loudly if absent
-          # (so we never silently fall back to the too-small root disk).
+          # Everything (PBF, nodemap, output) lives on the local NVMe; the server
+          # type's disk is sized for it. Fail before building if that's not true.
           if [ -z "${AREA:-}" ]; then
-            for i in $(seq 1 12); do
-              DEV=$(ls /dev/disk/by-id/scsi-0HC_Volume_* 2>/dev/null | head -1 || true)
-              [ -n "${DEV:-}" ] && break || sleep 5
-            done
-            [ -n "${DEV:-}" ] || { echo "build volume never attached" >&2; exit 1; }
-            mkfs.ext4 -qF "$DEV"
-            mkdir -p /mnt/data && mount "$DEV" /mnt/data
-            rm -rf data && ln -s /mnt/data data
+            AVAIL_GB=$(df -BG --output=avail / | tail -1 | tr -dc 0-9)
+            [ "$AVAIL_GB" -ge 280 ] || { echo "need ~280GB free for a planet build, have ${AVAIL_GB}GB — use a bigger server type" >&2; exit 1; }
           fi
           mkdir -p data "$TMP_DIR"
           # Pre-fetch land polygons with retries (the build's own downloader has none).
-          mkdir -p data
           if [ ! -f data/land-polygons-split-4326/land_polygons.shp ]; then
             curl -fSL --retry 5 --retry-all-errors --connect-timeout 30 \
               -o /tmp/land.zip \
@@ -140,8 +129,4 @@ jobs:
         if: always()
         run: |
           hcloud server delete "$NAME" || true
-          # Volume (planet builds only) detaches when the server is deleted; then remove it.
-          if hcloud volume describe "$NAME" >/dev/null 2>&1; then
-            for i in $(seq 1 12); do hcloud volume delete "$NAME" && break || sleep 5; done
-          fi
           hcloud ssh-key delete "$NAME" || true
