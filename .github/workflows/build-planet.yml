@@ -15,27 +15,27 @@ on:
   workflow_dispatch:
     inputs:
       server_type:
-        description: "Hetzner type (needs ~250GB disk for planet; cpx51 = 360GB)"
-        default: cpx51
+        description: "Hetzner type (needs ~250GB disk for planet; cx53 = 16 vCPU/32GB/320GB)"
+        default: cx53
       area:
         description: "Geofabrik area for a cheap smoke build, lowercase (blank = full planet)"
         default: ""
       location:
-        description: "Hetzner location (cpx51 is no longer orderable in fsn1)"
-        default: hel1
+        description: "Hetzner location"
+        default: fsn1
 
 concurrency:
   group: build-planet
   cancel-in-progress: false
 
 env:
-  # cpx51 = 16 shared vCPU / 32 GB / 360 GB NVMe. The disk fits the whole planet
+  # cx53 = 16 shared vCPU / 32 GB / 320 GB NVMe. The disk fits the whole planet
   # build (~82 PBF + ~110 nodemap + ~25 output + scratch ≈ 235 GB) so no Hetzner
   # volume is needed — the account's volume quota is taken by another project.
-  SERVER_TYPE: ${{ inputs.server_type || 'cpx51' }}
+  SERVER_TYPE: ${{ inputs.server_type || 'cx53' }}
   AREA: ${{ inputs.area }}
   SERVER_IMAGE: ubuntu-24.04
-  SERVER_LOCATION: ${{ inputs.location || 'hel1' }}
+  SERVER_LOCATION: ${{ inputs.location || 'fsn1' }}
   R2_ENDPOINT: https://7822da9c68cfce969e63d07534969359.r2.cloudflarestorage.com
   R2_BUCKET: tiles
   PUBLIC_BASE_URL: https://tiles.openwaters.io
@@ -58,7 +58,7 @@ jobs:
 
       # Print the valid type names for this account so we never guess them.
       - name: List server types
-        run: hcloud server-type list -o columns=name,cores,memory,cpu_type,architecture
+        run: hcloud server-type list -o columns=name,cores,memory,disk,cpu_type,architecture
 
       - name: Boot ephemeral server
         run: |
