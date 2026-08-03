@@ -30,7 +30,7 @@
     {
         "id": "rocks", "type": "symbol", "source": "seamap", "source-layer": "seamark",
         "filter": ["==", ["get","type"], "rock"],
-        "layout": { "icon-overlap": "always", "icon-image": ["concat","freenauticalchart:rock-",["get", "water_level"]], "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1] }
+        "layout": { "icon-overlap": "always", "icon-image": ["match", ["get", "water_level"], "covers", "freenauticalchart:rock-covers", "awash", "freenauticalchart:rock-awash", "freenauticalchart:rock-submerged"], "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1] }
     },
     {
         "id": "obstructions", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,

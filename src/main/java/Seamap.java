@@ -155,15 +155,17 @@ public class Seamap implements Profile {
       attrs.forEach((k, v) -> feature.setAttr(k, v));
       feature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
 
-      // create label-grid for rocks, sorted by danger level
+      // create label-grid for rocks, sorted by danger level; sampled depth
+      // (--depth) breaks ties within a tier, shallower first
       if (type.equals("rock")) {
-        String rockCategory = (String) attrs.get("category");
+        String waterLevel = (String) attrs.get("water_level");
         int depth = attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
         int rank;
-        if ("submerged".equals(rockCategory)) rank = 0; // Most dangerous: always underwater, invisible
-        else if ("awash".equals(rockCategory)) rank = 10000; // Very dangerous: at wave height, barely visible
-        else if ("covers".equals(rockCategory)) rank = 20000; // Dangerous: periodically submerged
-        else rank = 30000; // Least dangerous: always visible (dry, always_dry, or no water_level)
+        if ("submerged".equals(waterLevel)) rank = 0; // Most dangerous: always underwater, invisible
+        else if ("awash".equals(waterLevel)) rank = 10000; // Very dangerous: at wave height, barely visible
+        else if ("covers".equals(waterLevel)) rank = 20000; // Dangerous: periodically submerged
+        else if ("dry".equals(waterLevel) || "always_dry".equals(waterLevel)) rank = 40000; // always visible
+        else rank = 30000; // Unknown: might be any of the above, so it outranks provably-dry
         feature.setSortKey(rank + depth).setPointLabelGridSizeAndLimit(12, 32, 4);
       }
 

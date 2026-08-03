@@ -70,6 +70,7 @@ Fixes applied on top of upstream, to reapply when re-vendoring:
 - `topmarks` built its icon name from `["has", "topmark_color_pattern"]`, putting the boolean into the name instead of the pattern. Now reads the value.
 - `restricted-areas-fill-pattern` matched every restricted area but has patterns only for military and entry/anchoring restrictions, so nature reserves resolved to an empty image name. Its filter now matches what it can actually draw.
 - `buoys` gets `icon-anchor: bottom` + `icon-offset: [0, 4]`, and `lights` gets `icon-anchor: top` + `icon-offset: [0, 2]`. The plugin's packed sheet baked these positions into padded canvases; our sheet is tight-cropped like the sprite source's own pipeline, which positions in the style exactly this way (quantenschaum/mapping `vector/styles/s57.json`).
+- `rocks` concatenated `rock-` + `water_level` with no fallback, but most OSM rocks carry no `water_level` (invisible symbol) and `dry` has no icon in the sheet. Now a `match`: `covers` and `awash` keep their icons, everything else draws `rock-submerged` — the same default the sprite author's own s57.json uses, and the safe direction when the level is unknown.
 
 [signalk-seamap-plugin]: https://github.com/prozessor13/signalk-seamap-plugin
 
