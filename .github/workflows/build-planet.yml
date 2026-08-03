@@ -14,28 +14,30 @@ on:
     - cron: "0 3 * * 1" # Mondays 03:00 UTC
   workflow_dispatch:
     inputs:
-      server_type:
-        description: "Hetzner type (needs ~250GB disk for planet; cx53 = 16 vCPU/32GB/320GB)"
-        default: cx53
+      server_types:
+        description: "Hetzner types to try in order; first with live capacity anywhere wins"
+        default: "ccx43 ccx53"
       area:
         description: "Geofabrik area for a cheap smoke build, lowercase (blank = full planet)"
         default: ""
       location:
-        description: "Hetzner location"
-        default: fsn1
+        description: "Restrict to one Hetzner location (blank = any)"
+        default: ""
 
 concurrency:
   group: build-planet
   cancel-in-progress: false
 
 env:
-  # cx53 = 16 shared vCPU / 32 GB / 320 GB NVMe. The disk fits the whole planet
-  # build (~82 PBF + ~110 nodemap + ~25 output + scratch ≈ 235 GB) so no Hetzner
-  # volume is needed — the account's volume quota is taken by another project.
-  SERVER_TYPE: ${{ inputs.server_type || 'cx53' }}
+  # Types are tried in order against live capacity (the datacenter API lists
+  # which types are orderable right now); capacity moves around, so no location
+  # is pinned. Every candidate needs ~280GB free disk — the planet build (~82
+  # PBF + ~110 nodemap + ~25 output + scratch) runs on local NVMe with no
+  # Hetzner volume, since the account's volume quota is taken by another project.
+  SERVER_TYPES: ${{ inputs.server_types || 'ccx43 ccx53' }}
   AREA: ${{ inputs.area }}
   SERVER_IMAGE: ubuntu-24.04
-  SERVER_LOCATION: ${{ inputs.location || 'fsn1' }}
+  SERVER_LOCATION: ${{ inputs.location }}
   R2_ENDPOINT: https://7822da9c68cfce969e63d07534969359.r2.cloudflarestorage.com
   R2_BUCKET: tiles
   PUBLIC_BASE_URL: https://tiles.openwaters.io
@@ -64,9 +66,31 @@ jobs:
         run: |
           ssh-keygen -t ed25519 -N "" -f id_build -q
           hcloud ssh-key create --name "$NAME" --public-key-from-file id_build.pub
-          hcloud server create --name "$NAME" \
-            --type "$SERVER_TYPE" --image "$SERVER_IMAGE" --location "$SERVER_LOCATION" \
-            --ssh-key "$NAME"
+
+          # Pick the first type from SERVER_TYPES with capacity in any datacenter
+          # (server_types.available is live stock, unlike server-type list), then
+          # still tolerate a create failure — stock can vanish between the query
+          # and the create — by falling through to the next candidate.
+          types_json=$(hcloud server-type list -o json)
+          dcs_json=$(hcloud datacenter list -o json)
+          created=""
+          for T in $SERVER_TYPES; do
+            tid=$(echo "$types_json" | jq -r --arg t "$T" '.[] | select(.name==$t) | .id')
+            [ -n "$tid" ] || { echo "unknown server type: $T" >&2; continue; }
+            for LOC in $(echo "$dcs_json" | jq -r --argjson id "$tid" \
+                '.[] | select(.server_types.available | index($id)) | .location.name' | sort -u); do
+              [ -n "$SERVER_LOCATION" ] && [ "$LOC" != "$SERVER_LOCATION" ] && continue
+              echo "trying $T in $LOC"
+              if hcloud server create --name "$NAME" \
+                  --type "$T" --image "$SERVER_IMAGE" --location "$LOC" \
+                  --ssh-key "$NAME"; then
+                created=1
+                break 2
+              fi
+            done
+          done
+          [ -n "$created" ] || { echo "no capacity anywhere for: $SERVER_TYPES" >&2; exit 1; }
+
           IP=$(hcloud server ip "$NAME")
           echo "IP=$IP" >> "$GITHUB_ENV"
           for i in $(seq 1 60); do
