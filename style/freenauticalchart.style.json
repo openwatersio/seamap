@@ -93,9 +93,9 @@
             "text-field": ["get", "seabed_surface"],
             "text-font": ["Noto Sans Regular"],
             "text-letter-spacing": 0.1, "text-max-width": 5, "text-padding": 10,
-            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 13, 10]
+            "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 13, 11]
         },
-        "paint": { "text-color": "#333" }
+        "paint": { "text-color": "#333", "text-halo-color": "rgba(255,255,255,0.8)", "text-halo-width": 2, "text-halo-blur": 1 }
     },
     {
         "id": "bathymetry_contours_label", "type": "symbol", "source": "seamap", "source-layer": "depth_contours", "minzoom": 8, "maxzoom": 22,
@@ -138,8 +138,9 @@
                 ["in", ["get", "category"], ["literal", ["nature_reserve", "bird_sanctuary", "game_reserve", "seal_sanctuary","fish_sanctuary", "ecological_reserve", "essa", "pssa"]]], "green",
                 "red"
             ],
-            "text-halo-color": "white",
-            "text-halo-width": 1.5
+            "text-halo-color": "rgba(255,255,255,0.8)",
+            "text-halo-width": 2,
+            "text-halo-blur": 1
         }
     },
     {
@@ -429,7 +430,7 @@
           "text-anchor": "left", "text-offset": [1,-0.5], "text-optional": true,
           "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.3]
         },
-        "paint": { "text-halo-color": "white", "text-halo-width": 2 }
+        "paint": { "text-color": "#333", "text-halo-color": "rgba(255,255,255,0.8)", "text-halo-width": 2, "text-halo-blur": 1 }
     },
     {
         "id": "navigation-lines", "type": "line", "source": "seamap", "source-layer": "seamark",
@@ -453,10 +454,11 @@
         "paint": {
             "text-color": ["case",
                 ["==",["get","type"],"ferry_route"],"#7c8af6",
-                "#666"
+                "#333"
             ],
-            "text-halo-color": "#FFF",
-            "text-halo-width": 1
+            "text-halo-color": "rgba(255,255,255,0.8)",
+            "text-halo-width": 2,
+            "text-halo-blur": 1
         }
     },
     {
@@ -465,15 +467,16 @@
         "layout": {
             "symbol-placement": "line-center",
             "text-field":["get", "name"],
-            "text-font": ["Noto Sans Bold"],
+            "text-font": ["Noto Sans Regular"],
             "text-letter-spacing": 0.1, "text-line-height": 1.6, "text-max-width": 5,
             "text-offset": [0, -0.65], "text-pitch-alignment": "viewport",
-            "text-size": ["interpolate", ["linear"], ["zoom"], 13, 8, 16, 12]
+            "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10, 16, 13]
         },
         "paint": {
-            "text-color": "#888",
-            "text-halo-color": "white",
-            "text-halo-width": 1
+            "text-color": "#333",
+            "text-halo-color": "rgba(255,255,255,0.8)",
+            "text-halo-width": 2,
+            "text-halo-blur": 1
         }
     },
     {
@@ -482,12 +485,13 @@
         "layout": {
           "text-anchor": "right", "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"],
           "text-offset": [-1.3, -0.3],
-          "text-size": ["interpolate", ["linear"], ["zoom"], 12, 8, 16, 12]
+          "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13]
         },
         "paint": {
-            "text-color": "#888",
-            "text-halo-color": "white",
-            "text-halo-width": 1
+            "text-color": "#333",
+            "text-halo-color": "rgba(255,255,255,0.8)",
+            "text-halo-width": 2,
+            "text-halo-blur": 1
         }
     },
     {
@@ -501,12 +505,12 @@
           ],
           "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],
           "icon-overlap": "always",
-          "text-font": ["Noto Sans Bold"],
+          "text-font": ["Noto Sans Regular"],
           "text-field": ["get", "name"],
-          "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 12, 12],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
           "text-anchor": "left", "text-optional": true, "text-offset": [1,0]
         },
-        "paint": { "text-color": "magenta", "text-halo-color": "white", "text-halo-width": 2 }
+        "paint": { "text-color": "magenta", "text-halo-color": "rgba(255,255,255,0.8)", "text-halo-width": 2, "text-halo-blur": 1 }
 
     },
     {
@@ -519,13 +523,14 @@
             ["concat", ["get", "name"], "\n", ["get", "light"]],
             ["get", "light"]
           ],
-          "text-font": ["Noto Sans Bold"], "text-justify": "left",
+          "text-font": ["Noto Sans Regular"], "text-justify": "left",
           "text-offset": [1.2, 0.2],
           "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14]
         },
         "paint": {
-            "text-halo-color": "white",
-            "text-halo-width": 2
+            "text-halo-color": "rgba(255,255,255,0.8)",
+            "text-halo-width": 2,
+            "text-halo-blur": 1
         }
     }
 
