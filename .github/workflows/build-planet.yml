@@ -20,6 +20,9 @@ on:
       area:
         description: "Geofabrik area for a cheap smoke build, lowercase (blank = full planet)"
         default: ""
+      location:
+        description: "Hetzner location (cpx51 is no longer orderable in fsn1)"
+        default: hel1
 
 concurrency:
   group: build-planet
@@ -32,7 +35,7 @@ env:
   SERVER_TYPE: ${{ inputs.server_type || 'cpx51' }}
   AREA: ${{ inputs.area }}
   SERVER_IMAGE: ubuntu-24.04
-  SERVER_LOCATION: fsn1
+  SERVER_LOCATION: ${{ inputs.location || 'hel1' }}
   R2_ENDPOINT: https://7822da9c68cfce969e63d07534969359.r2.cloudflarestorage.com
   R2_BUCKET: tiles
   PUBLIC_BASE_URL: https://tiles.openwaters.io
