@@ -58,14 +58,14 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: viewer/package-lock.json
 
-      # Sprites are generated, not committed, and `vite build` only copies what
-      # public/ already holds. mise supplies spreet at the pinned version.
+      # Sprites are generated, not committed; the viewer build copies them out
+      # of the style package. mise supplies spreet at the pinned version.
       - uses: jdx/mise-action@v4
       - run: bin/sprites
 
-      - run: npm --prefix viewer ci
-      - run: npm --prefix viewer run build
+      - run: npm ci
+      - run: npm test --workspace style
+      - run: npm run build --workspace viewer
       - name: Verify sprites shipped
         run: test -f viewer/dist/sprites/freenauticalchart.png

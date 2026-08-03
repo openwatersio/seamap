@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+src=sprites
+out=sprites/dist
+
+command -v spreet >/dev/null || {
+  echo "spreet not found — run 'mise install' (pinned in mise.toml)" >&2
+  exit 1
+}
+
+# genicons.py globs *.svg from the working directory and writes gen/ beside them,
+# expanding each shape over every colour and pattern combination.
+rm -rf "$src/icons/gen" "$out"
+(cd "$src/icons" && PYTHONPATH=.. PYTHONDONTWRITEBYTECODE=1 python3 ../genicons.py >/dev/null)
+
+# S-57-keyed icons address ENC attribute codes; our tiles carry OSM tags and no
+# layer names them. Dropping them halves the sprite index the browser parses.
+# The compass roses are 1024px and unused (upstream drops them too).
+rm -rf "$src"/icons/gen/{BCNSHP,BOYSHP,TOPSHP,CATLMK} "$src"/icons/gen/compass-*
+
+# MapLibre tiles fill patterns edge to edge, so the image is the repeat cell:
+# cropped to the artwork they read as a solid mass instead of chart hatching.
+# Pad the icons the style uses as fill patterns into a 32-unit cell (64px at
+# the 2x ratio below). Upstream sidesteps this only because its own style
+# doesn't hatch restricted areas.
+python3 - "$src/icons/gen" freenauticalchart.style.json <<'PY'
+import json, re, sys
+from pathlib import Path
+
+CELL = 32
+
+
+def pattern_icons(style_path):
+    """Icon names the style uses as a fill pattern, whatever expression wraps them."""
+    names = set()
+
+    def walk(node):
+        if isinstance(node, str) and node.startswith("freenauticalchart:"):
+            names.add(node.split(":", 1)[1])
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    style = json.loads(Path(style_path).read_text())
+    for layer in style["layers"]:
+        for key, value in (layer.get("paint") or {}).items():
+            if key == "fill-pattern":
+                walk(value)
+    return names
+
+
+gen = Path(sys.argv[1])
+for name in pattern_icons(sys.argv[2]):
+    path = gen / f"{name}.svg"
+    if not path.exists():
+        continue
+    svg = path.read_text()
+    head = svg[: svg.index(">", svg.index("<svg"))]
+    dims = {a: re.search(rf'\b{a}="([\d.]+)"', head) for a in ("width", "height")}
+    if not all(dims.values()) or "viewBox" in head:
+        continue
+    w, h = (float(m.group(1)) for m in dims.values())
+    cell = max(CELL, w, h)
+    for attr in ("width", "height"):
+        head = re.sub(rf'\b{attr}="[\d.]+"', f'{attr}="{cell:g}"', head, count=1)
+    head += f' viewBox="{(w - cell) / 2:g} {(h - cell) / 2:g} {cell:g} {cell:g}"'
+    path.write_text(head + svg[svg.index(">", svg.index("<svg")):])
+PY
+
+# Upstream's recipe (vector/makefile): rasterize at 2x/4x, then relabel the
+# pixel ratio down one step, so icons draw at twice their source units — the
+# scale the style's icon-size values are written against.
+mkdir -p "$out"
+spreet --recursive --unique --minify-index-file --ratio 2 "$src/icons/gen" "$out/freenauticalchart"
+perl -pi -e 's/"pixelRatio":\s*\d+/"pixelRatio":1/g' "$out/freenauticalchart.json"
+spreet --recursive --unique --minify-index-file --ratio 4 "$src/icons/gen" "$out/freenauticalchart@2x"
+perl -pi -e 's/"pixelRatio":\s*\d+/"pixelRatio":2/g' "$out/freenauticalchart@2x.json"
+
+# GPL-3.0 artwork: the license and its origin travel with the built sheet.
+cp "$src/LICENSE" "$src/PROVENANCE.md" "$out/"
+
+echo "built $(python3 -c 'import json;print(len(json.load(open("'"$out"'/freenauticalchart.json"))))') icons into $out"

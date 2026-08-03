@@ -219,12 +219,16 @@ JAVA_OPTS="-Xmx20g -XX:+UseParallelGC -XX:ParallelGCThreads=4" \
 
 ## Viewer (`viewer/`)
 
-A MapLibre GL JS viewer for the nautical chart, built with Vite.
+A MapLibre GL JS viewer for the nautical chart, built with Vite. The chart
+style — base map, bathymetry, symbology, and sprite sheet — lives in the
+[`@openwaters/seamap`](style/README.md) npm package in `style/`, usable from
+this viewer or any other app; the viewer itself is a thin runtime shell.
 
 ```bash
-npm --prefix viewer install
-npm --prefix viewer run dev      # local dev server
-npm --prefix viewer run build    # static build → viewer/dist/
+bin/sprites                       # build the chart symbols (needs mise install)
+npm install
+npm run dev --workspace viewer    # local dev server
+npm run build --workspace viewer  # static build → viewer/dist/
 ```
 
 `maplibre-gl` and `@versatiles/style` are npm dependencies; the patched

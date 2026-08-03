@@ -12,6 +12,7 @@ tmp/
 node_modules
 viewer/dist
 .playwright-mcp/
-viewer/public/sprites/
-viewer/sprites/icons/gen/
+style/dist/
+style/sprites/dist/
+style/sprites/icons/gen/
 __pycache__/

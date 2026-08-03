@@ -1,7 +1,9 @@
 # Chart symbol sources
 
-`bin/sprites` turns these into `viewer/public/sprites/` (generated, gitignored).
-Run it after changing anything here; `vite build` only copies what's already there.
+`bin/sprites` (in this package, also reachable as the repo's `bin/sprites`)
+turns these into `dist/` here (generated, gitignored). Run it after changing
+anything here; the viewer's vite build only copies what's already built, and
+`npm publish` runs it via `prepublishOnly`.
 
     bin/sprites
 

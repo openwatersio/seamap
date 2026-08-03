@@ -1,0 +1,44 @@
+{
+  "name": "@openwaters/seamap",
+  "version": "0.1.0",
+  "description": "MapLibre GL style for Open Waters Seamap – base map, bathymetry, chart symbology",
+  "license": "GPL-3.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": "./index.ts",
+      "default": "./dist/index.js"
+    },
+    "./sprites/*": "./sprites/dist/*"
+  },
+  "files": [
+    "dist",
+    "index.ts",
+    "freenauticalchart.style.json",
+    "sprites/dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openwatersio/seamap.git",
+    "directory": "style"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json",
+    "sprites": "bin/sprites",
+    "prepublishOnly": "npm run sprites",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@maplibre/maplibre-gl-style-spec": "^25.0.0",
+    "@openwaters/seascape": "^0.2.0",
+    "@versatiles/style": "^5.12.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.9"
+  }
+}

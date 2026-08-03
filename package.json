@@ -1,0 +1,9 @@
+{
+  "name": "seamap",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "style",
+    "viewer"
+  ]
+}
