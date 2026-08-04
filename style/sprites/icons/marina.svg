@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
    version="1.0"
-   width="14"
-   height="14"
+   width="16"
+   height="16"
    id="svg2"
    sodipodi:docname="marina.svg"
    inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
@@ -47,9 +47,15 @@
        inkscape:label=""
        inkscape:color="rgb(0,134,229)" />
   </sodipodi:namedview>
+  <circle
+     id="halo"
+     cx="8"
+     cy="8"
+     r="7.6"
+     style="fill:#ffffff;fill-opacity:0.8;stroke:none" />
   <g
      id="g116721"
-     transform="matrix(1.3333333,0,0,-1.3333333,-99.388397,185.32306)">
+     transform="matrix(1.3333333,0,0,-1.3333333,-98.388397,186.32306)">
     <g
        id="g936"
        transform="translate(75.2543,133.7433)"
