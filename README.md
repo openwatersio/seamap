@@ -231,7 +231,7 @@ npm run dev --workspace viewer    # local dev server
 npm run build --workspace viewer  # static build → viewer/dist/
 ```
 
-`maplibre-gl`, `pmtiles`, and `@openwaters/seamap` are its only dependencies —
+`maplibre-gl` and `@openwaters/seamap` are its only dependencies —
 the style package brings `@versatiles/style` and `@openwaters/seascape` along.
 
 ### Data Sources for the Demopage

@@ -1,0 +1,90 @@
+name: Deploy tile worker
+
+# The Worker serving tiles.openwaters.io/seamap/*. It resolves the published
+# archive from the seamap/latest pointer at request time, so a release needs no
+# deploy — this runs only when the Worker (or the style it bundles) changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "style/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+# Never let two deploys race the same Worker; a newer push wins.
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Sprites are generated, not committed, and wrangler uploads them as the
+      # Worker's assets. mise supplies spreet at the pinned version.
+      - uses: jdx/mise-action@v4
+      - run: bin/sprites
+
+      - name: Install workspace (runs the style package's prepare — tsc → style/dist)
+        run: npm ci
+
+      - name: wrangler deploy
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: npx wrangler deploy
+
+  # Probe the live endpoints: confirms the route intercepts
+  # tiles.openwaters.io/seamap/*, the R2 binding resolves the latest archive,
+  # and the style assembles.
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe tiles.openwaters.io/seamap
+        run: |
+          set -uo pipefail
+          BASE=https://tiles.openwaters.io/seamap
+          fail=0
+          # HEAD only (-I): exercises the route and bindings without pulling
+          # bodies — one of these is the whole archive. No -f, so we read the
+          # real status code ourselves.
+          check() { # label want-code url [want-content-type-substr]
+            local label=$1 want=$2 url=$3 want_ct=${4:-} out code ct
+            out=$(curl -sS -I -o /dev/null -w '%{http_code} %{content_type}' "$url") || out="000 -"
+            code=${out%% *}; ct=${out#* }
+            if [ "$code" = "$want" ] && { [ -z "$want_ct" ] || [[ "$ct" == *"$want_ct"* ]]; }; then
+              echo "ok   $label → $code $ct"
+            else
+              echo "::error::$label → got '$code $ct', want '$want ${want_ct:-any}'  ($url)"
+              fail=1
+            fi
+          }
+          check "tiles.json" 200 "$BASE/tiles.json" json
+          check "style.json" 200 "$BASE/style.json" json
+          check "bad param"  400 "$BASE/style.json?unit=fathoms"
+          check "tile"       200 "$BASE/0/0/0.pbf" protobuf
+          check "sprite"     200 "$BASE/sprites/freenauticalchart.json" json
+          # tiles.json validates by version, so its ETag names the archive the
+          # pointer currently resolves to.
+          version=$(curl -sSI "$BASE/tiles.json" | tr -d '\r"' | awk 'tolower($1)=="etag:"{print $2}')
+          if [ -n "$version" ]; then
+            check "archive" 200 "$BASE/$version.pmtiles"
+          else
+            echo "::error::tiles.json served no ETag — can't tell which archive is live"
+            fail=1
+          fi
+          exit $fail

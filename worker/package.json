@@ -1,0 +1,21 @@
+{
+  "name": "seamap-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "./seed.sh",
+    "dev": "wrangler dev --port 8788 --var DEV:true",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit",
+    "test": "node --test src/*.test.mjs"
+  },
+  "dependencies": {
+    "@openwaters/seamap": "*",
+    "pmtiles": "^4.4.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250409.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  }
+}

@@ -66,6 +66,8 @@ jobs:
 
       - run: npm ci
       - run: npm test --workspace style
+      - run: npm run check --workspace worker
+      - run: npm test --workspace worker
       - run: npm run build --workspace viewer
       - name: Verify sprites shipped
         run: test -f viewer/dist/sprites/freenauticalchart.png

@@ -1,11 +1,9 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { Protocol } from 'pmtiles'
 import { style, setup, attribution } from '@openwaters/seamap'
 
-// Self-hosted seamap tiles: register the pmtiles protocol; the source `url` is a
-// TileJSON manifest MapLibre fetches directly. ?tiles=<url> previews a build.
-maplibregl.addProtocol('pmtiles', new Protocol().tile)
+// ?tiles=<url> points the chart at another TileJSON — a local `wrangler dev`
+// worker, say — instead of the published tiles.
 const tiles = new URLSearchParams(location.search).get('tiles') || undefined
 
 // add the MapLibre GL RTL text plugin for proper rendering of right-to-left languages

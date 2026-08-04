@@ -39,7 +39,7 @@ const map = new maplibregl.Map({ style, /* ... */ });
 handleMissingImages(map);
 ```
 
-- `sources({ url? })` — the `seamap` vector source (defaults to `https://tiles.openwaters.io/seamap/latest.json`).
+- `sources({ url? })` — the `seamap` vector source (defaults to `https://tiles.openwaters.io/seamap/tiles.json`).
 - `layers({ font? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames glyph fontstacks (`"Noto Sans Regular"`, `"Noto Sans Bold"`) to match your glyph server.
 - `sprite(base)` — the `style.sprite` entry pointing at wherever you serve the sheet.
 - `handleMissingImages(map)` — falls back to each shape's `generic` icon when tags compose a colour combination the sheet doesn't carry. Without it, unusual marks render as nothing.

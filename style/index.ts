@@ -47,9 +47,9 @@ import chartStyle from "./freenauticalchart.style.json";
 export const attribution =
   'Chart symbols <a href="https://github.com/quantenschaum/mapping" target="_blank">© Adam Lucke</a> (GPL-3.0)';
 
-const DEFAULT_TILEJSON = "https://tiles.openwaters.io/seamap/latest.json";
+const DEFAULT_TILEJSON = "https://tiles.openwaters.io/seamap/tiles.json";
 
-/** The seamark vector source. `url` is a TileJSON manifest (pmtiles-backed). */
+/** The seamark vector source. `url` is a TileJSON document. */
 export function sources({
   url = DEFAULT_TILEJSON,
 }: { url?: string } = {}): Record<string, SourceSpecification> {
@@ -111,7 +111,7 @@ export function sprite(base: string): { id: string; url: string } {
 const versatilesFont = (f: string) => f.toLowerCase().replaceAll(" ", "_");
 
 export interface StyleOptions {
-  /** Seamark TileJSON manifest URL. */
+  /** Seamark TileJSON URL. */
   tiles?: string;
   /** Seascape bathymetry tiles base URL. */
   seascape?: string;

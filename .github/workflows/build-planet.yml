@@ -40,7 +40,6 @@ env:
   SERVER_LOCATION: ${{ inputs.location }}
   R2_ENDPOINT: https://7822da9c68cfce969e63d07534969359.r2.cloudflarestorage.com
   R2_BUCKET: tiles
-  PUBLIC_BASE_URL: https://tiles.openwaters.io
   SSH_OPTS: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
   NAME: seamap-build-${{ github.run_id }}
 
@@ -112,7 +111,6 @@ jobs:
           export RCLONE_CONFIG_R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID
           export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY
           export R2_BUCKET=$R2_BUCKET
-          export PUBLIC_BASE_URL=$PUBLIC_BASE_URL
           export AREA=$AREA
           export TMP_DIR=/root/tmp
           EOF

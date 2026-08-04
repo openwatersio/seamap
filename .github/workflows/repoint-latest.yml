@@ -1,8 +1,7 @@
-name: Republish manifest
+name: Repoint latest
 
-# Rewrites seamap/<version>.json + seamap/latest.json as TileJSON, pointing at an
-# already-uploaded pmtiles. No rebuild and no re-upload — use it to migrate the
-# manifest format or to roll `latest` back to a previous version.
+# Points seamap/latest at an already-uploaded pmtiles. No rebuild and no
+# re-upload — use it to roll `latest` back to a previous version.
 #
 # Required repo secrets: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
 
@@ -17,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  republish:
+  repoint:
     runs-on: ubuntu-latest
     env:
       RCLONE_CONFIG_R2_TYPE: s3
@@ -27,12 +26,12 @@ jobs:
       RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       R2_BUCKET: tiles
       PUBLIC_BASE_URL: https://tiles.openwaters.io
-      MANIFEST_ONLY: "1"
+      POINTER_ONLY: "1"
       VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v6
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone
-      - name: Republish manifest
+      - name: Repoint latest
         run: |
           # Safety: don't repoint `latest` at a version whose pmtiles is missing.
           curl -fsI "$PUBLIC_BASE_URL/seamap/$VERSION.pmtiles" >/dev/null \

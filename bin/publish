@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Publish a built PMTiles to R2.
 #
-# Uploads an immutable, versioned object (seamap/<version>.pmtiles) plus a
-# TileJSON manifest, then flips the `latest` pointer. The manifest is a valid
-# TileJSON whose `tiles` reference the pmtiles via the pmtiles:// protocol, so the
-# viewer uses it directly as a MapLibre source `url` (MapLibre fetches it; the
-# pmtiles plugin serves the tiles). Atomic for readers: the big pmtiles are
-# immutable and cached forever; only the tiny seamap/latest.json is overwritten.
+# Uploads an immutable, versioned object (seamap/<version>.pmtiles), then flips
+# the `seamap/latest` pointer — a one-line text object naming the current
+# version. The Worker at tiles.openwaters.io/seamap reads the pointer to resolve
+# which archive to serve, and derives TileJSON from the archive itself, so
+# nothing else is published. Atomic for readers: archives are immutable and
+# cached forever; only the tiny pointer is overwritten.
 #
 # rclone reads the R2 remote ("r2") from env, so no config file is needed:
 #   RCLONE_CONFIG_R2_TYPE=s3
@@ -17,57 +17,39 @@
 #
 # Config (with defaults):
 #   R2_BUCKET=tiles
-#   PUBLIC_BASE_URL=https://tiles.openwaters.io
 #   VERSION=<UTC date>
 #   PMTILES=data/seamarks.pmtiles
-#   MAXZOOM=14
 #   UPDATE_LATEST=true    # set false for smoke builds so `latest` isn't flipped
-#   MANIFEST_ONLY=        # set 1 to (re)write the manifest only — no pmtiles upload
-#                         # (repoint `latest` to an existing version, e.g. rollback)
+#   POINTER_ONLY=         # set 1 to point `latest` at an already-uploaded
+#                         # version (rollback) — no build, no upload
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 R2_BUCKET="${R2_BUCKET:-tiles}"
-PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://tiles.openwaters.io}"
 VERSION="${VERSION:-$(date -u +%Y-%m-%d)}"
 PMTILES="${PMTILES:-data/seamarks.pmtiles}"
-MAXZOOM="${MAXZOOM:-14}"
 UPDATE_LATEST="${UPDATE_LATEST:-true}"
-MANIFEST_ONLY="${MANIFEST_ONLY:-}"
+POINTER_ONLY="${POINTER_ONLY:-}"
 
 key="seamap/${VERSION}.pmtiles"
 
-if [ "$MANIFEST_ONLY" != "1" ]; then
-  [ -f "$PMTILES" ] || { echo "missing $PMTILES — build it first (or set MANIFEST_ONLY=1)" >&2; exit 1; }
+if [ "$POINTER_ONLY" != "1" ]; then
+  [ -f "$PMTILES" ] || { echo "missing $PMTILES — build it first (or set POINTER_ONLY=1)" >&2; exit 1; }
   echo "Uploading $PMTILES -> r2:$R2_BUCKET/$key"
   rclone copyto "$PMTILES" "r2:$R2_BUCKET/$key" \
     --progress --s3-no-check-bucket \
     --header-upload "Cache-Control: public, max-age=31536000, immutable"
 fi
 
-# TileJSON manifest — usable directly as a MapLibre source `url`. Single-quoted
-# HTML in attribution keeps the JSON valid without escaping.
-manifest="$(mktemp)"
-cat > "$manifest" <<EOF
-{
-  "tilejson": "3.0.0",
-  "name": "seamap",
-  "version": "${VERSION}",
-  "generated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "tiles": ["pmtiles://${PUBLIC_BASE_URL}/${key}/{z}/{x}/{y}"],
-  "minzoom": 0,
-  "maxzoom": ${MAXZOOM},
-  "attribution": "<a href='https://www.openstreetmap.org/copyright' target='_blank'>© OSM</a>"
-}
-EOF
-
-rclone copyto "$manifest" "r2:$R2_BUCKET/seamap/${VERSION}.json" --s3-no-check-bucket \
-  --header-upload "Cache-Control: public, max-age=31536000, immutable"
 if [ "$UPDATE_LATEST" = "true" ]; then
-  rclone copyto "$manifest" "r2:$R2_BUCKET/seamap/latest.json" --s3-no-check-bucket \
+  pointer="$(mktemp)"
+  printf '%s\n' "$VERSION" > "$pointer"
+  # Short TTL: the Worker holds the pointer for a minute, so a release (or a
+  # rollback) is live within about two.
+  rclone copyto "$pointer" "r2:$R2_BUCKET/seamap/latest" --s3-no-check-bucket \
     --header-upload "Cache-Control: public, max-age=60"
+  rm -f "$pointer"
   echo "Published seamap/${VERSION} -> latest"
 else
   echo "Published seamap/${VERSION} (latest unchanged)"
 fi
-rm -f "$manifest"

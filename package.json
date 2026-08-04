@@ -4,6 +4,7 @@
   "type": "module",
   "workspaces": [
     "style",
-    "viewer"
+    "viewer",
+    "worker"
   ]
 }
