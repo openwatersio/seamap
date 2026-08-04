@@ -163,7 +163,24 @@ async function handle(
   // Direct download of a published archive — keeps range-reading pmtiles
   // clients (and the publish workflow's existence check) working.
   if (/^\/[\w.-]+\.pmtiles$/.test(rel)) {
-    const obj = await env.TILES.get(PREFIX + rel.slice(1), {
+    const key = PREFIX + rel.slice(1);
+    // HEAD never touches the body: get() opens the archive's full multi-GB
+    // stream only for the runtime to discard it, which stalls the response.
+    if (req.method === "HEAD") {
+      const head = await env.TILES.head(key);
+      if (!head)
+        return new Response(null, {
+          status: 404,
+          headers: { "cache-control": "no-store", ...CORS },
+        });
+      const headers = new Headers(CORS);
+      head.writeHttpMetadata(headers);
+      headers.set("etag", head.httpEtag);
+      headers.set("accept-ranges", "bytes");
+      headers.set("content-length", String(head.size));
+      return new Response(null, { headers });
+    }
+    const obj = await env.TILES.get(key, {
       range: req.headers,
       onlyIf: req.headers,
     });
@@ -176,8 +193,7 @@ async function handle(
     obj.writeHttpMetadata(headers);
     headers.set("etag", obj.httpEtag);
     headers.set("accept-ranges", "bytes");
-    // No body means onlyIf didn't match. (A HEAD keeps its body here; the
-    // runtime drops it on the way out.)
+    // No body means onlyIf didn't match.
     if (!("body" in obj)) return new Response(null, { status: 304, headers });
     const r = obj.range as
       | { offset?: number; length?: number; suffix?: number }
