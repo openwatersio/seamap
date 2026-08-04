@@ -93,7 +93,11 @@ public class Seamap implements Profile {
         if (tags.containsKey("name")) {
           waterFeature.setAttr("name", tags.get("name"));
         }
-        waterFeature.setMinZoom(4); // Adjust based on size/importance
+        // The land−water cut in postProcessTileFeatures can only subtract water
+        // that's present in the tile, so water must exist at every zoom land
+        // does — at z<4 the Great Lakes rendered as land. Planetiler's pixel-size
+        // dropping prunes small lakes at low zooms on its own.
+        waterFeature.setMinZoom(0);
       }
 
       // Extract wetland / intertidal areas relevant for navigation:
