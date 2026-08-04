@@ -19,7 +19,14 @@ export JAVA_OPTS="${JAVA_OPTS:--Xmx16g -XX:+UseParallelGC}"
 
 # Rock/wreck depths come straight from Seascape's live raster tiles; features
 # without a depth tag get one sampled from the DEM.
-DEPTH_URL="${DEPTH_URL:-https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp}"
+# The default lives in its own variable because bash ends a ${VAR:-...} default
+# at the first literal `}` — inlining a {z}/{x}/{y} template silently truncates it.
+DEPTH_URL_DEFAULT='https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp'
+DEPTH_URL="${DEPTH_URL:-$DEPTH_URL_DEFAULT}"
+case "$DEPTH_URL" in
+  *'{z}'*'{x}'*'{y}'*|/*) ;;
+  *) echo "DEPTH_URL is not a {z}/{x}/{y} template or a file path: $DEPTH_URL" >&2; exit 1;;
+esac
 
 bin/run \
   --download --osm-url="$OSM_URL" \
