@@ -29,6 +29,8 @@ it("assembles a valid whole style", async () => {
     flavor: { hazard: "#c00" },
   });
   expect(validateStyleMin(whole)).toEqual([]);
+  expect(whole.name).toBe("Open Waters Seamap");
+  expect(whole.metadata).toBeUndefined(); // versatiles' license claim must not leak through
   const ids = whole.layers.map((l) => l.id);
   for (const id of ["background", "buoys", "lights", "land_area"]) {
     expect(ids).toContain(id);

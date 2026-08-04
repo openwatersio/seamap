@@ -189,6 +189,12 @@ export async function style({
     experimental: { landcover: true },
     hillshade,
   });
+  s.name = "Open Waters Seamap";
+  delete s.metadata; // versatiles' CC0 claim covered only its own JSON, not this composite
+  // drop-in default view for consumers that don't set one (the viewer overrides)
+  s.center = [10.2351, 56.16858];
+  s.zoom = 13.4;
+
   // the chart draws its own ferry routes and lighthouse symbols; drop the
   // base map's duplicates
   s.layers = s.layers.filter((l) => !l.id.startsWith("transport-ferry"));
