@@ -26,6 +26,33 @@ public class Seamark {
     "vessel", "vessel:mmsi", "wreck:type", "wreck:date_sunk", "building:height", "highway");
 
   /**
+   * Plain OSM tags that stand in for a seamark, as {key, value, type, category}. Checked only
+   * after the seamark:* extraction above, so explicit seamark tagging always wins.
+   */
+  private static final String[][] PLAIN_TAG_FEATURES = {
+    {"waterway", "fuel", "small_craft_facility", "fuel_station"},
+    {"waterway", "water_point", "small_craft_facility", "water_tap"},
+    {"waterway", "sanitary_dump_station", "small_craft_facility", "pump-out"},
+    {"waterway", "boatyard", "small_craft_facility", "boatyard"},
+    {"waterway", "boat_lift", "small_craft_facility", "boat_hoist"},
+    {"waterway", "access_point", "small_craft_facility", "access_point"},
+    {"amenity", "boat_storage", "small_craft_facility", "boat_storage"},
+    {"amenity", "fish_cleaning", "small_craft_facility", "fish_cleaning"},
+    {"industrial", "shipyard", "small_craft_facility", "boatyard"},
+    {"leisure", "fishing", "small_craft_facility", "fishing"},
+    {"natural", "beach", "small_craft_facility", "beach"},
+    {"club", "sailing", "small_craft_facility", "nautical_club"},
+    {"club", "yachting", "small_craft_facility", "nautical_club"},
+    {"club", "boat", "small_craft_facility", "nautical_club"},
+    {"scout", "sea", "small_craft_facility", "nautical_club"},
+    // Paddlers launch from a bank, not a ramp; the seamark vocabulary has no word for it.
+    {"canoe", "put_in", "small_craft_facility", "access_point"},
+    {"canoe", "egress", "small_craft_facility", "access_point"},
+    {"canoe", "put_in;egress", "small_craft_facility", "access_point"},
+    {"emergency", "water_rescue", "rescue_station", null},
+  };
+
+  /**
    * Extracts the attributes a seamark feature carries into the tiles: the derived values a style
    * expression cannot compute (resolved across type-specific keys, sanitized, IALA defaults, the
    * light abbreviation, sampled depth) plus the source tags verbatim.
@@ -97,6 +124,20 @@ public class Seamark {
       attrs.put("category", value(tags, "man_made"));
       attrs.put("function", value(tags, value(tags, "man_made") + ":type"));
       attrs.put("name", value(tags, "name"));    }
+
+    // Facilities are mapped with ordinary OSM tags far more often than with the
+    // duplicate seamark:* ones, so a chart that waits for seamark tagging shows
+    // almost none of them.
+    if (attrs.get("type") == null) {
+      for (String[] rule : PLAIN_TAG_FEATURES) {
+        if (rule[1].equals(value(tags, rule[0]))) {
+          attrs.put("type", rule[2]);
+          if (rule[3] != null) attrs.put("category", rule[3]);
+          attrs.put("name", value(tags, "name"));
+          break;
+        }
+      }
+    }
 
     // derive convenient helpers from attrs for the defaults logic
     String type = attrs.get("type") != null ? attrs.get("type").toString() : null;

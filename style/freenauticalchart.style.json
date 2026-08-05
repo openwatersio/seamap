@@ -556,6 +556,10 @@
             "restaurant", "freenauticalchart:poi-restaurant",
             "chandler", "freenauticalchart:poi-chandler",
             "electricity", "freenauticalchart:poi-electricity",
+            "access_point", "freenauticalchart:poi-kayak",
+            "fish_cleaning", "freenauticalchart:poi-fish-cleaning",
+            "fishing", "freenauticalchart:poi-fishing",
+            "beach", "freenauticalchart:poi-beach",
             "freenauticalchart:poi-generic"
           ],
           "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.8, 17, 1]

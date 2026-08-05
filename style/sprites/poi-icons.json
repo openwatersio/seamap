@@ -20,5 +20,6 @@
   "poi-hoist": "temaki:crane",
   "poi-beach": "maki:beach",
   "poi-kayak": "temaki:canoe",
-  "poi-fishing": "temaki:fishing-pier"
+  "poi-fishing": "temaki:fishing-pier",
+  "poi-fish-cleaning": "temaki:fish-cleaning"
 }
