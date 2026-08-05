@@ -266,7 +266,7 @@
     },
     {
         "id": "ferry", "type": "line", "source": "seamap", "source-layer": "seamark",
-        "filter": [ "==", "type", "ferry_route" ],
+        "filter": [ "==", ["get", "type"], "ferry_route" ],
         "layout": {"line-join": "round"},
         "paint": {
            "line-color": "#7c8af6",

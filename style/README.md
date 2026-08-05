@@ -75,6 +75,7 @@ Fixes applied on top of upstream, to reapply when re-vendoring:
 - `lights-label` and the name labels (`landmarks`, `seamark-label`) fought over the same anchor point, and since `lights-label` places first, lighthouse names were suppressed entirely. Named landmark lights now render one stacked label — name over characteristic — from `lights-label`, and `landmarks` blanks its name for lit features at those zooms.
 - Label typography aligned with the VersaTiles base map conventions: `Noto Sans Regular` throughout (upstream mixed Bold in arbitrarily), the base map's halo recipe (`rgba(255,255,255,0.8)`, width 2, blur 1) on every text layer, sizes floored at 9–10 (upstream started at 8, below everything in the base map), and `#333` for names instead of `#888`.
 - `radar-reflectors` used one flat `icon-offset` tuned for upstream's padded canvases, drawing the reflector on top of the buoy body. Now the same per-shape offsets as `topmarks`, shifted higher, so it sits above the body and clears any topmark.
+- `ferry` filtered on `["==", "type", "ferry_route"]`, comparing the literal string `"type"` rather than the attribute, so it matched nothing and ferry routes never drew. The filter is valid style-spec, which is why it went unnoticed. Now `["==", ["get", "type"], "ferry_route"]`.
 
 [signalk-seamap-plugin]: https://github.com/prozessor13/signalk-seamap-plugin
 
