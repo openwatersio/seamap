@@ -76,6 +76,8 @@ Fixes applied on top of upstream, to reapply when re-vendoring:
 - Label typography aligned with the VersaTiles base map conventions: `Noto Sans Regular` throughout (upstream mixed Bold in arbitrarily), the base map's halo recipe (`rgba(255,255,255,0.8)`, width 2, blur 1) on every text layer, sizes floored at 9–10 (upstream started at 8, below everything in the base map), and `#333` for names instead of `#888`.
 - `radar-reflectors` used one flat `icon-offset` tuned for upstream's padded canvases, drawing the reflector on top of the buoy body. Now the same per-shape offsets as `topmarks`, shifted higher, so it sits above the body and clears any topmark.
 - `ferry` filtered on `["==", "type", "ferry_route"]`, comparing the literal string `"type"` rather than the attribute, so it matched nothing and ferry routes never drew. The filter is valid style-spec, which is why it went unnoticed. Now `["==", ["get", "type"], "ferry_route"]`.
+- Seamark attributes are read from the source tags rather than from renamed copies — `seamark:seabed_area:surface` over `seabed_surface`, `seamark:fog_signal:category` over `fog_signal`, `seamark:rock:water_level` over `water_level`, a `coalesce` over `seamark:light:colour` and its `:1:` sectored variant over `light_color`/`light_category`, and a `let`-bound dynamic `get` for `restriction`. The tiles carry the tags, so the copies were dropped.
+- Two layers added for features the tiles already carried and nothing drew: `shoreline-constructions` (piers, breakwaters, groynes and quays, which sit in the water rather than in the land polygons) and `cranes`.
 
 [signalk-seamap-plugin]: https://github.com/prozessor13/signalk-seamap-plugin
 

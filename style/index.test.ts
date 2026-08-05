@@ -72,9 +72,11 @@ it("keeps layer ids and order stable", () => {
     "restricted-areas-fill-pattern", "allowed-areas", "allowed-areas-labels",
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
-    "cables-pipes", "TSS-separation-zone", "TSS-crossing-zone",
+    "shoreline-constructions", "cables-pipes", "TSS-separation-zone",
+    "TSS-crossing-zone",
     "TSS-separation-lane-arrows", "TSS-separation-boundary",
     "TSS-separation-line", "traffic-lane", "ferry", "piles", "platforms",
+    "cranes",
     "radio_station", "lights", "light_ray", "light_arc", "light-minor",
     "light-major", "fogsignals", "radar-reflectors", "topmarks", "buoys",
     "landmarks", "navigation-lines", "navigation-tracks", "line_symbols",
