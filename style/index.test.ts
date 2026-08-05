@@ -76,7 +76,7 @@ it("keeps layer ids and order stable", () => {
     "TSS-crossing-zone",
     "TSS-separation-lane-arrows", "TSS-separation-boundary",
     "TSS-separation-line", "traffic-lane", "ferry", "piles", "platforms",
-    "cranes",
+    "cranes", "rescue-stations", "radar-stations",
     "radio_station", "lights", "light_ray", "light_arc", "light-minor",
     "light-major", "fogsignals", "radar-reflectors", "topmarks", "buoys",
     "landmarks", "navigation-lines", "navigation-tracks", "line_symbols",
