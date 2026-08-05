@@ -234,6 +234,27 @@ npm run build --workspace viewer  # static build → viewer/dist/
 `maplibre-gl` and `@openwaters/seamap` are its only dependencies —
 the style package brings `@versatiles/style` and `@openwaters/seascape` along.
 
+### Previewing a local build
+
+`npm run dev` shows the *published* tiles, so a fresh `bin/run` changes nothing on screen. To see a build you just made, load it into the worker's local R2 simulation and hand the viewer a `?tiles=` override:
+
+```bash
+bin/run --area=malta --force      # → data/seamarks.pmtiles
+npm run seed --workspace worker   # copy that build into the local R2 sim
+npm run dev  --workspace worker   # serves it at localhost:8788
+npm run dev  --workspace viewer   # localhost:5173 — check its output, it takes the next free port
+```
+
+Then open the viewer pointed at that worker, positioned over the area you built:
+
+```
+http://localhost:5173/?tiles=http://localhost:8788/seamap/tiles.json#12/35.90/14.45
+```
+
+The hash is not optional in practice: the viewer centres on Aarhus, so a regional build without one shows an empty chart that looks like a failure. `#zoom/lat/lon` puts you over the data — `#12/35.90/14.45` for Malta, `#12/45.07/13.64` for Croatia.
+
+`npm run seed` copies the archive rather than reading it live, so re-run it after every rebuild. The `/seamap` prefix is optional locally (`localhost:8788/tiles.json` works too) — the worker accepts it with or without, since the prefix only exists in production routing.
+
 ### Data Sources for the Demopage
 
 #### 1. Base Map
