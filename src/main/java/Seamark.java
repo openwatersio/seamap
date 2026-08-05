@@ -82,48 +82,62 @@ public class Seamark {
       attrs.put("topmark_shape", sanitizeTopmarkShape(coalesce(seamarkValue(tags, "topmark", "shape"), seamarkValue(tags, "daymark", "shape"))));
       attrs.put("depth", Parse.parseDoubleOrNull(coalesce(seamarkValue(tags, type, "depth"), value(tags, "seamark:depth"), value(tags, "depth"))));
 
-    // create semarks from normal OSM tags:
+    // create seamarks from normal OSM tags:
     } else if ("ferry".equals(value(tags, "route")) && sf.canBeLine()) {
       attrs.put("type", "ferry_route");
-      attrs.put("name", value(tags, "name"));    } else if ("anchor".equals(value(tags, "waterway:sign"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("anchor".equals(value(tags, "waterway:sign"))) {
       attrs.put("type", "anchorage");
-      attrs.put("name", value(tags, "name"));    } else if ("cable".equals(value(tags, "power")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("cable".equals(value(tags, "power")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
       attrs.put("type", "cable_submarine");
       attrs.put("category", "power");
-      attrs.put("name", value(tags, "name"));    } else if ("pipeline".equals(value(tags, "man_made")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("pipeline".equals(value(tags, "man_made")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
       attrs.put("type", "pipeline_submarine");
       attrs.put("category", value(tags, "substance"));
-      attrs.put("name", value(tags, "name"));    } else if ("offshore_platform".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("offshore_platform".equals(value(tags, "man_made"))) {
       attrs.put("type", "platform");
       attrs.put("category", "offshore_platform");
-      attrs.put("name", value(tags, "name"));    } else if ("pier".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("pier".equals(value(tags, "man_made"))) {
       attrs.put("type", "shoreline_construction");
       attrs.put("category", "pier");
-      attrs.put("name", value(tags, "name"));    } else if ("groyne".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("groyne".equals(value(tags, "man_made"))) {
       attrs.put("type", "shoreline_construction");
       attrs.put("category", "groyne");
-      attrs.put("name", value(tags, "name"));    } else if ("breakwater".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("breakwater".equals(value(tags, "man_made"))) {
       attrs.put("type", "shoreline_construction");
       attrs.put("category", "breakwater");
-      attrs.put("name", value(tags, "name"));    } else if ("water_tap".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("water_tap".equals(value(tags, "man_made"))) {
       attrs.put("type", "small_craft_facility");
       attrs.put("category", "drinking_water");
-      attrs.put("name", value(tags, "name"));    } else if ("slipway".equals(value(tags, "leisure"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("slipway".equals(value(tags, "leisure"))) {
       attrs.put("type", "small_craft_facility");
       attrs.put("category", "slipway");
-      attrs.put("name", value(tags, "name"));    } else if ("wreck".equals(value(tags, "historic"))) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("wreck".equals(value(tags, "historic"))) {
       attrs.put("type", "wreck");
-      attrs.put("name", value(tags, "name"));    } else if ("marina".equals(value(tags, "leisure")) && (sf.canBeLine() || sf.canBePolygon())) {
+      attrs.put("name", value(tags, "name"));
+    } else if ("marina".equals(value(tags, "leisure")) && (sf.canBeLine() || sf.canBePolygon())) {
       attrs.put("type", "harbour");
       attrs.put("category", "marina");
-      attrs.put("name", value(tags, "name"));    } else if (("swimming_area".equals(value(tags, "leisure")) || "nature_reserve".equals(value(tags, "leisure"))) && (sf.canBeLine() || sf.canBePolygon())) {
+      attrs.put("name", value(tags, "name"));
+    } else if (("swimming_area".equals(value(tags, "leisure")) || "nature_reserve".equals(value(tags, "leisure"))) && (sf.canBeLine() || sf.canBePolygon())) {
       attrs.put("type", "restricted_area");
       attrs.put("category", value(tags, "leisure"));
-      attrs.put("name", value(tags, "name"));    } else if (sf.isPoint() && ("tower".equals(value(tags, "man_made")) || "windmill".equals(value(tags, "man_made")) || "gasometer".equals(value(tags, "man_made")))) {
+      attrs.put("name", value(tags, "name"));
+    } else if (sf.isPoint() && ("tower".equals(value(tags, "man_made")) || "windmill".equals(value(tags, "man_made")) || "gasometer".equals(value(tags, "man_made")))) {
       attrs.put("type", "landmark");
       attrs.put("category", value(tags, "man_made"));
       attrs.put("function", value(tags, value(tags, "man_made") + ":type"));
-      attrs.put("name", value(tags, "name"));    }
+      attrs.put("name", value(tags, "name"));
+    }
 
     // Facilities are mapped with ordinary OSM tags far more often than with the
     // duplicate seamark:* ones, so a chart that waits for seamark tagging shows

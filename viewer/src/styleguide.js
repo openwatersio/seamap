@@ -5,7 +5,10 @@ const SHEET = '/sprites/freenauticalchart'
 const PREVIEW = 86 // px; matches .preview in the page
 
 const [manifest, sheet] = await Promise.all([
-    fetch(`${SHEET}.json`).then((r) => r.json()),
+    fetch(`${SHEET}.json`).then((r) => {
+        if (!r.ok) throw new Error(`no sprite manifest at ${SHEET}.json (${r.status}) — run bin/sprites`)
+        return r.json()
+    }),
     new Promise((resolve, reject) => {
         const img = new Image()
         img.onload = () => resolve(img)
@@ -54,6 +57,8 @@ function card(name) {
     el.className = 'card'
     el.tabIndex = 0
     el.dataset.name = name
+    el.setAttribute('role', 'option')
+    el.setAttribute('aria-selected', 'false')
 
     const label = document.createElement('div')
     label.className = 'name'
