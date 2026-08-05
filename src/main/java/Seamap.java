@@ -4,6 +4,8 @@ import java.nio.file.Path;
 import com.onthegomap.planetiler.Planetiler;
 import com.onthegomap.planetiler.Profile;
 import com.onthegomap.planetiler.reader.SourceFeature;
+import com.onthegomap.planetiler.reader.osm.OsmElement;
+import com.onthegomap.planetiler.reader.osm.OsmSourceFeature;
 import com.onthegomap.planetiler.FeatureCollector;
 import com.onthegomap.planetiler.config.Arguments;
 import com.onthegomap.planetiler.geo.GeometryType;
@@ -36,6 +38,27 @@ import org.locationtech.jts.geom.*;
  * - For polygons we additionally generate a label with a PointOnSurface equivalent
  */
 public class Seamap implements Profile {
+
+  /** Seamark types that stay linear even when mapped as a closed way. */
+  private static final Set<String> ALWAYS_LINEAR = Set.of(
+    "cable_overhead", "cable_submarine", "ferry_route", "navigation_line", "pipeline_overhead",
+    "pipeline_submarine", "recommended_track", "separation_boundary", "separation_lane",
+    "separation_line");
+
+  /**
+   * Nodes, ways and relations share one id space, so tag the element type into the high bits.
+   * Without it node 123 and way 123 are the same feature to anything reading feature ids.
+   * Convention from https://github.com/protomaps/basemaps (feature/FeatureId.java).
+   */
+  private static long featureId(SourceFeature sf) {
+    if (sf instanceof OsmSourceFeature osm) {
+      OsmElement element = osm.originalElement();
+      long elementType = element instanceof OsmElement.Relation ? 3
+        : element instanceof OsmElement.Way ? 2 : 1;
+      return (elementType << 44) | element.id();
+    }
+    return sf.id();
+  }
 
   public static void main(String[] args) throws Exception {
     var arguments = Arguments.fromArgsOrConfigFile(args).withDefault("download", true);
@@ -151,12 +174,16 @@ public class Seamap implements Profile {
     // Process seamarks
     Map<String, Object> attrs = Seamark.extractSeamarkAttributes(sf);
     String type = (String) attrs.get("type");
-    String category = (String) attrs.get("category");
     if (type != null) {
       // add seamark to vector tile
       attrs.put("osm_id", sf.id());
-      FeatureCollector.Feature feature = features.anyGeometry("seamark");
+      // anyGeometry() makes a polygon of any closed way, which is wrong for the types that are
+      // linear however they're drawn — a TSS lane or a cable loop is never an area.
+      FeatureCollector.Feature feature = sf.canBeLine() && ALWAYS_LINEAR.contains(type)
+        ? features.line("seamark")
+        : features.anyGeometry("seamark");
       attrs.forEach((k, v) -> feature.setAttr(k, v));
+      feature.setId(featureId(sf));
       feature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
 
       // create label-grid for rocks, sorted by danger level; sampled depth
@@ -193,6 +220,7 @@ public class Seamap implements Profile {
           : features.centroid("seamark");
         attrs.forEach((k, v) -> labelFeature.setAttr(k, v));
         labelFeature.setAttr("osm_id", sf.id());
+        labelFeature.setId(featureId(sf));
         labelFeature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
       }
 

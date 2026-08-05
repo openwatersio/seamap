@@ -2,17 +2,34 @@ import java.util.*;
 import com.onthegomap.planetiler.util.Parse;
 import com.onthegomap.planetiler.reader.SourceFeature;
 import org.locationtech.jts.geom.Coordinate;
-import java.util.regex.*;
 
 public class Seamark {
 
   public static DepthCalculator depthCalculator = null;
 
+  /** Import provenance: S-57 long names and source strings. Nothing renders them. */
+  private static final Set<String> TAG_DENYLIST = Set.of("seamark:lnam", "seamark:source");
+
+  /** Key prefixes copied verbatim: every seamark attribute, localized names, fuel offerings. */
+  private static final String[] TAG_PREFIXES = {"seamark:", "name:", "fuel:"};
+
   /**
-   * Extracts all light geometries (Arcs + Rays) from OSM tags.
+   * Plain OSM keys worth carrying. `name` is deliberately absent — the derived `name` attribute
+   * already coalesces it with the seamark-specific variants.
+   */
+  private static final Set<String> TAG_WHITELIST = Set.of(
+    "ref", "description", "note", "access", "fee", "charge", "toll", "opening_hours",
+    "operator", "operator:wikidata", "wikidata", "wikipedia", "vhf", "direction", "distance",
+    "maxspeed", "maxstay", "maxdraft", "maxlength", "maxwidth", "maxheight", "maxweight",
+    "vessel", "vessel:mmsi", "wreck:type", "wreck:date_sunk", "building:height", "highway");
+
+  /**
+   * Extracts the attributes a seamark feature carries into the tiles: the derived values a style
+   * expression cannot compute (resolved across type-specific keys, sanitized, IALA defaults, the
+   * light abbreviation, sampled depth) plus the source tags verbatim.
    *
    * @param sf SourceFeature containing OSM Tags
-   * @return List of LightGeometry objects (Arcs + Rays)
+   * @return attribute map, empty when the feature is not a seamark
    */
   public static Map<String, Object> extractSeamarkAttributes(SourceFeature sf) {
     var tags = sf.tags();
@@ -178,7 +195,27 @@ public class Seamark {
       } catch(Exception e) {}
     }
 
+    // Carry the source tags alongside the derived ones, so styling an attribute we don't read
+    // yet is a style change rather than a planet rebuild. type == null means this isn't a
+    // seamark and the map is discarded.
+    if (type != null) {
+      passThroughTags(tags, attrs);
+    }
+
     return attrs;
+  }
+
+  /** Copies whitelisted source tags onto the feature, never overwriting a derived attribute. */
+  private static void passThroughTags(Map<String, Object> tags, Map<String, Object> attrs) {
+    for (Map.Entry<String, Object> e : tags.entrySet()) {
+      String key = e.getKey();
+      if (e.getValue() == null || TAG_DENYLIST.contains(key)) continue;
+      boolean keep = TAG_WHITELIST.contains(key);
+      for (int i = 0; !keep && i < TAG_PREFIXES.length; i++) {
+        keep = key.startsWith(TAG_PREFIXES[i]);
+      }
+      if (keep) attrs.putIfAbsent(key, e.getValue());
+    }
   }
 
   private static String value(Map<String, Object> tags, String key) {
@@ -251,8 +288,23 @@ public class Seamark {
     return sb.length() > 0 ? sb.toString() : null;
   }
 
-  private static String seamarkLightAbbr(Map<String,Object> tags) {
-    String color = "";
+  /** S-57 colour abbreviations; anything unlisted falls back to its capitalised initial. */
+  private static final Map<String, String> LIGHT_COLOUR_ABBR = Map.ofEntries(
+    Map.entry("white", "W"), Map.entry("red", "R"), Map.entry("green", "G"),
+    Map.entry("blue", "Bu"), Map.entry("violet", "Vi"), Map.entry("yellow", "Y"),
+    Map.entry("orange", "Or"), Map.entry("amber", "Am"), Map.entry("magenta", "M"));
+
+  /** Splits a `;`-separated colour list into lowercase tokens, preserving order. */
+  private static void addColours(Set<String> into, String value) {
+    if (value == null) return;
+    for (String colour : value.split(";")) {
+      String token = colour.trim().toLowerCase();
+      if (!token.isEmpty()) into.add(token);
+    }
+  }
+
+  static String seamarkLightAbbr(Map<String,Object> tags) {
+    Set<String> colours = new LinkedHashSet<>();
     String group = null;
     String character = null;
     Double range = 0.0;
@@ -261,28 +313,22 @@ public class Seamark {
 
     // Single light definition
     if (tags.containsKey("seamark:light:colour")) {
-      color = seamarkValue(tags, "light", "colour");
+      addColours(colours, seamarkValue(tags, "light", "colour"));
       group = seamarkValue(tags, "light", "group");
       character = seamarkValue(tags, "light", "character");
       range = Parse.parseDoubleOrNull(seamarkValue(tags, "light", "range"));
       period = seamarkValue(tags, "light", "period");
       height = seamarkValue(tags, "light", "height");
 
-    // Collect all seamark:light:<n>:colour and :range
+    // Sectored light. Sectors are numbered from 1, so walk them in order rather than in tag
+    // order, and name each distinct colour once — Fl.WRG.10s, not Fl.WRGW.10s.
     } else if (tags.containsKey("seamark:light:1:colour")) {
-      Pattern p = Pattern.compile("^seamark:light:(\\d+):colour$");
-      for (Map.Entry<String,Object> e : tags.entrySet()) {
-        Matcher m = p.matcher(e.getKey());
-        if (m.matches()) {
-          String idx = m.group(1);
-          String _color = seamarkValue(tags, "light", idx + ":colour");
-          if (_color == null) continue;
-          Double _range = Parse.parseDoubleOrNull(seamarkValue(tags, "light", idx + ":range"));
-          if (_range != null && _range > range) range = _range;
-          color = color + _color.substring(0,1).toUpperCase();
-        }
+      for (int i = 1; tags.containsKey("seamark:light:" + i + ":colour"); i++) {
+        addColours(colours, seamarkValue(tags, "light", i + ":colour"));
+        Double sectorRange = Parse.parseDoubleOrNull(seamarkValue(tags, "light", i + ":range"));
+        if (sectorRange != null && sectorRange > range) range = sectorRange;
       }
-      // Collect other common attributes from light:1
+      // Character, period and height describe the light as a whole, not the sector.
       group = seamarkValue(tags, "light", "1:group");
       character = seamarkValue(tags, "light", "1:character");
       period = seamarkValue(tags, "light", "1:period");
@@ -290,16 +336,24 @@ public class Seamark {
     }
 
     // Build abbreviation
-    if (color.isEmpty()) return null;
+    if (colours.isEmpty()) return null;
     StringBuilder sb = new StringBuilder();
     if (character != null) sb.append(character);
     if (group != null) sb.append("(").append(group).append(")");
     else sb.append(".");
-    sb.append(color.substring(0,1).toUpperCase());
+    for (String colour : colours) {
+      String abbr = LIGHT_COLOUR_ABBR.get(colour);
+      sb.append(abbr != null ? abbr : colour.substring(0, 1).toUpperCase());
+    }
     sb.append(".");
     if (period != null) sb.append(period).append("s");
     if (height != null) sb.append(height).append("m");
     if (range != null && range > 0) sb.append(Math.round(range)).append("M");
+
+    // A light tagged with no character, or none of period/height/range, would otherwise carry a
+    // dangling separator onto the chart.
+    while (sb.length() > 0 && sb.charAt(0) == '.') sb.deleteCharAt(0);
+    while (sb.length() > 0 && sb.charAt(sb.length() - 1) == '.') sb.setLength(sb.length() - 1);
     return sb.toString();
   }
 
