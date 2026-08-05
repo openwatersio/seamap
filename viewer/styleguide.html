@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="initial-scale=1">
+	<title>Seamap sprite styleguide</title>
+	<style>
+		:root { --bg: #eaf4fb; --ink: #222; --muted: #6b7785; --line: #c8d6e0; --sea: #b3e0fd; }
+		* { box-sizing: border-box; }
+		body { margin: 0; font: 13px/1.4 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+
+		header {
+			position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 12px;
+			align-items: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line);
+		}
+		header h1 { font-size: 14px; margin: 0 8px 0 0; font-weight: 600; }
+		label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+		input[type=search] { padding: 5px 8px; border: 1px solid var(--line); border-radius: 4px; min-width: 210px; font: inherit; }
+		select { padding: 5px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+		#count { margin-left: auto; color: var(--muted); }
+
+		#grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; padding: 16px; align-items: start; }
+		main.with-detail #grid { margin-right: 380px; }
+
+		.card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 5px; align-items: center; }
+		.card:hover { border-color: #7aa7c7; }
+		.card[aria-selected=true] { border-color: #ec008c; box-shadow: 0 0 0 1px #ec008c; }
+		.name { font-size: 10px; color: var(--ink); word-break: break-all; text-align: center; line-height: 1.2; }
+		.dims { font-size: 9px; color: var(--muted); }
+
+		/* Native size where it fits; anything larger is scaled down to fit the box,
+		   so a 200px light-sector arc still shows something instead of a blank crop. */
+		.preview { display: grid; place-items: center; width: 100%; height: 86px; background: var(--sea); border-radius: 3px; overflow: hidden; }
+
+		aside {
+			position: fixed; top: 0; right: 0; bottom: 0; width: 380px; z-index: 4;
+			background: #fff; border-left: 1px solid var(--line); padding: 14px;
+			display: none; flex-direction: column; gap: 10px; overflow: auto;
+		}
+		aside.open { display: flex; }
+		aside h2 { font-size: 13px; margin: 0; word-break: break-all; }
+		aside .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+		#close { margin-left: auto; cursor: pointer; border: 1px solid var(--line); background: #fff; border-radius: 4px; padding: 3px 8px; font: inherit; }
+		#zoomBox { flex: 1; min-height: 240px; overflow: auto; display: grid; place-items: center; background: var(--sea); border-radius: 4px; }
+		/* Sized to the scaled artwork exactly, so each grid square is one source pixel. */
+		.pixelframe { position: relative; flex: none; }
+		.sprite { background-repeat: no-repeat; }
+		.sprite.zoomed { image-rendering: pixelated; position: absolute; inset: 0; }
+		dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 11px; }
+		dt { color: var(--muted); }
+		dd { margin: 0; }
+	</style>
+</head>
+
+<body>
+	<header>
+		<h1>Sprite styleguide</h1>
+		<label>group
+			<select id="group"></select>
+		</label>
+		<label>filter
+			<input id="q" type="search" placeholder="name contains… (comma = or)">
+		</label>
+		<label>behind
+			<select id="sea">
+				<option value="#b3e0fd">water</option>
+				<option value="#ffffff">white</option>
+				<option value="#e8dfc8">land</option>
+				<option value="#cadbc1">drying</option>
+				<option value="#333333">dark</option>
+			</select>
+		</label>
+		<span id="count"></span>
+	</header>
+
+	<main>
+		<div id="grid" role="listbox" aria-label="Sprites"></div>
+	</main>
+
+	<aside id="detail">
+		<div class="controls">
+			<h2 id="d-name"></h2>
+			<button id="close" title="Escape">close</button>
+		</div>
+		<dl>
+			<dt>source</dt><dd id="d-size"></dd>
+			<dt>sheet xy</dt><dd id="d-xy"></dd>
+			<dt>ink</dt><dd id="d-ink"></dd>
+		</dl>
+		<div class="controls">
+			<label>zoom
+				<select id="zoom">
+					<option>2</option><option>4</option><option selected>8</option>
+					<option>12</option><option>16</option><option>24</option>
+				</select>
+			</label>
+			<label><input id="grid-toggle" type="checkbox" checked> pixel grid</label>
+		</div>
+		<div id="zoomBox"></div>
+	</aside>
+
+	<script type="module" src="/src/styleguide.js"></script>
+</body>
+
+</html>

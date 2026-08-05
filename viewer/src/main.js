@@ -1,5 +1,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import MaplibreInspect from '@maplibre/maplibre-gl-inspect'
+import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css'
 import { style, setup, attribution } from '@openwaters/seamap'
 
 // ?tiles=<url> points the chart at another TileJSON — a local `wrangler dev`
@@ -24,5 +26,12 @@ const map = new maplibregl.Map({
 
 // runtime images the style depends on: generic-icon fallback + unsurveyed stipple
 setup(map)
+
+// Toggles a debug view of the vector tiles: every layer recoloured, with the
+// feature's tags on hover. The tiles carry the OSM tags verbatim, so this is
+// how you find out what a feature actually holds before styling it.
+map.addControl(new MaplibreInspect({
+    popup: new maplibregl.Popup({ closeButton: false, closeOnClick: false })
+}))
 
 window.map = map // console/devtools access

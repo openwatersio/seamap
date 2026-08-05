@@ -72,13 +72,16 @@ it("keeps layer ids and order stable", () => {
     "restricted-areas-fill-pattern", "allowed-areas", "allowed-areas-labels",
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
-    "cables-pipes", "TSS-separation-zone", "TSS-crossing-zone",
+    "shoreline-constructions", "cables-pipes", "TSS-separation-zone",
+    "TSS-crossing-zone",
     "TSS-separation-lane-arrows", "TSS-separation-boundary",
     "TSS-separation-line", "traffic-lane", "ferry", "piles", "platforms",
+    "cranes", "rescue-stations", "radar-stations",
     "radio_station", "lights", "light_ray", "light_arc", "light-minor",
     "light-major", "fogsignals", "radar-reflectors", "topmarks", "buoys",
     "landmarks", "navigation-lines", "navigation-tracks", "line_symbols",
-    "seamark-line-label", "seamark-label", "harhours", "lights-label",
+    "seamark-line-label", "seamark-label", "small-craft-facilities", "harhours",
+    "lights-label",
   ]);
 });
 
@@ -115,4 +118,25 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
     expect(literals.size).toBeGreaterThan(0);
     expect([...literals].filter((name) => !icons.has(name))).toEqual([]);
   });
+});
+
+// ["==", "type", "ferry_route"] compares two constants and is always false, but it is valid
+// style-spec so nothing complains — the layer just silently draws nothing. Only the operands
+// of == and != are checked: `in` legitimately takes a literal needle (["in", "buoy", …]).
+it("never compares two constants", () => {
+  const constant = (node: unknown) => typeof node === "string" || typeof node === "number";
+  const offenders: string[] = [];
+  const walk = (node: unknown, layerId: string): void => {
+    if (!Array.isArray(node)) return;
+    if ((node[0] === "==" || node[0] === "!=") && constant(node[1]) && constant(node[2])) {
+      offenders.push(`${layerId}: ${JSON.stringify(node)}`);
+    }
+    node.forEach((child) => walk(child, layerId));
+  };
+  for (const layer of chartStyle.layers) {
+    for (const key of ["filter", "layout", "paint"] as const) {
+      walk((layer as Record<string, unknown>)[key], layer.id);
+    }
+  }
+  expect(offenders).toEqual([]);
 });

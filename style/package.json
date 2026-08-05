@@ -38,6 +38,8 @@
     "@versatiles/style": "^5.12.1"
   },
   "devDependencies": {
+    "@iconify-json/maki": "^1.2.5",
+    "@iconify-json/temaki": "^1.2.6",
     "typescript": "^5.6.0",
     "vitest": "^4.1.9"
   }

@@ -1,41 +1,46 @@
 import java.util.*;
-import java.util.regex.*;
 import java.nio.file.Path;
 import com.onthegomap.planetiler.Planetiler;
 import com.onthegomap.planetiler.Profile;
 import com.onthegomap.planetiler.reader.SourceFeature;
+import com.onthegomap.planetiler.reader.osm.OsmElement;
+import com.onthegomap.planetiler.reader.osm.OsmSourceFeature;
 import com.onthegomap.planetiler.FeatureCollector;
 import com.onthegomap.planetiler.config.Arguments;
-import com.onthegomap.planetiler.geo.GeometryType;
 import com.onthegomap.planetiler.geo.TileCoord;
-import com.onthegomap.planetiler.util.LanguageUtils;
 import com.onthegomap.planetiler.VectorTile;
 import org.locationtech.jts.geom.*;
 
 /**
- * Seamap.java
+ * Planetiler profile for the nautical chart. Emits the seamark, light, land, water, wetland and
+ * waterway layers; {@link Seamark#extractSeamarkAttributes} owns the OSM tag mapping, including
+ * the derivations that invent a seamark type from plain tags (leisure=marina, route=ferry, ...).
  *
- * Mapping logic:
- *   • seamark:* objects directly (buoys, beacons, lights, etc.)
- *   • additional derivations:
- *        - route=ferry => type=ferry_route (linestring)
- *        - waterway:sign=anchor => anchorage (point/line/polygon)
- *        - power=cable location=underwater => cable_submarine
- *        - man_made=pipeline location=underwater => pipeline_submarine
- *        - man_made=pier => mooring category=pier (point/line/polygon)
- *        - leisure=marina => harbour category=marina (line/polygon)
- *        - leisure in (swimming_area,nature_reserve) => restricted_area
- *        - man_made=tower/lighthouse/... => landmark or lighthouse
- *
- * Attributes per feature:
- *   osm_id, type, name, reference, function, category, shape,
- *   color, color_pattern, light, light_color, light_sequence,
- *   topmark_color, topmark_shape
- *
- * Note:
- * - For polygons we additionally generate a label with a PointOnSurface equivalent
+ * Harbours, landmarks and lights additionally emit a label point, so their name still places once
+ * the polygon itself is too small to hold one.
  */
 public class Seamap implements Profile {
+
+  /** Seamark types that stay linear even when mapped as a closed way. */
+  private static final Set<String> ALWAYS_LINEAR = Set.of(
+    "cable_overhead", "cable_submarine", "ferry_route", "navigation_line", "pipeline_overhead",
+    "pipeline_submarine", "recommended_track", "separation_boundary", "separation_lane",
+    "separation_line");
+
+  /**
+   * Nodes, ways and relations share one id space, so tag the element type into the high bits.
+   * Without it node 123 and way 123 are the same feature to anything reading feature ids.
+   * Convention from https://github.com/protomaps/basemaps (feature/FeatureId.java).
+   */
+  private static long featureId(SourceFeature sf) {
+    if (sf instanceof OsmSourceFeature osm) {
+      OsmElement element = osm.originalElement();
+      long elementType = element instanceof OsmElement.Relation ? 3
+        : element instanceof OsmElement.Way ? 2 : 1;
+      return (elementType << 44) | element.id();
+    }
+    return sf.id();
+  }
 
   public static void main(String[] args) throws Exception {
     var arguments = Arguments.fromArgsOrConfigFile(args).withDefault("download", true);
@@ -151,18 +156,22 @@ public class Seamap implements Profile {
     // Process seamarks
     Map<String, Object> attrs = Seamark.extractSeamarkAttributes(sf);
     String type = (String) attrs.get("type");
-    String category = (String) attrs.get("category");
     if (type != null) {
       // add seamark to vector tile
       attrs.put("osm_id", sf.id());
-      FeatureCollector.Feature feature = features.anyGeometry("seamark");
+      // anyGeometry() makes a polygon of any closed way, which is wrong for the types that are
+      // linear however they're drawn — a TSS lane or a cable loop is never an area.
+      FeatureCollector.Feature feature = sf.canBeLine() && ALWAYS_LINEAR.contains(type)
+        ? features.line("seamark")
+        : features.anyGeometry("seamark");
       attrs.forEach((k, v) -> feature.setAttr(k, v));
+      feature.setId(featureId(sf));
       feature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
 
       // create label-grid for rocks, sorted by danger level; sampled depth
       // (--depth) breaks ties within a tier, shallower first
       if (type.equals("rock")) {
-        String waterLevel = (String) attrs.get("water_level");
+        String waterLevel = (String) coalesceAttr(attrs, "seamark:rock:water_level", "seamark:water_level", "water_level");
         int depth = attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
         int rank;
         if ("submerged".equals(waterLevel)) rank = 0; // Most dangerous: always underwater, invisible
@@ -193,6 +202,7 @@ public class Seamap implements Profile {
           : features.centroid("seamark");
         attrs.forEach((k, v) -> labelFeature.setAttr(k, v));
         labelFeature.setAttr("osm_id", sf.id());
+        labelFeature.setId(featureId(sf));
         labelFeature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
       }
 
@@ -224,8 +234,8 @@ public class Seamap implements Profile {
         // Cut every water polygon out of land. Seascape treats all OSM water as
         // water (unknown depth where unsurveyed), so whatever it renders shows
         // through the hole with the OSM shoreline as the edge.
-        Geometry allLand = unionGeometries(landFeatures, f -> true);
-        Geometry allWater = waterFeatures == null ? null : unionGeometries(waterFeatures, f -> true);
+        Geometry allLand = unionGeometries(landFeatures);
+        Geometry allWater = waterFeatures == null ? null : unionGeometries(waterFeatures);
 
         if (allLand != null && allWater != null) {
           allLand = allLand.difference(allWater);
@@ -249,13 +259,22 @@ public class Seamap implements Profile {
     return layers;
   }
 
-  private static Geometry unionGeometries(List<VectorTile.Feature> features, java.util.function.Predicate<VectorTile.Feature> include)
+  /** First non-null of the given attribute keys — resolves a value across its tagging variants. */
+  private static Object coalesceAttr(Map<String, Object> attrs, String... keys) {
+    for (String key : keys) {
+      Object value = attrs.get(key);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  private static Geometry unionGeometries(List<VectorTile.Feature> features)
       throws com.onthegomap.planetiler.geo.GeometryException {
     // Cascaded union: low-zoom tiles hold tens of thousands of land grid
     // cells, and pairwise union is O(n²) over them.
     List<Geometry> geoms = new ArrayList<>();
     for (VectorTile.Feature f : features) {
-      if (include.test(f)) geoms.add(f.geometry().decode());
+      geoms.add(f.geometry().decode());
     }
     if (geoms.isEmpty()) return null;
     return org.locationtech.jts.operation.union.UnaryUnionOp.union(geoms);

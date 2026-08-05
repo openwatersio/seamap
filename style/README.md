@@ -61,6 +61,8 @@ Icon names are composed from tag values at render time, so the style layers and 
 
 In this repo the sheet is generated, not committed: `bin/sprites` (here in `style/`) expands the vendored SVG sources in [sprites/](sprites/) into `sprites/dist/`. Needs `spreet` (pinned in the repo's `mise.toml`) and Python 3. `npm publish` runs it via `prepublishOnly`; consumers of the published package never need the toolchain.
 
+The same run composes the `poi-*` badges via `bin/poi-badges`, pulling glyphs from the CC0 Maki and Temaki sets (the `@iconify-json/*` dev dependencies) and wrapping each in a halo and disc. Those packages have to be installed first, so `npm install` comes before `bin/sprites`, not after. To add an amenity symbol, map a sprite name to a glyph in [sprites/poi-icons.json](sprites/poi-icons.json) — there is nothing to draw. Both scripts write into `sprites/icons/gen/`, which is gitignored, so no generated artwork is ever committed.
+
 ## Vendored style
 
 [freenauticalchart.style.json](freenauticalchart.style.json) is `styles/freenauticalchart.json` from [signalk-seamap-plugin] — a chart-only MapLibre style whose seamark and light layers `layers()` extracts. The style declares CC0 in its own metadata.
@@ -75,6 +77,10 @@ Fixes applied on top of upstream, to reapply when re-vendoring:
 - `lights-label` and the name labels (`landmarks`, `seamark-label`) fought over the same anchor point, and since `lights-label` places first, lighthouse names were suppressed entirely. Named landmark lights now render one stacked label — name over characteristic — from `lights-label`, and `landmarks` blanks its name for lit features at those zooms.
 - Label typography aligned with the VersaTiles base map conventions: `Noto Sans Regular` throughout (upstream mixed Bold in arbitrarily), the base map's halo recipe (`rgba(255,255,255,0.8)`, width 2, blur 1) on every text layer, sizes floored at 9–10 (upstream started at 8, below everything in the base map), and `#333` for names instead of `#888`.
 - `radar-reflectors` used one flat `icon-offset` tuned for upstream's padded canvases, drawing the reflector on top of the buoy body. Now the same per-shape offsets as `topmarks`, shifted higher, so it sits above the body and clears any topmark.
+- `ferry` filtered on `["==", "type", "ferry_route"]`, comparing the literal string `"type"` rather than the attribute, so it matched nothing and ferry routes never drew. The filter is valid style-spec, which is why it went unnoticed. Now `["==", ["get", "type"], "ferry_route"]`.
+- Seamark attributes are read from the source tags rather than from renamed copies — `seamark:seabed_area:surface` over `seabed_surface`, `seamark:fog_signal:category` over `fog_signal`, `seamark:rock:water_level` over `water_level`, a `coalesce` over `seamark:light:colour` and its `:1:` sectored variant over `light_color`/`light_category`, and a `let`-bound dynamic `get` for `restriction`. The tiles carry the tags, so the copies were dropped.
+- Two layers added for features the tiles already carried and nothing drew: `shoreline-constructions` (piers, breakwaters, groynes and quays, which sit in the water rather than in the land polygons) and `cranes`.
+- `small-craft-facilities` added, drawn with the `poi-*` badges (see below). Sixteen categories are keyed by name and anything unrecognised — the `toilets;showers` style multi-values especially — falls back to `poi-generic` rather than resolving to an empty icon name and vanishing. It draws from z14 and, unlike the chart symbols, does *not* set `icon-overlap`, so a harbour with 146 slipways declutters instead of becoming a wall of discs.
 
 [signalk-seamap-plugin]: https://github.com/prozessor13/signalk-seamap-plugin
 
