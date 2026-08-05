@@ -171,7 +171,7 @@ public class Seamap implements Profile {
       // create label-grid for rocks, sorted by danger level; sampled depth
       // (--depth) breaks ties within a tier, shallower first
       if (type.equals("rock")) {
-        String waterLevel = (String) attrs.get("water_level");
+        String waterLevel = (String) coalesceAttr(attrs, "seamark:rock:water_level", "seamark:water_level", "water_level");
         int depth = attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
         int rank;
         if ("submerged".equals(waterLevel)) rank = 0; // Most dangerous: always underwater, invisible
@@ -257,6 +257,15 @@ public class Seamap implements Profile {
     }
 
     return layers;
+  }
+
+  /** First non-null of the given attribute keys — resolves a value across its tagging variants. */
+  private static Object coalesceAttr(Map<String, Object> attrs, String... keys) {
+    for (String key : keys) {
+      Object value = attrs.get(key);
+      if (value != null) return value;
+    }
+    return null;
   }
 
   private static Geometry unionGeometries(List<VectorTile.Feature> features)

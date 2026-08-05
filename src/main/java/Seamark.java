@@ -18,6 +18,8 @@ public class Seamark {
    * already coalesces it with the seamark-specific variants.
    */
   private static final Set<String> TAG_WHITELIST = Set.of(
+    // water_level and restriction are the unprefixed fallbacks the style resolves against
+    "water_level", "restriction",
     "ref", "description", "note", "access", "fee", "charge", "toll", "opening_hours",
     "operator", "operator:wikidata", "wikidata", "wikipedia", "vhf", "direction", "distance",
     "maxspeed", "maxstay", "maxdraft", "maxlength", "maxwidth", "maxheight", "maxweight",
@@ -40,99 +42,61 @@ public class Seamark {
       String type = value(tags, "seamark:type");
       attrs.put("type", type);
       attrs.put("name", coalesce(seamarkValue(tags, type, "name"), value(tags, "seamark:name"), value(tags, "name")));
-      attrs.put("reference", coalesce(seamarkValue(tags, type, "reference"), value(tags, "seamark:reference"), value(tags, "reference")));
       attrs.put("category", getSeamarkCategory(tags, type));
-      attrs.put("restriction", coalesce(seamarkValue(tags, type, "restriction"), value(tags, "seamark:restriction"), value(tags, "restriction")));
       attrs.put("function", coalesce(seamarkValue(tags, type, "function"), value(tags, "seamark:function"), value(tags, "function")));
-      attrs.put("water_level", coalesce(seamarkValue(tags, type, "water_level"), value(tags, "seamark:water_level"), value(tags, "water_level")));
       attrs.put("shape", seamarkValue(tags, type, "shape"));
       attrs.put("color", replaceSemiWithUnderscore(seamarkValue(tags, type, "colour")));
       attrs.put("color_pattern", seamarkValue(tags, type, "colour_pattern"));
-      attrs.put("fog_signal", seamarkValue(tags, "fog_signal", "category"));
       attrs.put("radar_reflector", radarReflector(tags, type));
       attrs.put("radio_station", collectTags(tags, "radio_station"));
-      attrs.put("seabed_surface", seamarkValue(tags, "seabed_area", "surface"));
       attrs.put("light", seamarkLightAbbr(tags));
-      attrs.put("light_color", coalesce(seamarkValue(tags, "light", "colour"), seamarkValue(tags, "light", "1:colour")));
-      attrs.put("light_sequence", coalesce(seamarkValue(tags, "light", "sequence"), seamarkValue(tags, "light", "1:sequence")));
-      attrs.put("light_category", coalesce(seamarkValue(tags, "light", "category"), seamarkValue(tags, "light", "1:category")));
       attrs.put("topmark_color", replaceSemiWithUnderscore(coalesce(seamarkValue(tags, "topmark", "colour"), seamarkValue(tags, "daymark", "colour"))));
       attrs.put("topmark_color_pattern", replaceSemiWithUnderscore(coalesce(seamarkValue(tags, "topmark", "colour_pattern"))));
       attrs.put("topmark_shape", sanitizeTopmarkShape(coalesce(seamarkValue(tags, "topmark", "shape"), seamarkValue(tags, "daymark", "shape"))));
       attrs.put("depth", Parse.parseDoubleOrNull(coalesce(seamarkValue(tags, type, "depth"), value(tags, "seamark:depth"), value(tags, "depth"))));
-      attrs.put("minimum_depth", Parse.parseDoubleOrNull(coalesce(seamarkValue(tags, type, "minimum_depth"), value(tags, "seamark:minimum_depth"), value(tags, "minimum_depth"))));
-      attrs.put("maximum_depth", Parse.parseDoubleOrNull(coalesce(seamarkValue(tags, type, "maximum_depth"), value(tags, "seamark:maximum_depth"), value(tags, "maximum_depth"))));
 
     // create semarks from normal OSM tags:
     } else if ("ferry".equals(value(tags, "route")) && sf.canBeLine()) {
       attrs.put("type", "ferry_route");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("anchor".equals(value(tags, "waterway:sign"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("anchor".equals(value(tags, "waterway:sign"))) {
       attrs.put("type", "anchorage");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("cable".equals(value(tags, "power")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
+      attrs.put("name", value(tags, "name"));    } else if ("cable".equals(value(tags, "power")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
       attrs.put("type", "cable_submarine");
       attrs.put("category", "power");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("pipeline".equals(value(tags, "man_made")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
+      attrs.put("name", value(tags, "name"));    } else if ("pipeline".equals(value(tags, "man_made")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
       attrs.put("type", "pipeline_submarine");
       attrs.put("category", value(tags, "substance"));
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("offshore_platform".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("offshore_platform".equals(value(tags, "man_made"))) {
       attrs.put("type", "platform");
       attrs.put("category", "offshore_platform");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("pier".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("pier".equals(value(tags, "man_made"))) {
       attrs.put("type", "shoreline_construction");
       attrs.put("category", "pier");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("groyne".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("groyne".equals(value(tags, "man_made"))) {
       attrs.put("type", "shoreline_construction");
       attrs.put("category", "groyne");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("breakwater".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("breakwater".equals(value(tags, "man_made"))) {
       attrs.put("type", "shoreline_construction");
       attrs.put("category", "breakwater");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("water_tap".equals(value(tags, "man_made"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("water_tap".equals(value(tags, "man_made"))) {
       attrs.put("type", "small_craft_facility");
       attrs.put("category", "drinking_water");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("slipway".equals(value(tags, "leisure"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("slipway".equals(value(tags, "leisure"))) {
       attrs.put("type", "small_craft_facility");
       attrs.put("category", "slipway");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("wreck".equals(value(tags, "historic"))) {
+      attrs.put("name", value(tags, "name"));    } else if ("wreck".equals(value(tags, "historic"))) {
       attrs.put("type", "wreck");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if ("marina".equals(value(tags, "leisure")) && (sf.canBeLine() || sf.canBePolygon())) {
+      attrs.put("name", value(tags, "name"));    } else if ("marina".equals(value(tags, "leisure")) && (sf.canBeLine() || sf.canBePolygon())) {
       attrs.put("type", "harbour");
       attrs.put("category", "marina");
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if (("swimming_area".equals(value(tags, "leisure")) || "nature_reserve".equals(value(tags, "leisure"))) && (sf.canBeLine() || sf.canBePolygon())) {
+      attrs.put("name", value(tags, "name"));    } else if (("swimming_area".equals(value(tags, "leisure")) || "nature_reserve".equals(value(tags, "leisure"))) && (sf.canBeLine() || sf.canBePolygon())) {
       attrs.put("type", "restricted_area");
       attrs.put("category", value(tags, "leisure"));
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    } else if (sf.isPoint() && ("tower".equals(value(tags, "man_made")) || "windmill".equals(value(tags, "man_made")) || "gasometer".equals(value(tags, "man_made")))) {
+      attrs.put("name", value(tags, "name"));    } else if (sf.isPoint() && ("tower".equals(value(tags, "man_made")) || "windmill".equals(value(tags, "man_made")) || "gasometer".equals(value(tags, "man_made")))) {
       attrs.put("type", "landmark");
       attrs.put("category", value(tags, "man_made"));
       attrs.put("function", value(tags, value(tags, "man_made") + ":type"));
-      attrs.put("name", value(tags, "name"));
-      attrs.put("reference", value(tags, "ref"));
-    }
+      attrs.put("name", value(tags, "name"));    }
 
     // derive convenient helpers from attrs for the defaults logic
     String type = attrs.get("type") != null ? attrs.get("type").toString() : null;

@@ -30,7 +30,7 @@
     {
         "id": "rocks", "type": "symbol", "source": "seamap", "source-layer": "seamark",
         "filter": ["==", ["get","type"], "rock"],
-        "layout": { "icon-overlap": "always", "icon-image": ["match", ["get", "water_level"], "covers", "freenauticalchart:rock-covers", "awash", "freenauticalchart:rock-awash", "freenauticalchart:rock-submerged"], "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1] }
+        "layout": { "icon-overlap": "always", "icon-image": ["match", ["coalesce", ["get", "seamark:rock:water_level"], ["get", "seamark:water_level"], ["get", "water_level"], ""], "covers", "freenauticalchart:rock-covers", "awash", "freenauticalchart:rock-awash", "freenauticalchart:rock-submerged"], "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1] }
     },
     {
         "id": "obstructions", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
@@ -88,9 +88,9 @@
     },
     {
         "id": "seabed", "type": "symbol", "source": "seamap", "source-layer": "seamark",
-        "filter": ["has", "seabed_surface"],
+        "filter": ["has", "seamark:seabed_area:surface"],
         "layout": {
-            "text-field": ["get", "seabed_surface"],
+            "text-field": ["get", "seamark:seabed_area:surface"],
             "text-font": ["Noto Sans Regular"],
             "text-letter-spacing": 0.1, "text-max-width": 5, "text-padding": 10,
             "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 13, 11]
@@ -158,21 +158,27 @@
     },
     {
         "id": "restricted-areas-fill-pattern", "type": "fill", "source": "seamap", "source-layer": "seamark",
-        "filter": ["any",
-            ["==", ["get", "type"], "military_area"],
-            ["==", ["get", "category"], "military"],
-            ["in", "no_entry", ["coalesce", ["get", "restriction"], ""]],
-            ["in", "restricted_entry", ["coalesce", ["get", "restriction"], ""]],
-            ["in", "no_anchoring", ["coalesce", ["get", "restriction"], ""]]
+        "filter": ["let", "restriction",
+            ["coalesce", ["get", ["concat", "seamark:", ["get", "type"], ":restriction"]], ["get", "seamark:restriction"], ["get", "restriction"], ""],
+            ["any",
+                ["==", ["get", "type"], "military_area"],
+                ["==", ["get", "category"], "military"],
+                ["in", "no_entry", ["var", "restriction"]],
+                ["in", "restricted_entry", ["var", "restriction"]],
+                ["in", "no_anchoring", ["var", "restriction"]]
+            ]
         ],
         "paint": {
-            "fill-pattern": ["case",
-                ["==", ["get", "type"], "military_area"], "freenauticalchart:military",
-                ["==", ["get", "category"], "military"], "freenauticalchart:military",
-                ["in", "no_entry", ["get", "restriction"]], "freenauticalchart:no-entry",
-                ["in", "restricted_entry", ["get", "restriction"]], "freenauticalchart:no-anchor",
-                ["in", "no_anchoring", ["get", "restriction"]], "freenauticalchart:no-anchor",
-                ""
+            "fill-pattern": ["let", "restriction",
+                ["coalesce", ["get", ["concat", "seamark:", ["get", "type"], ":restriction"]], ["get", "seamark:restriction"], ["get", "restriction"], ""],
+                ["case",
+                    ["==", ["get", "type"], "military_area"], "freenauticalchart:military",
+                    ["==", ["get", "category"], "military"], "freenauticalchart:military",
+                    ["in", "no_entry", ["var", "restriction"]], "freenauticalchart:no-entry",
+                    ["in", "restricted_entry", ["var", "restriction"]], "freenauticalchart:no-anchor",
+                    ["in", "no_anchoring", ["var", "restriction"]], "freenauticalchart:no-anchor",
+                    ""
+                ]
             ],
             "fill-opacity": ["case",
                 ["==", ["get", "type"], "military_area"], 0.1,
@@ -292,9 +298,9 @@
     },
     {
         "id": "lights", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 10,
-        "filter": ["has", "light_color"],
+        "filter": ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
         "layout": {
-          "icon-image": ["concat", "freenauticalchart:", ["case", ["==",["get","light_category"], "floodlight"],"floodlight/","light/"], ["get","light_color"]],
+          "icon-image": ["concat", "freenauticalchart:", ["case", ["==",["coalesce",["get","seamark:light:category"],["get","seamark:light:1:category"],""], "floodlight"],"floodlight/","light/"], ["coalesce",["get","seamark:light:colour"],["get","seamark:light:1:colour"]]],
           "icon-anchor": "top",
           "icon-offset": [0, 2],
           "icon-rotate": -45, "icon-overlap": "always", "icon-rotation-alignment": "viewport",
@@ -334,7 +340,7 @@
     },
     {
         "id": "fogsignals", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 10,
-        "filter": ["has","fog_signal"],
+        "filter": ["has","seamark:fog_signal:category"],
         "layout": { "icon-image": "freenauticalchart:fogsignal", "icon-overlap": "always", "icon-rotate": 90, "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1] }
     },
     {
@@ -435,7 +441,7 @@
           "icon-overlap": "always",
           "text-field": ["step", ["zoom"],
             ["get", "name"],
-            11, ["case", ["has", "light_color"], "", ["get", "name"]]
+            11, ["case", ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]], "", ["get", "name"]]
           ],
           "text-size": 12, "text-font": ["Noto Sans Regular"],
           "text-anchor": "left", "text-offset": [1,-0.5], "text-optional": true,
@@ -526,7 +532,7 @@
     },
     {
         "id": "lights-label", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 11,
-        "filter": ["has", "light_color"],
+        "filter": ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
         "layout": {
           "text-anchor": "left",
           "text-field": ["case",
