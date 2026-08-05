@@ -60,11 +60,13 @@ jobs:
           cache: npm
 
       # Sprites are generated, not committed; the viewer build copies them out
-      # of the style package. mise supplies spreet at the pinned version.
+      # of the style package. mise supplies spreet at the pinned version, and
+      # the POI badges are composed from the @iconify-json packages, so the
+      # install has to come first.
       - uses: jdx/mise-action@v4
+      - run: npm ci
       - run: bin/sprites
 
-      - run: npm ci
       - run: npm test --workspace style
       - run: npm run check --workspace worker
       - run: npm test --workspace worker

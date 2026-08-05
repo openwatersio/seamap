@@ -61,7 +61,7 @@ Icon names are composed from tag values at render time, so the style layers and 
 
 In this repo the sheet is generated, not committed: `bin/sprites` (here in `style/`) expands the vendored SVG sources in [sprites/](sprites/) into `sprites/dist/`. Needs `spreet` (pinned in the repo's `mise.toml`) and Python 3. `npm publish` runs it via `prepublishOnly`; consumers of the published package never need the toolchain.
 
-The same run composes the `poi-*` badges via `bin/poi-badges`, pulling glyphs from the CC0 Maki and Temaki sets (the `@iconify-json/*` dev dependencies) and wrapping each in a halo and disc. To add an amenity symbol, map a sprite name to a glyph in [sprites/poi-icons.json](sprites/poi-icons.json) — there is nothing to draw. Both scripts write into `sprites/icons/gen/`, which is gitignored, so no generated artwork is ever committed.
+The same run composes the `poi-*` badges via `bin/poi-badges`, pulling glyphs from the CC0 Maki and Temaki sets (the `@iconify-json/*` dev dependencies) and wrapping each in a halo and disc. Those packages have to be installed first, so `npm install` comes before `bin/sprites`, not after. To add an amenity symbol, map a sprite name to a glyph in [sprites/poi-icons.json](sprites/poi-icons.json) — there is nothing to draw. Both scripts write into `sprites/icons/gen/`, which is gitignored, so no generated artwork is ever committed.
 
 ## Vendored style
 

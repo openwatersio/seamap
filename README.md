@@ -225,8 +225,8 @@ style — base map, bathymetry, symbology, and sprite sheet — lives in the
 this viewer or any other app; the viewer itself is a thin runtime shell.
 
 ```bash
-bin/sprites                       # build the chart symbols (needs mise install)
 npm install
+bin/sprites                       # build the chart symbols (needs mise install)
 npm run dev --workspace viewer    # local dev server
 npm run build --workspace viewer  # static build → viewer/dist/
 ```
