@@ -525,6 +525,32 @@
         }
     },
     {
+        "id": "small-craft-facilities", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 14,
+        "filter": ["==", ["get", "type"], "small_craft_facility"],
+        "layout": {
+          "icon-image": ["match", ["get", "category"],
+            "slipway", "freenauticalchart:poi-slipway",
+            "fuel_station", "freenauticalchart:poi-fuel",
+            ["water_tap", "drinking_water"], "freenauticalchart:poi-water",
+            "pump-out", "freenauticalchart:poi-pumpout",
+            ["visitor_berth", "visitors_mooring", "berth"], "freenauticalchart:poi-berth",
+            "nautical_club", "freenauticalchart:poi-club",
+            "boat_hoist", "freenauticalchart:poi-hoist",
+            "boatyard", "freenauticalchart:poi-boatyard",
+            "boat_storage", "freenauticalchart:poi-boat-storage",
+            "toilets", "freenauticalchart:poi-toilets",
+            "showers", "freenauticalchart:poi-showers",
+            "laundrette", "freenauticalchart:poi-laundry",
+            "provisions", "freenauticalchart:poi-provisions",
+            "restaurant", "freenauticalchart:poi-restaurant",
+            "chandler", "freenauticalchart:poi-chandler",
+            "electricity", "freenauticalchart:poi-electricity",
+            "freenauticalchart:poi-generic"
+          ],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.8, 17, 1]
+        }
+    },
+    {
         "id": "harhours", "type": "symbol", "source": "seamap", "source-layer": "seamark", "minzoom": 8,
         "filter": ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "category"], ["literal", ["marina", "fishing"]]]],
         "layout": {

@@ -21,6 +21,11 @@ rm -rf "$src/icons/gen" "$out"
 # The compass roses are 1024px and unused (upstream drops them too).
 rm -rf "$src"/icons/gen/{BCNSHP,BOYSHP,TOPSHP,CATLMK} "$src"/icons/gen/compass-*
 
+# Amenities ashore are badges built from the CC0 Maki/Temaki sets rather than
+# chart line art — see bin/poi-badges. Composed into gen/ so the output stays
+# out of git, alongside the expanded chart symbols spreet is about to pack.
+bin/poi-badges "$src/icons/gen" "$src/poi-icons.json" ../node_modules
+
 # MapLibre tiles fill patterns edge to edge, so the image is the repeat cell:
 # cropped to the artwork they read as a solid mass instead of chart hatching.
 # Pad the icons the style uses as fill patterns into a 32-unit cell (64px at

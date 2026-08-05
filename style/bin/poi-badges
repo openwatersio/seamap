@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Compose POI badge sprites from the CC0 Maki and Temaki glyph sets.
+
+Amenities ashore are not seamarks, and drawing them as chart line art makes
+them compete with the symbols a mariner navigates by. They get a badge instead
+— the convention every map app uses — which reads at a glance and says plainly
+"this is not a charted aid to navigation".
+
+Writes into icons/gen/, i.e. after genicons.py has expanded the chart symbols
+and before spreet packs the sheet, so nothing generated is ever committed.
+"""
+
+import json
+import sys
+from pathlib import Path
+
+# A 16-unit box, matching the hand-drawn chart symbols; spreet rasterises at 2x.
+SIZE = 16
+CENTRE = SIZE / 2
+HALO_R = 8  # white ring, so a badge stays legible over contours and soundings
+DISC_R = 7
+GLYPH_BOX = 11  # the diagonal of this square is just inside the disc
+
+DISC_COLOUR = "#ec008c"  # magenta: the chart's colour for man-made and informational
+GLYPH_COLOUR = "#fff"
+
+
+def glyph(sets, ref):
+    """Scale one Iconify glyph into the badge's centre, recoloured to knock out."""
+    prefix, name = ref.split(":", 1)
+    icon_set = sets[prefix]
+    icon = icon_set["icons"][name]
+    # Per-icon width/height override the set default; left/top shift the viewBox.
+    w = icon.get("width", icon_set.get("width", 16))
+    h = icon.get("height", icon_set.get("height", 16))
+    left, top = icon.get("left", 0), icon.get("top", 0)
+
+    scale = GLYPH_BOX / max(w, h)
+    tx = CENTRE - (left + w / 2) * scale
+    ty = CENTRE - (top + h / 2) * scale
+    # Bodies paint with currentColor; substitution is more reliable than relying
+    # on inheritance, since some paths set fill and stroke explicitly.
+    body = icon["body"].replace("currentColor", GLYPH_COLOUR)
+    return f'<g transform="translate({tx:.3f} {ty:.3f}) scale({scale:.4f})">{body}</g>'
+
+
+def badge(inner):
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}">'
+        f'<circle cx="{CENTRE}" cy="{CENTRE}" r="{HALO_R}" fill="#fff"/>'
+        f'<circle cx="{CENTRE}" cy="{CENTRE}" r="{DISC_R}" fill="{DISC_COLOUR}"/>'
+        f"{inner}</svg>\n"
+    )
+
+
+def main(out_dir, mapping_path, modules):
+    mapping = {
+        name: ref
+        for name, ref in json.loads(Path(mapping_path).read_text()).items()
+        if not name.startswith("_")
+    }
+    needed = {ref.split(":", 1)[0] for ref in mapping.values() if ref}
+    sets = {}
+    for prefix in sorted(needed):
+        path = Path(modules) / f"@iconify-json/{prefix}/icons.json"
+        if not path.exists():
+            sys.exit(f"missing {path} — run `npm install` at the repo root")
+        sets[prefix] = json.loads(path.read_text())
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, ref in mapping.items():
+        # A null mapping is the bare badge — the fallback for a category with no
+        # glyph of its own, which is better than an icon that fails to resolve.
+        Path(out / f"{name}.svg").write_text(badge(glyph(sets, ref) if ref else ""))
+
+    print(f"composed {len(mapping)} POI badges")
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:4])

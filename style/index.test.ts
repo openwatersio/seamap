@@ -80,7 +80,8 @@ it("keeps layer ids and order stable", () => {
     "radio_station", "lights", "light_ray", "light_arc", "light-minor",
     "light-major", "fogsignals", "radar-reflectors", "topmarks", "buoys",
     "landmarks", "navigation-lines", "navigation-tracks", "line_symbols",
-    "seamark-line-label", "seamark-label", "harhours", "lights-label",
+    "seamark-line-label", "seamark-label", "small-craft-facilities", "harhours",
+    "lights-label",
   ]);
 });
 
