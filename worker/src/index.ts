@@ -31,8 +31,7 @@ export interface Env {
 const PREFIX = "seamap/";
 // Planetiler writes no attribution into the archive metadata, and the tiles are
 // OSM-derived — supply the credit the source has to carry.
-const ATTRIBUTION =
-  "<a href='https://www.openstreetmap.org/copyright' target='_blank'>© OSM</a>";
+const ATTRIBUTION = "<a href='https://www.openstreetmap.org/copyright' target='_blank'>© OSM</a>";
 
 class R2Source implements Source {
   constructor(
@@ -77,8 +76,7 @@ function archive(env: Env, version: string): PMTiles {
 const POINTER_TTL = 60_000;
 let pointer: { version: string; at: number } | undefined;
 async function version(env: Env): Promise<string> {
-  if (!env.DEV && pointer && Date.now() - pointer.at < POINTER_TTL)
-    return pointer.version;
+  if (!env.DEV && pointer && Date.now() - pointer.at < POINTER_TTL) return pointer.version;
   const obj = await env.TILES.get(PREFIX + "latest");
   if (!obj) throw new Error(`${PREFIX}latest missing — nothing published yet`);
   const v = (await obj.text()).trim();
@@ -101,8 +99,7 @@ const CORS = { "access-control-allow-origin": "*" };
 // expiry fires a conditional request that still bills as an invocation.
 const TILE_CACHE =
   "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=31536000, stale-if-error=31536000";
-const JSON_CACHE =
-  "public, max-age=60, stale-while-revalidate=604800, stale-if-error=31536000";
+const JSON_CACHE = "public, max-age=60, stale-while-revalidate=604800, stale-if-error=31536000";
 const MVT = {
   "content-type": "application/x-protobuf",
   "cache-control": TILE_CACHE,
@@ -124,11 +121,7 @@ export default {
   },
 };
 
-async function handle(
-  req: Request,
-  env: Env,
-  ctx: ExecutionContext,
-): Promise<Response> {
+async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (req.method !== "GET" && req.method !== "HEAD")
     return new Response("method not allowed", {
       status: 405,
@@ -143,18 +136,14 @@ async function handle(
   // rewrites the request URL *and* Host header to the configured route host,
   // leaving no truthful origin in a local request — so dev pins localhost at
   // the port the dev script binds (package.json).
-  const tilesBase = dev
-    ? `http://localhost:8788${mount}`
-    : `${url.origin}${mount}`;
+  const tilesBase = dev ? `http://localhost:8788${mount}` : `${url.origin}${mount}`;
 
   // ── Routes that don't depend on the published version ─────────────────────
 
   // The assets binding stores the sheet at its own paths, which the mount
   // prefix means the request path never matches — rewrite before handing over.
   if (rel === "/sprites" || rel.startsWith("/sprites/")) {
-    const res = await env.ASSETS.fetch(
-      new URL(rel.slice("/sprites".length) || "/", url.origin),
-    );
+    const res = await env.ASSETS.fetch(new URL(rel.slice("/sprites".length) || "/", url.origin));
     const out = new Response(res.body, res);
     out.headers.set("access-control-allow-origin", "*");
     return out;
@@ -195,9 +184,7 @@ async function handle(
     headers.set("accept-ranges", "bytes");
     // No body means onlyIf didn't match.
     if (!("body" in obj)) return new Response(null, { status: 304, headers });
-    const r = obj.range as
-      | { offset?: number; length?: number; suffix?: number }
-      | undefined;
+    const r = obj.range as { offset?: number; length?: number; suffix?: number } | undefined;
     if (r && req.headers.has("range")) {
       const off = r.suffix === undefined ? (r.offset ?? 0) : obj.size - r.suffix;
       const len = r.suffix ?? r.length ?? obj.size - off;
@@ -225,22 +212,23 @@ async function handle(
       : new Response(body, {
           headers: {
             "content-type": "application/json",
-            ...(dev
-              ? { "cache-control": "no-store" }
-              : { "cache-control": JSON_CACHE, etag }),
+            ...(dev ? { "cache-control": "no-store" } : { "cache-control": JSON_CACHE, etag }),
             ...CORS,
           },
         });
 
   if (rel === "/tiles.json") {
-    const tj = (await archive(env, v).getTileJson(tilesBase)) as Record<
-      string,
-      unknown
-    >;
+    const a = archive(env, v);
+    const tj = (await a.getTileJson(tilesBase)) as Record<string, unknown>;
     // The archive's tile type advertises .mvt; .pbf is what clients expect, and
     // both extensions route here.
     tj.tiles = [`${tilesBase}/{z}/{x}/{y}.pbf`];
-    tj.attribution ??= ATTRIBUTION;
+    // The published version is the build date; the archive metadata carries the
+    // OSM snapshot it was built from. Riding in the attribution puts both
+    // on-screen in every MapLibre client with no viewer code.
+    const meta = (await a.getMetadata()) as Record<string, unknown>;
+    const osm = String(meta["planetiler:osm:osmosisreplicationtime"] ?? "").slice(0, 10);
+    tj.attribution ??= `${ATTRIBUTION} (${osm || v})`;
     return json(JSON.stringify(tj));
   }
 
@@ -314,13 +302,12 @@ async function handle(
     const res = new Response(t.data, {
       headers: { ...MVT, etag: tag, ...(dev ? { "cache-control": "no-store" } : {}) },
     });
-    if (!dev && req.method === "GET")
-      ctx.waitUntil(caches.default.put(cacheKey, res.clone()));
+    if (!dev && req.method === "GET") ctx.waitUntil(caches.default.put(cacheKey, res.clone()));
     return res;
   }
 
-  return new Response(
-    `usage: ${base}/{z}/{x}/{y}.pbf, ${base}/tiles.json, ${base}/style.json`,
-    { status: 404, headers: { "cache-control": "no-store", ...CORS } },
-  );
+  return new Response(`usage: ${base}/{z}/{x}/{y}.pbf, ${base}/tiles.json, ${base}/style.json`, {
+    status: 404,
+    headers: { "cache-control": "no-store", ...CORS },
+  });
 }
