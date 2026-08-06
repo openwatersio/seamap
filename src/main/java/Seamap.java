@@ -85,12 +85,13 @@ public class Seamap implements Profile {
     return "seamap";
   }
 
-  // Baked into the archive metadata for direct .pmtiles consumers; the tile
-  // Worker composes its own copy so it can append the OSM snapshot date.
+  // Baked into the archive metadata for direct .pmtiles consumers. Byte-identical
+  // to the Worker's ATTRIBUTION (worker/src/index.ts) — matching bytes are what
+  // let MapLibre's attribution control dedupe across sources.
   @Override
   public String attribution() {
-    return "<a href=\"https://openwaters.io/charts/seamap\" target=\"_blank\">&copy; Open Waters: Seamap</a> (CC-BY) "
-        + "<a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap</a>";
+    return "© <a href=\"https://openwaters.io/charts/seamap\">Open Waters: Seamap</a> "
+        + "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
   }
 
   @Override

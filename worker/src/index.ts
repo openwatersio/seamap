@@ -30,11 +30,13 @@ export interface Env {
 
 const PREFIX = "seamap/";
 // The tiles are CC-BY 4.0 (attribute "Open Waters: Seamap") and derive from
-// ODbL OSM data — both credits are required.
+// ODbL OSM data — both credits are required. Each atom is byte-identical to
+// the string the other sources in the full style emit (the OSM one copies the
+// VersaTiles bytes), so MapLibre's attribution control dedupes them; the
+// Seascape credit arrives via its own TileJSONs and isn't repeated here.
 const ATTRIBUTION =
-  "<a href='https://openwaters.io/charts/seamap' target='_blank'>© Open Waters: Seamap</a> (CC-BY) " +
-  "<a href='https://openwaters.io/charts/seascape' target='_blank'>© Open Waters: Seascape</a> (CC-BY) " +
-  "<a href='https://www.openstreetmap.org/copyright' target='_blank'>© OpenStreetMap</a>";
+  '© <a href="https://openwaters.io/charts/seamap">Open Waters: Seamap</a> ' +
+  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 class R2Source implements Source {
   constructor(
@@ -226,14 +228,15 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     // The archive's tile type advertises .mvt; .pbf is what clients expect, and
     // both extensions route here.
     tj.tiles = [`${tilesBase}/{z}/{x}/{y}.pbf`];
-    // The published version is the build date; the archive metadata carries the
-    // OSM snapshot it was built from. Riding in the attribution puts both
-    // on-screen in every MapLibre client with no viewer code.
+    // The archive metadata carries the OSM snapshot the build derives from.
+    // It rides in description, never attribution: a per-build string can't
+    // dedupe in MapLibre's attribution control.
     const meta = (await a.getMetadata()) as Record<string, unknown>;
     const osm = String(meta["planetiler:osm:osmosisreplicationtime"] ?? "").slice(0, 10);
-    // Unconditional: the archive bakes its own attribution (Seamap.attribution),
-    // but only the Worker knows to append the snapshot date.
-    tj.attribution = `${ATTRIBUTION} (${osm || v})`;
+    tj.description = `Open Waters Seamap ${v}, from OpenStreetMap data ${osm || v}`;
+    // Unconditional: the archive bakes its own attribution, which drifts from
+    // the canonical dedupe-able form until the next data release.
+    tj.attribution = ATTRIBUTION;
     return json(JSON.stringify(tj));
   }
 

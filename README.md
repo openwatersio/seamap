@@ -37,6 +37,6 @@ Everything is served from `tiles.openwaters.io` and free to use with attribution
 
 ## License
 
-The generated tiles, styles, and sprites served from `tiles.openwaters.io` are [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). Attribute "Open Waters: Seamap <https://openwaters.io/charts/seamap>". They derive from OpenStreetMap data, © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Each source above carries its own license and attribution requirements.
+The generated tiles, styles, and sprites served from `tiles.openwaters.io` are [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). Attribute "© Open Waters: Seamap <https://openwaters.io/charts/seamap>". They derive from OpenStreetMap data, © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Each source above carries its own license and attribution requirements.
 
 Code is [GPL-3.0](LICENSE.md). This project is a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap), whose profile and style it grew from; the code inherited from it remains [MIT](LICENSE-MIT.md). The [sprite artwork is GPL-3.0](style/sprites/PROVENANCE.md).
