@@ -3,6 +3,12 @@ name: Deploy viewer to GitHub Pages
 on:
   push:
     branches: [main]
+    paths:
+      - "viewer/**"
+      - "style/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 # Allow the deploy-pages action to publish.
