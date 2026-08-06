@@ -1,31 +1,39 @@
-import java.util.*;
-import java.nio.file.Path;
+import com.onthegomap.planetiler.FeatureCollector;
 import com.onthegomap.planetiler.Planetiler;
 import com.onthegomap.planetiler.Profile;
+import com.onthegomap.planetiler.VectorTile;
+import com.onthegomap.planetiler.config.Arguments;
+import com.onthegomap.planetiler.geo.TileCoord;
 import com.onthegomap.planetiler.reader.SourceFeature;
 import com.onthegomap.planetiler.reader.osm.OsmElement;
 import com.onthegomap.planetiler.reader.osm.OsmSourceFeature;
-import com.onthegomap.planetiler.FeatureCollector;
-import com.onthegomap.planetiler.config.Arguments;
-import com.onthegomap.planetiler.geo.TileCoord;
-import com.onthegomap.planetiler.VectorTile;
+import java.nio.file.Path;
+import java.util.*;
 import org.locationtech.jts.geom.*;
 
 /**
  * Planetiler profile for the nautical chart. Emits the seamark, light, land, water, wetland and
- * waterway layers; {@link Seamark#extractSeamarkAttributes} owns the OSM tag mapping, including
- * the derivations that invent a seamark type from plain tags (leisure=marina, route=ferry, ...).
+ * waterway layers; {@link Seamark#extractSeamarkAttributes} owns the OSM tag mapping, including the
+ * derivations that invent a seamark type from plain tags (leisure=marina, route=ferry, ...).
  *
- * Harbours, landmarks and lights additionally emit a label point, so their name still places once
- * the polygon itself is too small to hold one.
+ * <p>Harbours, landmarks and lights additionally emit a label point, so their name still places
+ * once the polygon itself is too small to hold one.
  */
 public class Seamap implements Profile {
 
   /** Seamark types that stay linear even when mapped as a closed way. */
-  private static final Set<String> ALWAYS_LINEAR = Set.of(
-    "cable_overhead", "cable_submarine", "ferry_route", "navigation_line", "pipeline_overhead",
-    "pipeline_submarine", "recommended_track", "separation_boundary", "separation_lane",
-    "separation_line");
+  private static final Set<String> ALWAYS_LINEAR =
+      Set.of(
+          "cable_overhead",
+          "cable_submarine",
+          "ferry_route",
+          "navigation_line",
+          "pipeline_overhead",
+          "pipeline_submarine",
+          "recommended_track",
+          "separation_boundary",
+          "separation_lane",
+          "separation_line");
 
   /**
    * Nodes, ways and relations share one id space, so tag the element type into the high bits.
@@ -35,8 +43,8 @@ public class Seamap implements Profile {
   private static long featureId(SourceFeature sf) {
     if (sf instanceof OsmSourceFeature osm) {
       OsmElement element = osm.originalElement();
-      long elementType = element instanceof OsmElement.Relation ? 3
-        : element instanceof OsmElement.Way ? 2 : 1;
+      long elementType =
+          element instanceof OsmElement.Relation ? 3 : element instanceof OsmElement.Way ? 2 : 1;
       return (elementType << 44) | element.id();
     }
     return sf.id();
@@ -48,24 +56,28 @@ public class Seamap implements Profile {
     Path dataDir = Path.of("data");
 
     // Initialize depth calculator only if --depth parameter is provided
-    String depthPath = arguments.getString("depth",
-      "depth DEM: path to a Terrarium PMTiles file, or a {z}/{x}/{y} tile URL template", null);
+    String depthPath =
+        arguments.getString(
+            "depth",
+            "depth DEM: path to a Terrarium PMTiles file, or a {z}/{x}/{y} tile URL template",
+            null);
     if (depthPath != null) {
       System.out.println("Loading depth data from: " + depthPath);
-      Seamark.depthCalculator = depthPath.startsWith("http")
-        ? new DepthCalculator(depthPath, 512)
-        : new DepthCalculator(Path.of(depthPath));
+      Seamark.depthCalculator =
+          depthPath.startsWith("http")
+              ? new DepthCalculator(depthPath, 512)
+              : new DepthCalculator(Path.of(depthPath));
       System.out.println("Depth data loaded successfully");
     }
 
     Seamap profile = new Seamap();
 
     Planetiler.create(arguments)
-      .setProfile(profile)
-      .addOsmSource("osm", dataDir.resolve(area + ".osm.pbf"), "geofabrik:" + area)
-      .addShapefileSource("land", LandPolygons.ensureLandPolygons(dataDir))
-      .overwriteOutput(dataDir.resolve("seamarks.pmtiles"))
-      .run();
+        .setProfile(profile)
+        .addOsmSource("osm", dataDir.resolve(area + ".osm.pbf"), "geofabrik:" + area)
+        .addShapefileSource("land", LandPolygons.ensureLandPolygons(dataDir))
+        .overwriteOutput(dataDir.resolve("seamarks.pmtiles"))
+        .run();
   }
 
   @Override
@@ -111,8 +123,8 @@ public class Seamap implements Profile {
       // below the coastline, so they are rendered on top of water/bathymetry
       // and are NOT cut out of the land polygons.
       String wetland = (String) tags.get("wetland");
-      boolean isWetland = "wetland".equals(natural) ||
-        "mud".equals(natural) || "shoal".equals(natural);
+      boolean isWetland =
+          "wetland".equals(natural) || "mud".equals(natural) || "shoal".equals(natural);
       if (isWetland && sf.canBePolygon()) {
         FeatureCollector.Feature wetlandFeature = features.polygon("wetland");
         wetlandFeature.setAttr("type", "wetland");
@@ -144,11 +156,12 @@ public class Seamap implements Profile {
         }
 
         // major navigable waterways appear earlier than minor ones
-        int minZoom = switch (waterway) {
-          case "river", "canal", "fairway" -> 8;
-          case "stream", "tidal_channel", "lock", "dock" -> 11;
-          default -> 13; // drain, ditch, etc.
-        };
+        int minZoom =
+            switch (waterway) {
+              case "river", "canal", "fairway" -> 8;
+              case "stream", "tidal_channel", "lock", "dock" -> 11;
+              default -> 13; // drain, ditch, etc.
+            };
         waterwayFeature.setMinZoom(minZoom).setBufferPixels(4);
       }
     }
@@ -161,9 +174,10 @@ public class Seamap implements Profile {
       attrs.put("osm_id", sf.id());
       // anyGeometry() makes a polygon of any closed way, which is wrong for the types that are
       // linear however they're drawn — a TSS lane or a cable loop is never an area.
-      FeatureCollector.Feature feature = sf.canBeLine() && ALWAYS_LINEAR.contains(type)
-        ? features.line("seamark")
-        : features.anyGeometry("seamark");
+      FeatureCollector.Feature feature =
+          sf.canBeLine() && ALWAYS_LINEAR.contains(type)
+              ? features.line("seamark")
+              : features.anyGeometry("seamark");
       attrs.forEach((k, v) -> feature.setAttr(k, v));
       feature.setId(featureId(sf));
       feature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
@@ -171,13 +185,20 @@ public class Seamap implements Profile {
       // create label-grid for rocks, sorted by danger level; sampled depth
       // (--depth) breaks ties within a tier, shallower first
       if (type.equals("rock")) {
-        String waterLevel = (String) coalesceAttr(attrs, "seamark:rock:water_level", "seamark:water_level", "water_level");
-        int depth = attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
+        String waterLevel =
+            (String)
+                coalesceAttr(
+                    attrs, "seamark:rock:water_level", "seamark:water_level", "water_level");
+        int depth =
+            attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
         int rank;
-        if ("submerged".equals(waterLevel)) rank = 0; // Most dangerous: always underwater, invisible
-        else if ("awash".equals(waterLevel)) rank = 10000; // Very dangerous: at wave height, barely visible
+        if ("submerged".equals(waterLevel))
+          rank = 0; // Most dangerous: always underwater, invisible
+        else if ("awash".equals(waterLevel))
+          rank = 10000; // Very dangerous: at wave height, barely visible
         else if ("covers".equals(waterLevel)) rank = 20000; // Dangerous: periodically submerged
-        else if ("dry".equals(waterLevel) || "always_dry".equals(waterLevel)) rank = 40000; // always visible
+        else if ("dry".equals(waterLevel) || "always_dry".equals(waterLevel))
+          rank = 40000; // always visible
         else rank = 30000; // Unknown: might be any of the above, so it outranks provably-dry
         feature.setSortKey(rank + depth).setPointLabelGridSizeAndLimit(12, 32, 4);
       }
@@ -185,21 +206,27 @@ public class Seamap implements Profile {
       // create label-grid for wrecks, sorted by danger level
       if (type.equals("wreck")) {
         String wreckCategory = (String) attrs.get("category");
-        int depth = attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
+        int depth =
+            attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
         int rank;
-        if ("dangerous".equals(wreckCategory)) rank = 0; // Most dangerous: dangerous to surface navigation
+        if ("dangerous".equals(wreckCategory))
+          rank = 0; // Most dangerous: dangerous to surface navigation
         else if ("mast_showing".equals(wreckCategory)) rank = 10000; // Very dangerous: mast visible
-        else if ("hull_showing".equals(wreckCategory)) rank = 20000; // Dangerous: hull or superstructure visible
-        else if ("distributed_remains".equals(wreckCategory)) rank = 30000; // Moderately dangerous: foul ground
+        else if ("hull_showing".equals(wreckCategory))
+          rank = 20000; // Dangerous: hull or superstructure visible
+        else if ("distributed_remains".equals(wreckCategory))
+          rank = 30000; // Moderately dangerous: foul ground
         else rank = 40000; // Least dangerous: non-dangerous or unspecified
         feature.setSortKey(rank + depth).setPointLabelGridSizeAndLimit(12, 16, 1);
       }
 
       // add labels for small polygons in low zoomlevels
-      if ("harbour".equals(type) || "landmark".equals(type) || "light_major".equals(type) || "light_minor".equals(type)&& !sf.isPoint()) {
-        FeatureCollector.Feature labelFeature = sf.canBePolygon()
-          ? features.pointOnSurface("seamark")
-          : features.centroid("seamark");
+      if ("harbour".equals(type)
+          || "landmark".equals(type)
+          || "light_major".equals(type)
+          || "light_minor".equals(type) && !sf.isPoint()) {
+        FeatureCollector.Feature labelFeature =
+            sf.canBePolygon() ? features.pointOnSurface("seamark") : features.centroid("seamark");
         attrs.forEach((k, v) -> labelFeature.setAttr(k, v));
         labelFeature.setAttr("osm_id", sf.id());
         labelFeature.setId(featureId(sf));
@@ -225,7 +252,8 @@ public class Seamap implements Profile {
   }
 
   @Override
-  public Map<String, List<VectorTile.Feature>> postProcessTileFeatures(TileCoord tileCoord, Map<String, List<VectorTile.Feature>> layers) {
+  public Map<String, List<VectorTile.Feature>> postProcessTileFeatures(
+      TileCoord tileCoord, Map<String, List<VectorTile.Feature>> layers) {
     List<VectorTile.Feature> landFeatures = layers.get("land");
     List<VectorTile.Feature> waterFeatures = layers.get("water");
 
@@ -248,11 +276,13 @@ public class Seamap implements Profile {
           layers.remove("land");
         } else {
           Map<String, Object> attrs = new HashMap<>();
-          VectorTile.Feature newLandFeature = new VectorTile.Feature("land", 1, VectorTile.encodeGeometry(allLand), attrs);
+          VectorTile.Feature newLandFeature =
+              new VectorTile.Feature("land", 1, VectorTile.encodeGeometry(allLand), attrs);
           layers.put("land", List.of(newLandFeature));
         }
       } catch (Exception e) {
-        System.err.println("Error cutting water from land for tile " + tileCoord + ": " + e.getMessage());
+        System.err.println(
+            "Error cutting water from land for tile " + tileCoord + ": " + e.getMessage());
       }
     }
 
@@ -279,5 +309,4 @@ public class Seamap implements Profile {
     if (geoms.isEmpty()) return null;
     return org.locationtech.jts.operation.union.UnaryUnionOp.union(geoms);
   }
-
 }

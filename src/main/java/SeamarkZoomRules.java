@@ -1,10 +1,8 @@
 import java.util.*;
 
 /**
- * SeamarkZoomRules
- *
- * Defines at which zoom levels different types of seamarks should be visible.
- * This centralizes all zoom-related logic for seamarks.
+ * Defines at which zoom levels different types of seamarks should be visible. This centralizes all
+ * zoom-related logic for seamarks.
  */
 public class SeamarkZoomRules {
 
@@ -49,25 +47,21 @@ public class SeamarkZoomRules {
     return 8;
   }
 
-  /**
-   * Check if a seamark type is high priority (visible from zoom 4).
-   */
+  /** Check if a seamark type is high priority (visible from zoom 4). */
   private static boolean isHighPriorityType(String type) {
-    return type.equals("light_major") ||
-           type.equals("light_minor") ||
-           type.startsWith("separation_") ||
-           type.equals("platform") ||
-           type.equals("fog_signal") ||
-           isRestrictedArea(type);
+    return type.equals("light_major")
+        || type.equals("light_minor")
+        || type.startsWith("separation_")
+        || type.equals("platform")
+        || type.equals("fog_signal")
+        || isRestrictedArea(type);
   }
 
-  /**
-   * Check if a seamark type is medium-high priority (visible from zoom 6).
-   */
+  /** Check if a seamark type is medium-high priority (visible from zoom 6). */
   private static boolean isMediumHighPriorityType(String type, String category) {
-    if (type.contains("_safe_water") ||
-        type.contains("_isolated_danger") ||
-        type.contains("_cardinal")) {
+    if (type.contains("_safe_water")
+        || type.contains("_isolated_danger")
+        || type.contains("_cardinal")) {
       return true;
     }
 
@@ -79,30 +73,26 @@ public class SeamarkZoomRules {
     return false;
   }
 
-  /**
-   * Check if a type represents a restricted area.
-   */
+  /** Check if a type represents a restricted area. */
   private static boolean isRestrictedArea(String type) {
     return Arrays.asList(
-      "anchorage",
-      "cable_area",
-      "fairway",
-      "inshore_traffic_zone",
-      "marine_farm",
-      "military_area",
-      "protected_area",
-      "restricted_area",
-      "production_area",
-      "pipeline_area",
-      "precautionary_area",
-      "seaplane_landing_area",
-      "submarine_transit_lane"
-    ).contains(type);
+            "anchorage",
+            "cable_area",
+            "fairway",
+            "inshore_traffic_zone",
+            "marine_farm",
+            "military_area",
+            "protected_area",
+            "restricted_area",
+            "production_area",
+            "pipeline_area",
+            "precautionary_area",
+            "seaplane_landing_area",
+            "submarine_transit_lane")
+        .contains(type);
   }
 
-  /**
-   * Check if a wreck category is considered dangerous.
-   */
+  /** Check if a wreck category is considered dangerous. */
   private static boolean isDangerousWreck(String category) {
     return Arrays.asList("dangerous", "mast_showing").contains(category);
   }

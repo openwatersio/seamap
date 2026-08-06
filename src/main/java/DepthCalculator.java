@@ -1,9 +1,6 @@
-import com.onthegomap.planetiler.pmtiles.ReadablePmtiles;
-import com.onthegomap.planetiler.geo.TileCoord;
 import com.onthegomap.planetiler.geo.GeoUtils;
-import org.locationtech.jts.geom.Coordinate;
-
-import javax.imageio.ImageIO;
+import com.onthegomap.planetiler.geo.TileCoord;
+import com.onthegomap.planetiler.pmtiles.ReadablePmtiles;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -14,13 +11,14 @@ import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.imageio.ImageIO;
+import org.locationtech.jts.geom.Coordinate;
 
 /**
  * DepthCalculator - Calculates missing depth values for wrecks and rocks from Terrarium DEM tiles
  *
- * Terrarium Encoding:
- * elevation = (red * 256 + green + blue / 256) - 32768
- * depth = -elevation (positive values for underwater)
+ * <p>Terrarium Encoding: elevation = (red * 256 + green + blue / 256) - 32768 depth = -elevation
+ * (positive values for underwater)
  */
 public class DepthCalculator {
 
@@ -58,44 +56,47 @@ public class DepthCalculator {
   }
 
   /**
-   * Constructor with a {z}/{x}/{y} tile URL template (e.g. Seascape's raster
-   * endpoint). Tiles are fetched at a fixed zoom with retries.
+   * Constructor with a {z}/{x}/{y} tile URL template (e.g. Seascape's raster endpoint). Tiles are
+   * fetched at a fixed zoom with retries.
    */
   public DepthCalculator(String urlTemplate, int tileSize) {
     HttpClient http = HttpClient.newHttpClient();
-    this.tiles = coord -> {
-      String url = urlTemplate
-        .replace("{z}", Integer.toString(coord.z()))
-        .replace("{x}", Integer.toString(coord.x()))
-        .replace("{y}", Integer.toString(coord.y()));
-      IOException last = null;
-      for (int attempt = 0; attempt < 3; attempt++) {
-        try {
-          HttpResponse<byte[]> resp = http.send(
-            HttpRequest.newBuilder(URI.create(url)).GET().build(),
-            HttpResponse.BodyHandlers.ofByteArray());
-          if (resp.statusCode() == 200) {
-            return resp.body();
+    this.tiles =
+        coord -> {
+          String url =
+              urlTemplate
+                  .replace("{z}", Integer.toString(coord.z()))
+                  .replace("{x}", Integer.toString(coord.x()))
+                  .replace("{y}", Integer.toString(coord.y()));
+          IOException last = null;
+          for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+              HttpResponse<byte[]> resp =
+                  http.send(
+                      HttpRequest.newBuilder(URI.create(url)).GET().build(),
+                      HttpResponse.BodyHandlers.ofByteArray());
+              if (resp.statusCode() == 200) {
+                return resp.body();
+              }
+              if (resp.statusCode() == 404 || resp.statusCode() == 204) {
+                return null;
+              }
+              last = new IOException("HTTP " + resp.statusCode() + " for " + url);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw new IOException(e);
+            } catch (IOException e) {
+              last = e;
+            }
+            try {
+              Thread.sleep(500L * (attempt + 1));
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw new IOException(e);
+            }
           }
-          if (resp.statusCode() == 404 || resp.statusCode() == 204) {
-            return null;
-          }
-          last = new IOException("HTTP " + resp.statusCode() + " for " + url);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          throw new IOException(e);
-        } catch (IOException e) {
-          last = e;
-        }
-        try {
-          Thread.sleep(500L * (attempt + 1));
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          throw new IOException(e);
-        }
-      }
-      throw last;
-    };
+          throw last;
+        };
     this.maxZoom = HTTP_ZOOM;
     this.tileSize = tileSize;
     // Planet pass2 visits features in OSM-id order, not spatially, so hits come
@@ -113,23 +114,23 @@ public class DepthCalculator {
     };
   }
 
-  /**
-   * Calculates tile coordinates from geographic coordinates
-   */
+  /** Calculates tile coordinates from geographic coordinates */
   private TileCoord getTileCoord(double lon, double lat, int zoom) {
     int n = 1 << zoom;
     int x = (int) Math.floor((lon + 180.0) / 360.0 * n);
 
     double latRad = Math.toRadians(lat);
-    int y = (int) Math.floor((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n);
+    int y =
+        (int)
+            Math.floor(
+                (1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n);
 
-    // System.err.println("Berechne Tile für lon=" + lon + " lat=" + lat + " zoom=" + zoom + " => " + zoom + "/" + x + "/" + y);
+    // System.err.println("Berechne Tile für lon=" + lon + " lat=" + lat + " zoom=" + zoom + " => "
+    // + zoom + "/" + x + "/" + y);
     return TileCoord.ofXYZ(x, y, zoom);
   }
 
-  /**
-   * Calculates pixel position within a tile
-   */
+  /** Calculates pixel position within a tile */
   private int[] getPixelInTile(double lon, double lat, int zoom) {
     int n = 1 << zoom;
     double x = (lon + 180.0) / 360.0 * n;
@@ -143,19 +144,15 @@ public class DepthCalculator {
     int pixelX = (int) Math.floor((x - tileX) * tileSize);
     int pixelY = (int) Math.floor((y - tileY) * tileSize);
 
-    return new int[]{pixelX, pixelY};
+    return new int[] {pixelX, pixelY};
   }
 
-  /**
-   * Generates cache key for a tile
-   */
+  /** Generates cache key for a tile */
   private String getTileKey(TileCoord coord) {
     return coord.z() + "/" + coord.x() + "/" + coord.y();
   }
 
-  /**
-   * Loads a DEM tile
-   */
+  /** Loads a DEM tile */
   // synchronized: planetiler calls processFeature from many workers, and both
   // the LRU map and its miss entries are shared state.
   private synchronized BufferedImage loadTile(TileCoord coord) throws IOException {
@@ -203,7 +200,8 @@ public class DepthCalculator {
    * @param pixelY Pixel Y position (can be > tileSize)
    * @return Elevation value of the pixel
    */
-  private double samplePixel(int baseTileX, int baseTileY, int pixelX, int pixelY) throws IOException {
+  private double samplePixel(int baseTileX, int baseTileY, int pixelX, int pixelY)
+      throws IOException {
     int actualTileX = baseTileX;
     int actualTileY = baseTileY;
     int actualPixelX = pixelX;
@@ -283,7 +281,12 @@ public class DepthCalculator {
       // Bilinear interpolation between 4 surrounding pixels
       int n = 1 << maxZoom;
       double x = (lon + 180.0) / 360.0 * n;
-      double y = (1.0 - Math.log(Math.tan(Math.toRadians(lat)) + 1.0 / Math.cos(Math.toRadians(lat))) / Math.PI) / 2.0 * n;
+      double y =
+          (1.0
+                  - Math.log(Math.tan(Math.toRadians(lat)) + 1.0 / Math.cos(Math.toRadians(lat)))
+                      / Math.PI)
+              / 2.0
+              * n;
 
       int tileX = (int) Math.floor(x);
       int tileY = (int) Math.floor(y);
@@ -320,19 +323,21 @@ public class DepthCalculator {
       //                    ", (" + (x0+1) + "," + y0 + ")=" + String.format("%.1f", e10) +
       //                    ", (" + x0 + "," + (y0+1) + ")=" + String.format("%.1f", e01) +
       //                    ", (" + (x0+1) + "," + (y0+1) + ")=" + String.format("%.1f", e11) +
-      //                    "] => elevation=" + String.format("%.1f", elevation) + " => depth=" + depth);
+      //                    "] => elevation=" + String.format("%.1f", elevation) + " => depth=" +
+      // depth);
 
       return depth > 0 ? depth : 0.0;
 
     } catch (IOException e) {
-      System.err.println("Error calculating depth for position " + lon + ", " + lat + ": " + e.getMessage());
+      System.err.println(
+          "Error calculating depth for position " + lon + ", " + lat + ": " + e.getMessage());
       return null;
     }
   }
 
   /**
-   * Calculates depth for a JTS coordinate (World Mercator 0-1)
-   * Converts from World Mercator to Lon/Lat before calculation
+   * Calculates depth for a JTS coordinate (World Mercator 0-1) Converts from World Mercator to
+   * Lon/Lat before calculation
    */
   public Double getDepthAtLocation(Coordinate coord) {
     // Convert from World Mercator (0-1) to Lon/Lat degrees
@@ -340,5 +345,4 @@ public class DepthCalculator {
     double lat = GeoUtils.getWorldLat(coord.y);
     return getDepthAtLocation(lon, lat);
   }
-
 }

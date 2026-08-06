@@ -1,6 +1,6 @@
-import java.util.*;
-import com.onthegomap.planetiler.util.Parse;
 import com.onthegomap.planetiler.reader.SourceFeature;
+import com.onthegomap.planetiler.util.Parse;
+import java.util.*;
 import org.locationtech.jts.geom.Coordinate;
 
 public class Seamark {
@@ -17,17 +17,43 @@ public class Seamark {
    * Plain OSM keys worth carrying. `name` is deliberately absent — the derived `name` attribute
    * already coalesces it with the seamark-specific variants.
    */
-  private static final Set<String> TAG_WHITELIST = Set.of(
-    // water_level and restriction are the unprefixed fallbacks the style resolves against
-    "water_level", "restriction",
-    "ref", "description", "note", "access", "fee", "charge", "toll", "opening_hours",
-    "operator", "operator:wikidata", "wikidata", "wikipedia", "vhf", "direction", "distance",
-    "maxspeed", "maxstay", "maxdraft", "maxlength", "maxwidth", "maxheight", "maxweight",
-    "vessel", "vessel:mmsi", "wreck:type", "wreck:date_sunk", "building:height", "highway");
+  private static final Set<String> TAG_WHITELIST =
+      Set.of(
+          // water_level and restriction are the unprefixed fallbacks the style resolves against
+          "water_level",
+          "restriction",
+          "ref",
+          "description",
+          "note",
+          "access",
+          "fee",
+          "charge",
+          "toll",
+          "opening_hours",
+          "operator",
+          "operator:wikidata",
+          "wikidata",
+          "wikipedia",
+          "vhf",
+          "direction",
+          "distance",
+          "maxspeed",
+          "maxstay",
+          "maxdraft",
+          "maxlength",
+          "maxwidth",
+          "maxheight",
+          "maxweight",
+          "vessel",
+          "vessel:mmsi",
+          "wreck:type",
+          "wreck:date_sunk",
+          "building:height",
+          "highway");
 
   /**
-   * Plain OSM tags that stand in for a seamark, as {key, value, type, category}. Checked only
-   * after the seamark:* extraction above, so explicit seamark tagging always wins.
+   * Plain OSM tags that stand in for a seamark, as {key, value, type, category}. Checked only after
+   * the seamark:* extraction above, so explicit seamark tagging always wins.
    */
   private static final String[][] PLAIN_TAG_FEATURES = {
     {"waterway", "fuel", "small_craft_facility", "fuel_station"},
@@ -68,32 +94,61 @@ public class Seamark {
     if (value(tags, "seamark:type") != null) {
       String type = value(tags, "seamark:type");
       attrs.put("type", type);
-      attrs.put("name", coalesce(seamarkValue(tags, type, "name"), value(tags, "seamark:name"), value(tags, "name")));
+      attrs.put(
+          "name",
+          coalesce(
+              seamarkValue(tags, type, "name"), value(tags, "seamark:name"), value(tags, "name")));
       attrs.put("category", getSeamarkCategory(tags, type));
-      attrs.put("function", coalesce(seamarkValue(tags, type, "function"), value(tags, "seamark:function"), value(tags, "function")));
+      attrs.put(
+          "function",
+          coalesce(
+              seamarkValue(tags, type, "function"),
+              value(tags, "seamark:function"),
+              value(tags, "function")));
       attrs.put("shape", seamarkValue(tags, type, "shape"));
       attrs.put("color", replaceSemiWithUnderscore(seamarkValue(tags, type, "colour")));
       attrs.put("color_pattern", seamarkValue(tags, type, "colour_pattern"));
       attrs.put("radar_reflector", radarReflector(tags, type));
       attrs.put("radio_station", collectTags(tags, "radio_station"));
       attrs.put("light", seamarkLightAbbr(tags));
-      attrs.put("topmark_color", replaceSemiWithUnderscore(coalesce(seamarkValue(tags, "topmark", "colour"), seamarkValue(tags, "daymark", "colour"))));
-      attrs.put("topmark_color_pattern", replaceSemiWithUnderscore(coalesce(seamarkValue(tags, "topmark", "colour_pattern"))));
-      attrs.put("topmark_shape", sanitizeTopmarkShape(coalesce(seamarkValue(tags, "topmark", "shape"), seamarkValue(tags, "daymark", "shape"))));
-      attrs.put("depth", Parse.parseDoubleOrNull(coalesce(seamarkValue(tags, type, "depth"), value(tags, "seamark:depth"), value(tags, "depth"))));
+      attrs.put(
+          "topmark_color",
+          replaceSemiWithUnderscore(
+              coalesce(
+                  seamarkValue(tags, "topmark", "colour"),
+                  seamarkValue(tags, "daymark", "colour"))));
+      attrs.put(
+          "topmark_color_pattern",
+          replaceSemiWithUnderscore(coalesce(seamarkValue(tags, "topmark", "colour_pattern"))));
+      attrs.put(
+          "topmark_shape",
+          sanitizeTopmarkShape(
+              coalesce(
+                  seamarkValue(tags, "topmark", "shape"), seamarkValue(tags, "daymark", "shape"))));
+      attrs.put(
+          "depth",
+          Parse.parseDoubleOrNull(
+              coalesce(
+                  seamarkValue(tags, type, "depth"),
+                  value(tags, "seamark:depth"),
+                  value(tags, "depth"))));
 
-    // create seamarks from normal OSM tags:
+      // create seamarks from normal OSM tags:
     } else if ("ferry".equals(value(tags, "route")) && sf.canBeLine()) {
       attrs.put("type", "ferry_route");
       attrs.put("name", value(tags, "name"));
     } else if ("anchor".equals(value(tags, "waterway:sign"))) {
       attrs.put("type", "anchorage");
       attrs.put("name", value(tags, "name"));
-    } else if ("cable".equals(value(tags, "power")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
+    } else if ("cable".equals(value(tags, "power"))
+        && "underwater".equals(value(tags, "location"))
+        && sf.canBeLine()) {
       attrs.put("type", "cable_submarine");
       attrs.put("category", "power");
       attrs.put("name", value(tags, "name"));
-    } else if ("pipeline".equals(value(tags, "man_made")) && "underwater".equals(value(tags, "location")) && sf.canBeLine()) {
+    } else if ("pipeline".equals(value(tags, "man_made"))
+        && "underwater".equals(value(tags, "location"))
+        && sf.canBeLine()) {
       attrs.put("type", "pipeline_submarine");
       attrs.put("category", value(tags, "substance"));
       attrs.put("name", value(tags, "name"));
@@ -128,11 +183,16 @@ public class Seamark {
       attrs.put("type", "harbour");
       attrs.put("category", "marina");
       attrs.put("name", value(tags, "name"));
-    } else if (("swimming_area".equals(value(tags, "leisure")) || "nature_reserve".equals(value(tags, "leisure"))) && (sf.canBeLine() || sf.canBePolygon())) {
+    } else if (("swimming_area".equals(value(tags, "leisure"))
+            || "nature_reserve".equals(value(tags, "leisure")))
+        && (sf.canBeLine() || sf.canBePolygon())) {
       attrs.put("type", "restricted_area");
       attrs.put("category", value(tags, "leisure"));
       attrs.put("name", value(tags, "name"));
-    } else if (sf.isPoint() && ("tower".equals(value(tags, "man_made")) || "windmill".equals(value(tags, "man_made")) || "gasometer".equals(value(tags, "man_made")))) {
+    } else if (sf.isPoint()
+        && ("tower".equals(value(tags, "man_made"))
+            || "windmill".equals(value(tags, "man_made"))
+            || "gasometer".equals(value(tags, "man_made")))) {
       attrs.put("type", "landmark");
       attrs.put("category", value(tags, "man_made"));
       attrs.put("function", value(tags, value(tags, "man_made") + ":type"));
@@ -158,50 +218,72 @@ public class Seamark {
     String category = attrs.get("category") != null ? attrs.get("category").toString() : null;
 
     // set defaults for shape, color, patterns, topmarks
-    if ("buoy_cardinal".equals(type) || ("beacon_cardinal".equals(type) && "north".equals(category))) {
-      attrs.put("shape", coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
+    if ("buoy_cardinal".equals(type)
+        || ("beacon_cardinal".equals(type) && "north".equals(category))) {
+      attrs.put(
+          "shape",
+          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "black_yellow"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_up"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
-    } else if ("buoy_cardinal".equals(type) || ("beacon_cardinal".equals(type) && "east".equals(category))) {
-      attrs.put("shape", coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
+    } else if ("buoy_cardinal".equals(type)
+        || ("beacon_cardinal".equals(type) && "east".equals(category))) {
+      attrs.put(
+          "shape",
+          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "black_yellow_black"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_base_together"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
-    } else if ("buoy_cardinal".equals(type) || ("beacon_cardinal".equals(type) && "south".equals(category))) {
-      attrs.put("shape", coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
+    } else if ("buoy_cardinal".equals(type)
+        || ("beacon_cardinal".equals(type) && "south".equals(category))) {
+      attrs.put(
+          "shape",
+          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "yellow_black"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_down"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
-    } else if ("buoy_cardinal".equals(type) || ("beacon_cardinal".equals(type) && "west".equals(category))) {
-      attrs.put("shape", coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
+    } else if ("buoy_cardinal".equals(type)
+        || ("beacon_cardinal".equals(type) && "west".equals(category))) {
+      attrs.put(
+          "shape",
+          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "yellow_black_yellow"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_point_together"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
     } else if ("buoy_isolated_danger".equals(type) || "beacon_isolated_danger".equals(type)) {
-      attrs.put("shape", coalesceObj(attrs.get("shape"), "buoy_isolated_danger".equals(type) ? "pillar" : "pile"));
+      attrs.put(
+          "shape",
+          coalesceObj(attrs.get("shape"), "buoy_isolated_danger".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "red_black_red"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_spheres"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
     } else if ("buoy_safe_water".equals(type) || "beacon_safe_water".equals(type)) {
-      attrs.put("shape", coalesceObj(attrs.get("shape"), "buoy_safe_water".equals(type) ? "pillar" : "pile"));
+      attrs.put(
+          "shape",
+          coalesceObj(attrs.get("shape"), "buoy_safe_water".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "red_white"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "vertical"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "sphere"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "red"));
     } else if ("buoy_special_purpose".equals(type) || "beacon_special_purpose".equals(type)) {
-      attrs.put("shape", coalesceObj(attrs.get("shape"), "buoy_special_purpose".equals(type) ? "pillar" : "pile"));
+      attrs.put(
+          "shape",
+          coalesceObj(attrs.get("shape"), "buoy_special_purpose".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "yellow"));
     }
-    if (type != null && type.startsWith("beacon_")) attrs.put("shape", coalesceObj(attrs.get("shape"), "pile"));
-    if (type != null && type.startsWith("buoy_")) attrs.put("shape", coalesceObj(attrs.get("shape"), "pillar"));
-    if (attrs.get("shape") != null && "pile".equals(attrs.get("shape").toString())) attrs.put("shape", "buoyant");
-    if (attrs.get("color") != null && attrs.get("color").toString().contains("_")) attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
+    if (type != null && type.startsWith("beacon_"))
+      attrs.put("shape", coalesceObj(attrs.get("shape"), "pile"));
+    if (type != null && type.startsWith("buoy_"))
+      attrs.put("shape", coalesceObj(attrs.get("shape"), "pillar"));
+    if (attrs.get("shape") != null && "pile".equals(attrs.get("shape").toString()))
+      attrs.put("shape", "buoyant");
+    if (attrs.get("color") != null && attrs.get("color").toString().contains("_"))
+      attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
 
     // rocks/wrecks: fill missing depth values
     if (("wreck".equals(type) || "rock".equals(type)) && attrs.get("depth") == null) {
@@ -211,7 +293,8 @@ public class Seamark {
           Coordinate coord = centroid.getCoordinate();
           attrs.put("depth", depthCalculator.getDepthAtLocation(coord));
         }
-      } catch(Exception e) {}
+      } catch (Exception e) {
+      }
     }
 
     // Carry the source tags alongside the derived ones, so styling an attribute we don't read
@@ -250,7 +333,7 @@ public class Seamark {
   }
 
   private static String coalesce(String... vals) {
-    for (String v: vals) {
+    for (String v : vals) {
       if (v != null && !v.isEmpty()) return v;
     }
     return null;
@@ -277,7 +360,7 @@ public class Seamark {
     return out;
   }
 
-  private static String radarReflector(Map<String,Object> tags, String type) {
+  private static String radarReflector(Map<String, Object> tags, String type) {
     String reflector = value(tags, "seamark:radar_reflector");
     String reflectivity = seamarkValue(tags, type, "reflectivity");
     String transponder = seamarkValue(tags, "radar_transponder", "category");
@@ -292,10 +375,10 @@ public class Seamark {
     }
   }
 
-  private static String collectTags(Map<String,Object> tags, String group) {
+  private static String collectTags(Map<String, Object> tags, String group) {
     StringBuilder sb = new StringBuilder();
     String prefix = "seamark:" + group + ":";
-    for (Map.Entry<String,Object> e : tags.entrySet()) {
+    for (Map.Entry<String, Object> e : tags.entrySet()) {
       if (e.getKey().startsWith(prefix) && e.getValue() != null) {
         String attr = e.getKey().substring(prefix.length());
         String val = e.getValue().toString();
@@ -308,10 +391,17 @@ public class Seamark {
   }
 
   /** S-57 colour abbreviations; anything unlisted falls back to its capitalised initial. */
-  private static final Map<String, String> LIGHT_COLOUR_ABBR = Map.ofEntries(
-    Map.entry("white", "W"), Map.entry("red", "R"), Map.entry("green", "G"),
-    Map.entry("blue", "Bu"), Map.entry("violet", "Vi"), Map.entry("yellow", "Y"),
-    Map.entry("orange", "Or"), Map.entry("amber", "Am"), Map.entry("magenta", "M"));
+  private static final Map<String, String> LIGHT_COLOUR_ABBR =
+      Map.ofEntries(
+          Map.entry("white", "W"),
+          Map.entry("red", "R"),
+          Map.entry("green", "G"),
+          Map.entry("blue", "Bu"),
+          Map.entry("violet", "Vi"),
+          Map.entry("yellow", "Y"),
+          Map.entry("orange", "Or"),
+          Map.entry("amber", "Am"),
+          Map.entry("magenta", "M"));
 
   /** Splits a `;`-separated colour list into lowercase tokens, preserving order. */
   private static void addColours(Set<String> into, String value) {
@@ -322,7 +412,7 @@ public class Seamark {
     }
   }
 
-  static String seamarkLightAbbr(Map<String,Object> tags) {
+  static String seamarkLightAbbr(Map<String, Object> tags) {
     Set<String> colours = new LinkedHashSet<>();
     String group = null;
     String character = null;
@@ -339,8 +429,8 @@ public class Seamark {
       period = seamarkValue(tags, "light", "period");
       height = seamarkValue(tags, "light", "height");
 
-    // Sectored light. Sectors are numbered from 1, so walk them in order rather than in tag
-    // order, and name each distinct colour once — Fl.WRG.10s, not Fl.WRGW.10s.
+      // Sectored light. Sectors are numbered from 1, so walk them in order rather than in tag
+      // order, and name each distinct colour once — Fl.WRG.10s, not Fl.WRGW.10s.
     } else if (tags.containsKey("seamark:light:1:colour")) {
       for (int i = 1; tags.containsKey("seamark:light:" + i + ":colour"); i++) {
         addColours(colours, seamarkValue(tags, "light", i + ":colour"));
@@ -384,7 +474,9 @@ public class Seamark {
       String category = seamarkValue(tags, type, "category");
       if (category == null) { // Fallback: derive category from water_level if category is not set
         String waterLevel = seamarkValue(tags, "wreck", "water_level");
-        if ("submerged".equals(waterLevel) || "awash".equals(waterLevel) || "covers".equals(waterLevel)) {
+        if ("submerged".equals(waterLevel)
+            || "awash".equals(waterLevel)
+            || "covers".equals(waterLevel)) {
           category = "dangerous";
         } else if ("always_dry".equals(waterLevel) || "dry".equals(waterLevel)) {
           category = "hull_showing";
@@ -393,12 +485,13 @@ public class Seamark {
       return category;
     } else if ("pipeline_submarine".equals(type)) {
       return coalesce(
-        seamarkValue(tags, "pipeline_submarine", "category"),
-        seamarkValue(tags, "pipeline_submarine", "product")
-      );
+          seamarkValue(tags, "pipeline_submarine", "category"),
+          seamarkValue(tags, "pipeline_submarine", "product"));
     } else {
-      return coalesce(seamarkValue(tags, type, "category"), value(tags, "seamark:category"), value(tags, "category"));
+      return coalesce(
+          seamarkValue(tags, type, "category"),
+          value(tags, "seamark:category"),
+          value(tags, "category"));
     }
   }
-
 }

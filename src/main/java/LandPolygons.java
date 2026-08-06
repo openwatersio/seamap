@@ -1,3 +1,5 @@
+import com.onthegomap.planetiler.FeatureCollector;
+import com.onthegomap.planetiler.reader.SourceFeature;
 import java.io.*;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -6,22 +8,20 @@ import java.net.http.HttpResponse;
 import java.nio.file.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import com.onthegomap.planetiler.reader.SourceFeature;
-import com.onthegomap.planetiler.FeatureCollector;
 
 /**
  * LandPolygons.java
  *
- * Handles downloading and processing of land polygons from
+ * <p>Handles downloading and processing of land polygons from
  * https://osmdata.openstreetmap.de/data/land-polygons.html
  *
- * The land polygons are provided in WGS84 (EPSG:4326) projection
- * and can be used as a base layer for nautical charts.
+ * <p>The land polygons are provided in WGS84 (EPSG:4326) projection and can be used as a base layer
+ * for nautical charts.
  */
 public class LandPolygons {
 
   private static final String LAND_POLYGONS_URL =
-    "https://osmdata.openstreetmap.de/download/land-polygons-split-4326.zip";
+      "https://osmdata.openstreetmap.de/download/land-polygons-split-4326.zip";
   private static final String LAND_POLYGONS_DIR = "land-polygons-split-4326";
   private static final String LAND_POLYGONS_SHP = "land_polygons.shp";
 
@@ -65,20 +65,15 @@ public class LandPolygons {
     return shpFile;
   }
 
-  /**
-   * Downloads a file from a URL to a target path.
-   */
-  private static void downloadFile(String url, Path targetPath) throws IOException, InterruptedException {
-    HttpClient client = HttpClient.newBuilder()
-      .followRedirects(HttpClient.Redirect.NORMAL)
-      .build();
+  /** Downloads a file from a URL to a target path. */
+  private static void downloadFile(String url, Path targetPath)
+      throws IOException, InterruptedException {
+    HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build();
 
-    HttpRequest request = HttpRequest.newBuilder()
-      .uri(URI.create(url))
-      .GET()
-      .build();
+    HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
 
-    HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+    HttpResponse<InputStream> response =
+        client.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
     if (response.statusCode() != 200) {
       throw new IOException("Failed to download file. HTTP status: " + response.statusCode());
@@ -86,7 +81,7 @@ public class LandPolygons {
 
     // Write the response body to file with progress indication
     try (InputStream in = response.body();
-         OutputStream out = Files.newOutputStream(targetPath)) {
+        OutputStream out = Files.newOutputStream(targetPath)) {
 
       byte[] buffer = new byte[8192];
       long totalBytesRead = 0;
@@ -106,9 +101,7 @@ public class LandPolygons {
     }
   }
 
-  /**
-   * Extracts a zip file to a target directory.
-   */
+  /** Extracts a zip file to a target directory. */
   private static void extractZipFile(Path zipFilePath, Path targetDir) throws IOException {
     try (ZipFile zipFile = new ZipFile(zipFilePath.toFile())) {
       var entries = zipFile.entries();
@@ -123,7 +116,7 @@ public class LandPolygons {
           Files.createDirectories(entryPath.getParent());
 
           try (InputStream in = zipFile.getInputStream(entry);
-               OutputStream out = Files.newOutputStream(entryPath)) {
+              OutputStream out = Files.newOutputStream(entryPath)) {
             in.transferTo(out);
           }
 
@@ -134,8 +127,8 @@ public class LandPolygons {
   }
 
   /**
-   * Processes land polygon features for vector tiles.
-   * Called from the main Profile.processFeature() method.
+   * Processes land polygon features for vector tiles. Called from the main Profile.processFeature()
+   * method.
    *
    * @param sf SourceFeature from the shapefile
    * @param features FeatureCollector to add the processed feature to
@@ -147,9 +140,7 @@ public class LandPolygons {
     features.polygon("land").setBufferPixels(4).setMinPixelSize(0);
   }
 
-  /**
-   * Example main method to test download functionality.
-   */
+  /** Example main method to test download functionality. */
   public static void main(String[] args) {
     try {
       Path dataDir = Path.of("data");
