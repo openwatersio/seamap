@@ -147,7 +147,7 @@ it("returns fresh copies", () => {
 
 // Icon names are composed from tag values at render time; the ones written
 // literally in the style must exist in the built sheet. Composed names are
-// covered by each shape's /generic fallback (handleMissingImages).
+// covered by each shape's /generic fallback (a coalesce of image expressions).
 const spriteIndex = "sprites/dist/freenauticalchart.json";
 describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
   const icons = new Set(Object.keys(JSON.parse(readFileSync(spriteIndex, "utf8"))));
@@ -169,6 +169,11 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
   it("contains every icon the style names literally", () => {
     expect(literals.size).toBeGreaterThan(0);
     expect([...literals].filter((name) => !icons.has(name))).toEqual([]);
+  });
+
+  // referenced from style()'s repainted water fills, which the walk above never sees
+  it("contains the unsurveyed water stipple", () => {
+    expect(icons.has("unsurveyed")).toBe(true);
   });
 });
 

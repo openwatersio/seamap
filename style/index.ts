@@ -3,16 +3,14 @@
  * a VersaTiles base map, Seascape bathymetry, and chart symbology (buoys,
  * beacons, lights, topmarks, landmarks, restricted areas) from layers/.
  *
- * Whole-style path — style() assembles everything, setup() registers the
- * runtime images the style depends on:
+ * Whole-style path — style() assembles everything:
  *
- *   import { style, setup, attribution } from "@openwaters/seamap";
+ *   import { style, attribution } from "@openwaters/seamap";
  *
  *   const map = new maplibregl.Map({
  *     style: style({ spriteBase }),
  *     attributionControl: { customAttribution: attribution },
  *   });
- *   setup(map);
  *
  * Composed path — sources() + layers() hand over just the chart symbology for
  * a style you assemble yourself:
@@ -145,8 +143,7 @@ export interface StyleOptions {
 /**
  * The whole chart style: VersaTiles base map, Seascape bathymetry, and the
  * chart symbology, in nautical draw order. Async because the builder fetches
- * the VersaTiles elevation TileJSON for land hillshading. Pair with setup() on
- * the map, which registers the images the style references at runtime.
+ * the VersaTiles elevation TileJSON for land hillshading.
  */
 export async function style({
   tiles,
@@ -204,6 +201,28 @@ export async function style({
   const seaHillshade = bathymetry.find((l) => l.id === "depth-hillshade");
   if (seaHillshade?.layout) seaHillshade.layout.visibility = "visible"; // seascape defaults it off
 
+  // seascape's depth fills are translucent to blend with a base map, but here the
+  // water underpaint would leak through them over surveyed water; make them opaque
+  const relief = bathymetry.find((l) => l.id === "depth-shading") as
+    | { paint?: Record<string, unknown> }
+    | undefined;
+  if (relief?.paint) relief.paint["color-relief-opacity"] = 1;
+  const depare = bathymetry.find((l) => l.id === "depth-areas") as
+    | { paint?: Record<string, unknown> }
+    | undefined;
+  if (depare?.paint) depare.paint["fill-opacity"] = 1;
+
+  // ENC DEPARE features without depth values are unsurveyed water; stipple them
+  // (replacing seascape's flat provisional tint) — the chart cue for unsurveyed
+  bathymetry.splice(bathymetry.findIndex((l) => l.id === "depth-areas") + 1, 0, {
+    id: "unsurveyed",
+    type: "fill",
+    source: vector ?? "seascape-vector",
+    "source-layer": "depare",
+    filter: ["!", ["has", "drval1"]],
+    paint: { "fill-pattern": "freenauticalchart:unsurveyed" },
+  });
+
   const { areas, symbols } = layers({ font: versatilesFont });
 
   // draw sea: replace versatiles' first two layers (background, water) with the
@@ -245,62 +264,14 @@ export async function style({
   // versatiles' opaque water-polygon fills (estuaries, rivers, docks) paint over
   // the bathymetry. Move them *below* it and restyle as a stipple, so they only
   // show through where there's no depth data — the chart cue for unsurveyed
-  // water. setup() registers the stipple image.
+  // water.
   const waterFillIds = ["water-area", "water-area-river", "water-area-small"];
   const unsurveyed = s.layers.filter((l) => waterFillIds.includes(l.id));
   s.layers = s.layers.filter((l) => !waterFillIds.includes(l.id));
-  unsurveyed.forEach((l) => ((l as { paint: unknown }).paint = { "fill-pattern": "unsurveyed" }));
+  unsurveyed.forEach(
+    (l) => ((l as { paint: unknown }).paint = { "fill-pattern": "freenauticalchart:unsurveyed" }),
+  );
   s.layers.splice(1, 0, ...unsurveyed); // index 1: just above `background`, below bathymetry
 
   return s;
-}
-
-/** Structural subset of maplibregl.Map, so maplibre-gl stays out of the dependency tree. */
-export interface ChartMap {
-  on(event: "styleimagemissing", listener: (e: { id: string }) => void): unknown;
-  on(event: "load", listener: () => void): unknown;
-  getImage(id: string): { data: unknown; pixelRatio?: number; sdf?: boolean } | null | undefined;
-  addImage(id: string, image: unknown, options?: { pixelRatio?: number; sdf?: boolean }): unknown;
-}
-
-/**
- * Register the images a style() map depends on at runtime: the generic-icon
- * fallback for composed names, and the `unsurveyed` water stipple. Browser only.
- */
-export function setup(map: ChartMap): void {
-  handleMissingImages(map);
-  // 'unsurveyed' stipple: faint blue base + one sparse dot, the chart cue for
-  // water with no depth data
-  map.on("load", () => {
-    const px = 12,
-      cv = document.createElement("canvas");
-    cv.width = cv.height = px;
-    const ctx = cv.getContext("2d")!;
-    ctx.fillStyle = "#d6ebfa";
-    ctx.fillRect(0, 0, px, px);
-    ctx.fillStyle = "rgba(60,120,170,0.7)";
-    ctx.beginPath();
-    ctx.arc(px / 2, px / 2, 1.1, 0, 7);
-    ctx.fill();
-    map.addImage("unsurveyed", ctx.getImageData(0, 0, px, px), { pixelRatio: 1 });
-  });
-}
-
-/**
- * Buoy, topmark and light icon names are built from tag values, and the sprite
- * sheet carries only the colour combinations charts normally use. Substitute
- * the shape's generic icon for anything else, so an unusual colour on a real
- * mark never renders as nothing at all.
- */
-export function handleMissingImages(map: ChartMap): void {
-  map.on("styleimagemissing", ({ id }) => {
-    const generic = id.replace(/^(freenauticalchart:[^/]+)\/.*/, "$1/generic");
-    const fallback = generic === id ? null : map.getImage(generic);
-    if (fallback) {
-      map.addImage(id, fallback.data, {
-        pixelRatio: fallback.pixelRatio,
-        sdf: fallback.sdf,
-      });
-    }
-  });
 }
