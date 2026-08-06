@@ -67,27 +67,55 @@ it("carries both land and sea hillshade layers without id collisions", async () 
 // so renames and reorders are breaking changes.
 it("keeps layer ids and order stable", () => {
   expect(areas.map((l) => l.id)).toEqual([
-    "rocks_outline", "rocks", "obstructions", "seabed",
-    "restricted-areas", "restricted-areas-label", "restricted-areas-fill",
-    "restricted-areas-fill-pattern", "allowed-areas", "allowed-areas-labels",
+    "rocks_outline",
+    "rocks",
+    "obstructions",
+    "seabed",
+    "restricted-areas",
+    "restricted-areas-label",
+    "restricted-areas-fill",
+    "restricted-areas-fill-pattern",
+    "allowed-areas",
+    "allowed-areas-labels",
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
     // routes
-    "cables-pipes", "TSS-separation-zone", "TSS-crossing-zone",
-    "TSS-separation-lane-arrows", "TSS-separation-boundary",
-    "TSS-separation-line", "traffic-lane", "ferry", "navigation-lines",
+    "cables-pipes",
+    "TSS-separation-zone",
+    "TSS-crossing-zone",
+    "TSS-separation-lane-arrows",
+    "TSS-separation-boundary",
+    "TSS-separation-line",
+    "traffic-lane",
+    "ferry",
+    "navigation-lines",
     "navigation-tracks",
     // structures
-    "shoreline-constructions", "piles", "platforms", "cranes",
-    "rescue-stations", "radar-stations", "radio_station",
-    "small-craft-facilities", "harhours",
+    "shoreline-constructions",
+    "piles",
+    "platforms",
+    "cranes",
+    "rescue-stations",
+    "radar-stations",
+    "radio_station",
+    "small-craft-facilities",
+    "harhours",
     // lights
-    "lights", "light_ray", "light_arc", "light-minor", "light-major",
+    "lights",
+    "light_ray",
+    "light_arc",
+    "light-minor",
+    "light-major",
     "fogsignals",
     // marks
-    "radar-reflectors", "topmarks", "buoys",
+    "radar-reflectors",
+    "topmarks",
+    "buoys",
     // labels — last, so they win symbol collisions against the icons below
-    "landmarks", "line_symbols", "seamark-line-label", "seamark-label",
+    "landmarks",
+    "line_symbols",
+    "seamark-line-label",
+    "seamark-label",
     "lights-label",
   ]);
 });
@@ -103,7 +131,8 @@ it("pads every fill pattern the style uses", () => {
       patterns.add(node.split(":", 2)[1]);
     } else if (Array.isArray(node)) node.forEach(walk);
   };
-  for (const layer of all) walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
+  for (const layer of all)
+    walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
   expect(patterns.size).toBeGreaterThan(0);
   expect([...patterns].filter((name) => !script.includes(`"${name}"`))).toEqual([]);
 });

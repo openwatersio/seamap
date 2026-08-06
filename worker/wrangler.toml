@@ -6,9 +6,7 @@ name = "seamap-tiles"
 # Mounted under the unified tiles host by path prefix. `wrangler dev` ignores
 # this and serves at localhost:8788 root — the worker tolerates the /seamap
 # prefix being present (prod) or absent (dev). Keep in sync with BASE_PATH below.
-routes = [
-  {pattern = "tiles.openwaters.io/seamap/*", zone_name = "openwaters.io"},
-]
+routes = [{ pattern = "tiles.openwaters.io/seamap/*", zone_name = "openwaters.io" }]
 
 # R2 bucket holding seamap/<version>.pmtiles and the seamap/latest pointer that
 # names the current version. `wrangler dev` backs this with a LOCAL sim —

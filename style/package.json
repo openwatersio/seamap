@@ -3,6 +3,17 @@
   "version": "0.1.0",
   "description": "MapLibre GL style for Open Waters Seamap – base map, bathymetry, chart symbology",
   "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openwatersio/seamap.git",
+    "directory": "style"
+  },
+  "files": [
+    "dist",
+    "index.ts",
+    "layers",
+    "sprites/dist"
+  ],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,17 +24,6 @@
       "default": "./dist/index.js"
     },
     "./sprites/*": "./sprites/dist/*"
-  },
-  "files": [
-    "dist",
-    "index.ts",
-    "layers",
-    "sprites/dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/openwatersio/seamap.git",
-    "directory": "style"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

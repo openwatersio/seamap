@@ -33,10 +33,7 @@ const inner = {
     return { data: new Uint8Array([offset, length]).buffer };
   },
 };
-const src = new CachedSource(
-  inner,
-  "https://tiles.test/__pmtiles/seamap/2026-08-04.pmtiles",
-);
+const src = new CachedSource(inner, "https://tiles.test/__pmtiles/seamap/2026-08-04.pmtiles");
 
 const r1 = await src.getBytes(0, 16384);
 assert.equal(innerReads, 1);

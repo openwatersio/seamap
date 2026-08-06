@@ -1,10 +1,17 @@
 {
   "name": "seamap",
   "private": true,
-  "type": "module",
   "workspaces": [
     "style",
     "viewer",
     "worker"
-  ]
+  ],
+  "type": "module",
+  "scripts": {
+    "lint": "oxlint --deny-warnings",
+    "format": "oxfmt"
+  },
+  "devDependencies": {
+    "vite-plus": "^0.2.8"
+  }
 }

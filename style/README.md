@@ -35,7 +35,7 @@ const style = {
   layers: [...myBaseLayers, ...areas, ...myLandLayers, ...symbols],
 };
 
-const map = new maplibregl.Map({ style, /* ... */ });
+const map = new maplibregl.Map({ style /* ... */ });
 handleMissingImages(map);
 ```
 
@@ -47,14 +47,14 @@ handleMissingImages(map);
 
 ## Sprites
 
-The built sheet ships in the package at `sprites/dist/` (`freenauticalchart.{json,png}`, `@2x` variants, `LICENSE`, `PROVENANCE.md`). MapLibre loads sprites from a URL *prefix* — it appends `.json`/`.png`/`@2x` itself — so the files must be served together under a stable path rather than imported through a bundler's asset pipeline. With Vite:
+The built sheet ships in the package at `sprites/dist/` (`freenauticalchart.{json,png}`, `@2x` variants, `LICENSE`, `PROVENANCE.md`). MapLibre loads sprites from a URL _prefix_ — it appends `.json`/`.png`/`@2x` itself — so the files must be served together under a stable path rather than imported through a bundler's asset pipeline. With Vite:
 
 ```js
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
 viteStaticCopy({
   targets: [{ src: "node_modules/@openwaters/seamap/sprites/dist/*", dest: "sprites" }],
-})
+});
 ```
 
 Icon names are composed from tag values at render time, so the style layers and the sprite sheet must always move together — always serve the sheet from this same package version.
@@ -67,23 +67,22 @@ The same run composes the `poi-*` badges via `bin/poi-badges`, pulling glyphs fr
 
 The symbology lives in [layers/](layers/), grouped by what it draws. Each module exports one function returning its layers in draw order; [layers/index.ts](layers/index.ts) concatenates them and makes the `areas`/`symbols` split.
 
-| module | draws |
-| --- | --- |
-| [areas.ts](layers/areas.ts) | rocks, wrecks and obstructions, seabed quality, restricted and allowed areas |
-| [routes.ts](layers/routes.ts) | traffic separation schemes, ferry routes, navigation lines and tracks, submarine cables and pipelines |
+| module                                | draws                                                                                                          |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [areas.ts](layers/areas.ts)           | rocks, wrecks and obstructions, seabed quality, restricted and allowed areas                                   |
+| [routes.ts](layers/routes.ts)         | traffic separation schemes, ferry routes, navigation lines and tracks, submarine cables and pipelines          |
 | [structures.ts](layers/structures.ts) | piers and breakwaters, piles and dolphins, platforms, cranes, shore stations, harbours, small craft facilities |
-| [lights.ts](layers/lights.ts) | lit-mark flares, sector arcs and rays, major and minor lights, fog signals |
-| [marks.ts](layers/marks.ts) | buoys and beacons, topmarks, radar reflectors |
-| [labels.ts](layers/labels.ts) | landmarks and all name text, including the light characteristic |
+| [lights.ts](layers/lights.ts)         | lit-mark flares, sector arcs and rays, major and minor lights, fog signals                                     |
+| [marks.ts](layers/marks.ts)           | buoys and beacons, topmarks, radar reflectors                                                                  |
+| [labels.ts](layers/labels.ts)         | landmarks and all name text, including the light characteristic                                                |
 
-The order of that concatenation is load-bearing twice. Paint order is the obvious half. The other is symbol collision: MapLibre places symbols in *reverse* draw order, so a layer listed later wins the anchor in a crowded harbour — which is why labels come last. `index.test.ts` asserts the full id order, so a reshuffle can't happen by accident.
+The order of that concatenation is load-bearing twice. Paint order is the obvious half. The other is symbol collision: MapLibre places symbols in _reverse_ draw order, so a layer listed later wins the anchor in a crowded harbour — which is why labels come last. `index.test.ts` asserts the full id order, so a reshuffle can't happen by accident.
 
 Layer geometry comes from the `seamark` and `light` layers of the seamap tiles; the symbols come from the sprite sheet, and because icon names are composed from tag values the two must move together.
 
 The symbology derives from `styles/freenauticalchart.json` in [signalk-seamap-plugin] (CC0), which in turn draws the sprite set from [quantenschaum/mapping]. Positioning conventions — tight-cropped icons anchored and offset in the style rather than padded in the sheet — follow that project's own `vector/styles/s57.json`.
 
 [quantenschaum/mapping]: https://github.com/quantenschaum/mapping
-
 [signalk-seamap-plugin]: https://github.com/prozessor13/signalk-seamap-plugin
 
 ## Versioning

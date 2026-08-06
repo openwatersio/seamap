@@ -20,14 +20,9 @@
 import type { Source, RangeResponse } from "pmtiles";
 
 // 64 bits of SHA-256 — plenty for cache validation (not a security boundary).
-export async function contentEtag(
-  bytes: BufferSource,
-  prefix = "",
-): Promise<string> {
+export async function contentEtag(bytes: BufferSource, prefix = ""): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", bytes);
-  const hex = Array.from(new Uint8Array(d, 0, 8), (b) =>
-    b.toString(16).padStart(2, "0"),
-  ).join("");
+  const hex = Array.from(new Uint8Array(d, 0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
   return `"${prefix}${hex}"`;
 }
 

@@ -35,8 +35,7 @@ export function styleQuery(p: URLSearchParams): StyleQuery | string {
   const q: StyleQuery = {};
   const unit = p.get("unit");
   if (unit !== null) {
-    if (unit !== "m" && unit !== "ft" && unit !== "fm")
-      return "unit must be m, ft, or fm";
+    if (unit !== "m" && unit !== "ft" && unit !== "fm") return "unit must be m, ft, or fm";
     q.unit = unit;
   }
   const safety = p.get("safety");
@@ -48,8 +47,7 @@ export function styleQuery(p: URLSearchParams): StyleQuery | string {
   }
   const shading = p.get("shading");
   if (shading !== null) {
-    if (shading !== "relief" && shading !== "bands")
-      return "shading must be relief or bands";
+    if (shading !== "relief" && shading !== "bands") return "shading must be relief or bands";
     q.shading = shading;
   }
   // The base map's label language: passed through to @versatiles/style, which

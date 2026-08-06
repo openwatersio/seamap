@@ -24,7 +24,7 @@ facility tag in OSM. Rather than drawing them, `sprites/poi-icons.json` maps a
 sprite name to a glyph in one of those sets, so adding a category is an entry in
 that file.
 
-Amenities ashore are deliberately *not* chart line art. A badge reads at a
+Amenities ashore are deliberately _not_ chart line art. A badge reads at a
 glance, survives being drawn over contours and soundings, and says plainly that
 the thing beneath it is not a charted aid to navigation.
 
@@ -40,8 +40,8 @@ the git tree doesn't list them separately.
 
 It reached us through [signalk-seamap-plugin], which added the packed sheet in
 commit `2be1855` (2026-02-14) with no attribution under a repo-level MIT license
-that could not grant rights to it. Upstream's own terms put only the *published
-chart tiles* under CC0; the icons are inputs living in the code repository, so
+that could not grant rights to it. Upstream's own terms put only the _published
+chart tiles_ under CC0; the icons are inputs living in the code repository, so
 they stay GPL-3.0.
 
 That history also explains the shape of the sheet: 5,462 of the icons are keyed
@@ -57,7 +57,7 @@ sequential machine-numbered clipPaths, page-coordinate transforms, a shared clip
 column of 195 × 749 pt, and residual `Helvetica LT` font references. That
 geometry and toolchain (Acrobat Distiller lineage) point at a professionally
 typeset chart-symbol publication; given the project renders BSH data, the BSH
-*Karte 1 / INT 1* book is the likely source, and NOAA's *U.S. Chart No. 1* is
+_Karte 1 / INT 1_ book is the likely source, and NOAA's _U.S. Chart No. 1_ is
 ruled out by page format. No prior copy exists on GitHub (path-data fingerprint
 searches return nothing), so the extraction was Adam's own.
 

@@ -49,9 +49,10 @@ export const attribution =
 const DEFAULT_TILEJSON = "https://tiles.openwaters.io/seamap/tiles.json";
 
 /** The seamark vector source. `url` is a TileJSON document. */
-export function sources({
-  url = DEFAULT_TILEJSON,
-}: { url?: string } = {}): Record<string, SourceSpecification> {
+export function sources({ url = DEFAULT_TILEJSON }: { url?: string } = {}): Record<
+  string,
+  SourceSpecification
+> {
   return { seamap: { type: "vector", url } };
 }
 
@@ -77,9 +78,7 @@ export function layers({ font }: LayersOptions = {}): {
   const { areas, symbols } = chartLayers();
   if (font) {
     for (const layer of [...areas, ...symbols]) {
-      const layout = "layout" in layer
-        ? (layer.layout as { "text-font"?: string[] })
-        : undefined;
+      const layout = "layout" in layer ? (layer.layout as { "text-font"?: string[] }) : undefined;
       if (layout?.["text-font"]) layout["text-font"] = layout["text-font"].map(font);
     }
   }
@@ -188,9 +187,7 @@ export async function style({
   // the chart draws its own ferry routes and lighthouse symbols; drop the
   // base map's duplicates
   s.layers = s.layers.filter((l) => !l.id.startsWith("transport-ferry"));
-  const poi = s.layers.find((l) => l.id === "poi-man_made") as
-    | { filter?: unknown }
-    | undefined;
+  const poi = s.layers.find((l) => l.id === "poi-man_made") as { filter?: unknown } | undefined;
   if (poi?.filter) {
     poi.filter = ["all", poi.filter, ["!=", ["get", "man_made"], "lighthouse"]];
   }
@@ -211,28 +208,36 @@ export async function style({
 
   // draw sea: replace versatiles' first two layers (background, water) with the
   // chart's own background, bathymetry, sea areas, and seamap land
-  s.layers.splice(0, 2, {
-    id: "background",
-    type: "background",
-    paint: { "background-color": "#e9f7ff" },
-  }, ...bathymetry, ...areas, {
-    id: "land_outline",
-    source: "seamap",
-    "source-layer": "land",
-    type: "line",
-    paint: {
-      "line-color": "#3d3d3d",
-      // thin at low zoom or world-view coastlines read as heavy black blobs
-      "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 12, 3],
-      "line-opacity": 0.8,
+  s.layers.splice(
+    0,
+    2,
+    {
+      id: "background",
+      type: "background",
+      paint: { "background-color": "#e9f7ff" },
     },
-  }, {
-    id: "land_area",
-    source: "seamap",
-    "source-layer": "land",
-    type: "fill",
-    paint: { "fill-color": "#fdf1d2" },
-  });
+    ...bathymetry,
+    ...areas,
+    {
+      id: "land_outline",
+      source: "seamap",
+      "source-layer": "land",
+      type: "line",
+      paint: {
+        "line-color": "#3d3d3d",
+        // thin at low zoom or world-view coastlines read as heavy black blobs
+        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 12, 3],
+        "line-opacity": 0.8,
+      },
+    },
+    {
+      id: "land_area",
+      source: "seamap",
+      "source-layer": "land",
+      type: "fill",
+      paint: { "fill-color": "#fdf1d2" },
+    },
+  );
 
   // draw seamarks: buoys, lights, topmarks, landmarks, labels
   s.layers = s.layers.concat(symbols);
@@ -254,15 +259,8 @@ export async function style({
 export interface ChartMap {
   on(event: "styleimagemissing", listener: (e: { id: string }) => void): unknown;
   on(event: "load", listener: () => void): unknown;
-  getImage(id: string):
-    | { data: unknown; pixelRatio?: number; sdf?: boolean }
-    | null
-    | undefined;
-  addImage(
-    id: string,
-    image: unknown,
-    options?: { pixelRatio?: number; sdf?: boolean },
-  ): unknown;
+  getImage(id: string): { data: unknown; pixelRatio?: number; sdf?: boolean } | null | undefined;
+  addImage(id: string, image: unknown, options?: { pixelRatio?: number; sdf?: boolean }): unknown;
 }
 
 /**
@@ -274,7 +272,8 @@ export function setup(map: ChartMap): void {
   // 'unsurveyed' stipple: faint blue base + one sparse dot, the chart cue for
   // water with no depth data
   map.on("load", () => {
-    const px = 12, cv = document.createElement("canvas");
+    const px = 12,
+      cv = document.createElement("canvas");
     cv.width = cv.height = px;
     const ctx = cv.getContext("2d")!;
     ctx.fillStyle = "#d6ebfa";
