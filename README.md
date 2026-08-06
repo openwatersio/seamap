@@ -8,7 +8,8 @@ A nautical-themed map with depths, seamarks, and hazards for the whole planet, r
 
 The chart shows what you'd expect from a paper chart, drawn live from open data: buoys and beacons with IALA colours and topmarks, lights with sector arcs and characteristics (`Fl(3)WRG.10s`), depth shading, contours and spot soundings, rocks, wrecks and obstructions, traffic separation schemes, anchorages and restricted areas, marinas, slipways and shore facilities.
 
-> [!WARNING] Not for navigational use
+> [!WARNING]
+> **Not for navigational use**
 >
 > This is a web map drawn in the style of a nautical chart, which makes it easy to mistake for one. It is not. Seamarks come from crowd-sourced OpenStreetMap data and may be missing, outdated, or wrong, and no hydrographic authority reviews any of it. Depths carry [Seascape](https://openwaters.io/charts/seascape)'s caveats: they are not reduced to a chart datum, and do not account for tides or water level. Always consult official nautical charts for navigation.
 
