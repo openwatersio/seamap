@@ -3,9 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
 import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { layers, sources, sprite, style } from "./index.ts";
-import chartStyle from "./freenauticalchart.style.json";
 
 const { areas, symbols } = layers();
+const all = [...areas, ...symbols];
 
 it("produces a valid style", () => {
   const style: StyleSpecification = {
@@ -72,17 +72,40 @@ it("keeps layer ids and order stable", () => {
     "restricted-areas-fill-pattern", "allowed-areas", "allowed-areas-labels",
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
-    "shoreline-constructions", "cables-pipes", "TSS-separation-zone",
-    "TSS-crossing-zone",
+    // routes
+    "cables-pipes", "TSS-separation-zone", "TSS-crossing-zone",
     "TSS-separation-lane-arrows", "TSS-separation-boundary",
-    "TSS-separation-line", "traffic-lane", "ferry", "piles", "platforms",
-    "cranes", "rescue-stations", "radar-stations",
-    "radio_station", "lights", "light_ray", "light_arc", "light-minor",
-    "light-major", "fogsignals", "radar-reflectors", "topmarks", "buoys",
-    "landmarks", "navigation-lines", "navigation-tracks", "line_symbols",
-    "seamark-line-label", "seamark-label", "small-craft-facilities", "harhours",
+    "TSS-separation-line", "traffic-lane", "ferry", "navigation-lines",
+    "navigation-tracks",
+    // structures
+    "shoreline-constructions", "piles", "platforms", "cranes",
+    "rescue-stations", "radar-stations", "radio_station",
+    "small-craft-facilities", "harhours",
+    // lights
+    "lights", "light_ray", "light_arc", "light-minor", "light-major",
+    "fogsignals",
+    // marks
+    "radar-reflectors", "topmarks", "buoys",
+    // labels — last, so they win symbol collisions against the icons below
+    "landmarks", "line_symbols", "seamark-line-label", "seamark-label",
     "lights-label",
   ]);
+});
+
+// bin/sprites pads fill-pattern icons into a 32-unit repeat cell; one it doesn't know about
+// renders as a solid mass instead of chart hatching. It can't read the layer modules, so it
+// carries the list — keep the two in step.
+it("pads every fill pattern the style uses", () => {
+  const script = readFileSync("bin/sprites", "utf8");
+  const patterns = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (typeof node === "string" && node.startsWith("freenauticalchart:")) {
+      patterns.add(node.split(":", 2)[1]);
+    } else if (Array.isArray(node)) node.forEach(walk);
+  };
+  for (const layer of all) walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
+  expect(patterns.size).toBeGreaterThan(0);
+  expect([...patterns].filter((name) => !script.includes(`"${name}"`))).toEqual([]);
 });
 
 it("returns fresh copies", () => {
@@ -109,7 +132,7 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
       node.forEach(walk);
     }
   };
-  for (const layer of chartStyle.layers) {
+  for (const layer of all) {
     walk((layer as { layout?: { "icon-image"?: unknown } }).layout?.["icon-image"]);
     walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
   }
@@ -133,7 +156,7 @@ it("never compares two constants", () => {
     }
     node.forEach((child) => walk(child, layerId));
   };
-  for (const layer of chartStyle.layers) {
+  for (const layer of all) {
     for (const key of ["filter", "layout", "paint"] as const) {
       walk((layer as Record<string, unknown>)[key], layer.id);
     }

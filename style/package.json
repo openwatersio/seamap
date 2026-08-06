@@ -17,7 +17,7 @@
   "files": [
     "dist",
     "index.ts",
-    "freenauticalchart.style.json",
+    "layers",
     "sprites/dist"
   ],
   "repository": {

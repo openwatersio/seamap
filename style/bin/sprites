@@ -31,34 +31,18 @@ bin/poi-badges "$src/icons/gen" "$src/poi-icons.json" ../node_modules
 # Pad the icons the style uses as fill patterns into a 32-unit cell (64px at
 # the 2x ratio below). Upstream sidesteps this only because its own style
 # doesn't hatch restricted areas.
-python3 - "$src/icons/gen" freenauticalchart.style.json <<'PY'
-import json, re, sys
+python3 - "$src/icons/gen" <<'PY'
+import re, sys
 from pathlib import Path
 
 CELL = 32
 
-
-def pattern_icons(style_path):
-    """Icon names the style uses as a fill pattern, whatever expression wraps them."""
-    names = set()
-
-    def walk(node):
-        if isinstance(node, str) and node.startswith("freenauticalchart:"):
-            names.add(node.split(":", 1)[1])
-        elif isinstance(node, list):
-            for item in node:
-                walk(item)
-
-    style = json.loads(Path(style_path).read_text())
-    for layer in style["layers"]:
-        for key, value in (layer.get("paint") or {}).items():
-            if key == "fill-pattern":
-                walk(value)
-    return names
-
+# The fill patterns of layers/areas.ts `restricted-areas-fill-pattern`. A test in index.test.ts
+# fails if the style grows a fill pattern that is not listed here.
+PATTERN_ICONS = ("military", "no-entry", "no-anchor")
 
 gen = Path(sys.argv[1])
-for name in pattern_icons(sys.argv[2]):
+for name in PATTERN_ICONS:
     path = gen / f"{name}.svg"
     if not path.exists():
         continue

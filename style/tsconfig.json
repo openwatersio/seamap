@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["index.ts", "index.test.ts"]
+  "include": ["index.ts", "index.test.ts", "layers/*.ts"]
 }

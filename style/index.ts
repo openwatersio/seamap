@@ -1,8 +1,7 @@
 /**
  * @openwaters/seamap — the Open Waters nautical chart as a MapLibre GL style:
  * a VersaTiles base map, Seascape bathymetry, and chart symbology (buoys,
- * beacons, lights, topmarks, landmarks, restricted areas) drawn from the
- * vendored freenauticalchart style (see README.md for provenance).
+ * beacons, lights, topmarks, landmarks, restricted areas) from layers/.
  *
  * Whole-style path — style() assembles everything, setup() registers the
  * runtime images the style depends on:
@@ -41,7 +40,7 @@ import {
   type Shading,
   type Unit,
 } from "@openwaters/seascape";
-import chartStyle from "./freenauticalchart.style.json";
+import { chartLayers } from "./layers/index.js";
 
 /** Sprite artwork credit; sprites aren't a MapLibre source, so this can't ride along on one. */
 export const attribution =
@@ -58,8 +57,8 @@ export function sources({
 
 export interface LayersOptions {
   /**
-   * Rename glyph fontstacks to match the consumer's glyph server. The vendored
-   * style uses "Noto Sans Regular" and "Noto Sans Bold"; e.g. VersaTiles wants
+   * Rename glyph fontstacks to match the consumer's glyph server. The chart
+   * layers use "Noto Sans Regular"; e.g. VersaTiles wants
    * (f) => f.toLowerCase().replaceAll(" ", "_").
    */
   font?: (name: string) => string;
@@ -67,24 +66,15 @@ export interface LayersOptions {
 
 /**
  * The chart layers, referencing the `seamap` source from sources(). Split to
- * preserve upstream draw order: `areas` (sea areas — rocks, obstructions,
- * seabed, restricted areas) belong below land fills, `symbols` (buoys, lights,
+ * preserve draw order: `areas` (sea areas — rocks, obstructions, seabed,
+ * restricted areas) belong below land fills, `symbols` (buoys, lights,
  * topmarks, landmarks, labels) on top of everything.
  */
 export function layers({ font }: LayersOptions = {}): {
   areas: LayerSpecification[];
   symbols: LayerSpecification[];
 } {
-  const all = chartStyle.layers as unknown as LayerSpecification[];
-  const sourceLayer = (l: LayerSpecification) =>
-    "source-layer" in l ? l["source-layer"] : undefined;
-  const isSeamark = (l: LayerSpecification) =>
-    ["seamark", "light"].includes(sourceLayer(l) ?? "");
-  const landIndex = all.findIndex((l) => sourceLayer(l) === "land");
-  const pick = (slice: LayerSpecification[]) =>
-    slice.filter(isSeamark).map((l) => structuredClone(l));
-  const areas = pick(all.slice(0, landIndex));
-  const symbols = pick(all.slice(landIndex));
+  const { areas, symbols } = chartLayers();
   if (font) {
     for (const layer of [...areas, ...symbols]) {
       const layout = "layout" in layer
