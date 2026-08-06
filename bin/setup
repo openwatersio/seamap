@@ -3,5 +3,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Resolve dependencies and compile. Gradle handles the rest.
+# npm first: bin/sprites composes POI badges from the @iconify-json packages.
+npm install
+bin/sprites
+
+# Resolve dependencies, compile, test.
 exec ./gradlew build
