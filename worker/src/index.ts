@@ -29,9 +29,12 @@ export interface Env {
 }
 
 const PREFIX = "seamap/";
-// Planetiler writes no attribution into the archive metadata, and the tiles are
-// OSM-derived — supply the credit the source has to carry.
-const ATTRIBUTION = "<a href='https://www.openstreetmap.org/copyright' target='_blank'>© OSM</a>";
+// The tiles are CC-BY 4.0 (attribute "Open Waters: Seamap") and derive from
+// ODbL OSM data — both credits are required.
+const ATTRIBUTION =
+  "<a href='https://openwaters.io/charts/seamap' target='_blank'>© Open Waters: Seamap</a> (CC-BY) " +
+  "<a href='https://openwaters.io/charts/seascape' target='_blank'>© Open Waters: Seascape</a> (CC-BY) " +
+  "<a href='https://www.openstreetmap.org/copyright' target='_blank'>© OpenStreetMap</a>";
 
 class R2Source implements Source {
   constructor(
@@ -228,7 +231,9 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     // on-screen in every MapLibre client with no viewer code.
     const meta = (await a.getMetadata()) as Record<string, unknown>;
     const osm = String(meta["planetiler:osm:osmosisreplicationtime"] ?? "").slice(0, 10);
-    tj.attribution ??= `${ATTRIBUTION} (${osm || v})`;
+    // Unconditional: the archive bakes its own attribution (Seamap.attribution),
+    // but only the Worker knows to append the snapshot date.
+    tj.attribution = `${ATTRIBUTION} (${osm || v})`;
     return json(JSON.stringify(tj));
   }
 

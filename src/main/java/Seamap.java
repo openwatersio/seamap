@@ -85,6 +85,14 @@ public class Seamap implements Profile {
     return "seamap";
   }
 
+  // Baked into the archive metadata for direct .pmtiles consumers; the tile
+  // Worker composes its own copy so it can append the OSM snapshot date.
+  @Override
+  public String attribution() {
+    return "<a href=\"https://openwaters.io/charts/seamap\" target=\"_blank\">&copy; Open Waters: Seamap</a> (CC-BY) "
+        + "<a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap</a>";
+  }
+
   @Override
   public void processFeature(SourceFeature sf, FeatureCollector features) {
     // Process land polygons from shapefile
