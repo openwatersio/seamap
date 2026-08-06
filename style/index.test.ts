@@ -171,9 +171,23 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
     expect([...literals].filter((name) => !icons.has(name))).toEqual([]);
   });
 
-  // referenced from style()'s repainted water fills, which the walk above never sees
-  it("contains the unsurveyed water stipple", () => {
-    expect(icons.has("unsurveyed")).toBe(true);
+  // style() adds fill patterns the layers() walk above never sees (the unsurveyed
+  // water stipple); check every chart-sheet pattern in the whole style resolves
+  it("contains every fill pattern the whole style references", async () => {
+    const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+    const patterns = new Set<string>();
+    const collect = (node: unknown): void => {
+      if (typeof node === "string" && node.startsWith("freenauticalchart:")) {
+        patterns.add(node.split(":", 2)[1]);
+      } else if (Array.isArray(node)) {
+        node.forEach(collect);
+      }
+    };
+    for (const layer of whole.layers) {
+      collect((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
+    }
+    expect(patterns.has("unsurveyed")).toBe(true);
+    expect([...patterns].filter((name) => !icons.has(name))).toEqual([]);
   });
 });
 
