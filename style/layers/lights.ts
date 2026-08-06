@@ -1,4 +1,16 @@
-import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+
+/** Sprite folder for the flare icon: floodlights have their own artwork. */
+const lightPrefix: ExpressionSpecification = [
+  "case",
+  [
+    "==",
+    ["coalesce", ["get", "seamark:light:category"], ["get", "seamark:light:1:category"], ""],
+    "floodlight",
+  ],
+  "floodlight/",
+  "light/",
+];
 
 /**
  * Lit marks: the flare on a lit feature, the sector arcs and rays from the `light` layer, the
@@ -15,25 +27,19 @@ export function lights(): LayerSpecification[] {
       minzoom: 10,
       filter: ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
       layout: {
+        // colour combinations the sheet doesn't carry fall back to the generic flare
         "icon-image": [
-          "concat",
-          "freenauticalchart:",
+          "coalesce",
           [
-            "case",
+            "image",
             [
-              "==",
-              [
-                "coalesce",
-                ["get", "seamark:light:category"],
-                ["get", "seamark:light:1:category"],
-                "",
-              ],
-              "floodlight",
+              "concat",
+              "freenauticalchart:",
+              lightPrefix,
+              ["coalesce", ["get", "seamark:light:colour"], ["get", "seamark:light:1:colour"]],
             ],
-            "floodlight/",
-            "light/",
           ],
-          ["coalesce", ["get", "seamark:light:colour"], ["get", "seamark:light:1:colour"]],
+          ["image", ["concat", "freenauticalchart:", lightPrefix, "generic"]],
         ],
         "icon-anchor": "top",
         "icon-offset": [0, 2],

@@ -4,17 +4,16 @@ The [Open Waters](https://github.com/openwatersio/seamap) nautical chart as a Ma
 
 ## Whole style
 
-`style()` assembles everything; `setup()` registers the runtime images the style depends on (the generic-icon fallback and the "unsurveyed water" stipple):
+`style()` assembles everything:
 
 ```js
-import { style, setup, attribution } from "@openwaters/seamap";
+import { style, attribution } from "@openwaters/seamap";
 
 const map = new maplibregl.Map({
   container: "map",
   style: await style({ spriteBase: new URL("sprites", document.baseURI).href }),
   attributionControl: { customAttribution: attribution },
 });
-setup(map);
 ```
 
 `style()` is async: land hillshading comes from the VersaTiles elevation tiles, and the builder fetches their TileJSON. Options: `tiles` (seamark TileJSON URL), `seascape`, `versatiles`, `language`, `spriteBase`, `hillshade` (on by default; `false` to skip, or an object to tune the shading), and the seascape passthroughs — `flavor` (overrides merged over its `day`), `unit`, `safety`, `shading`, and the `dem`/`vector`/`coverage` source id overrides.
@@ -24,7 +23,7 @@ setup(map);
 `sources()` + `layers()` hand over just the chart symbology for a style you assemble yourself, following the same split as seascape:
 
 ```js
-import { sources, layers, sprite, handleMissingImages, attribution } from "@openwaters/seamap";
+import { sources, layers, sprite, attribution } from "@openwaters/seamap";
 
 const { areas, symbols } = layers();
 const style = {
@@ -36,14 +35,14 @@ const style = {
 };
 
 const map = new maplibregl.Map({ style /* ... */ });
-handleMissingImages(map);
 ```
 
 - `sources({ url? })` — the `seamap` vector source (defaults to `https://tiles.openwaters.io/seamap/tiles.json`).
 - `layers({ font? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames glyph fontstacks (`"Noto Sans Regular"`) to match your glyph server.
 - `sprite(base)` — the `style.sprite` entry pointing at wherever you serve the sheet.
-- `handleMissingImages(map)` — falls back to each shape's `generic` icon when tags compose a colour combination the sheet doesn't carry. Without it, unusual marks render as nothing.
 - `attribution` — the sprite artwork credit; sprites aren't a MapLibre source, so pass it as `customAttribution`.
+
+When tags compose a colour combination the sheet doesn't carry, the layers fall back to the shape's `generic` icon in the style itself (a `coalesce` of `image` expressions), so unusual marks never render as nothing.
 
 ## Sprites
 

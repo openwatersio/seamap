@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36">
+  <defs>
+    <!-- base is seascape's hazard tint: unsurveyed water reads as unsafe water, the
+         light dots mark it as unsurveyed rather than charted-shallow -->
+    <!-- diamond lattice: center dot + corner dots (corners quarter-render and tile whole) -->
+    <pattern id="stipple" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="#1f86cb" />
+      <circle cx="3" cy="3" r="0.5" fill="#ffffff" fill-opacity="0.3" />
+      <circle cx="0" cy="0" r="0.5" fill="#ffffff" fill-opacity="0.3" />
+      <circle cx="6" cy="0" r="0.5" fill="#ffffff" fill-opacity="0.3" />
+      <circle cx="0" cy="6" r="0.5" fill="#ffffff" fill-opacity="0.3" />
+      <circle cx="6" cy="6" r="0.5" fill="#ffffff" fill-opacity="0.3" />
+    </pattern>
+  </defs>
+  <rect width="36" height="36" fill="url(#stipple)" />
+</svg>
