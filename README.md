@@ -1,6 +1,6 @@
-# Seamap — open nautical charts
+# Open Waters: Seamap
 
-Free nautical charts for the whole planet, built from [OpenStreetMap](https://www.openstreetmap.org) seamark data and rebuilt weekly. Part of [Open Waters](https://openwaters.io).
+A nautical-themed map with depths, seamarks, and hazards for the whole planet, rebuilt weekly from [OpenStreetMap](https://www.openstreetmap.org) seamark data, with global bathymetry from [Seascape](https://github.com/openwatersio/seascape).
 
 **[View the chart →](https://openwatersio.github.io/seamap/)**
 
@@ -39,4 +39,4 @@ Everything is served from `tiles.openwaters.io` and free to use with attribution
 
 The generated tiles, styles, and sprites served from `tiles.openwaters.io` are [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). Attribute "Open Waters: Seamap <https://openwaters.io/charts/seamap>". They derive from OpenStreetMap data, © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Each source above carries its own license and attribution requirements.
 
-Code is [GPL-3.0](LICENSE.md). This project is a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap), whose profile and style it grew from; the code inherited from it remains [MIT](LICENSE-MIT.md). The sprite artwork is GPL-3.0 (see `style/sprites/PROVENANCE.md`).
+Code is [GPL-3.0](LICENSE.md). This project is a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap), whose profile and style it grew from; the code inherited from it remains [MIT](LICENSE-MIT.md). The [sprite artwork is GPL-3.0](style/sprites/PROVENANCE.md).
