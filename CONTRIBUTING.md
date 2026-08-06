@@ -100,10 +100,10 @@ Three independent release tracks, all cheap:
 
 Pushing to `main` deploys the Worker (`deploy-worker.yml`, when `worker/` or `style/` changed) and the GitHub Pages viewer (`pages.yml`). A tile release needs no deploy — the Worker resolves the archive from the pointer per request.
 
-### npm package + GitHub release (manual)
+### npm package + GitHub release (tag-driven)
 
 When `@openwaters/seamap` has accumulated changes worth shipping:
 
 1. Bump `version` in `style/package.json` per the [versioning policy](style/README.md#versioning) — layer ids and icon naming are the contract.
-2. `npm publish` from `style/` (`prepublishOnly` rebuilds the sprites; needs `spreet` from `mise install`).
-3. Tag and release: `git tag v<version> && git push --tags`, then `gh release create v<version>` with short notes of what changed for style consumers.
+2. Commit, then `git tag v<version> && git push origin main --tags`.
+3. `.github/workflows/release-style.yml` does the rest: verifies the tag matches the package version, runs the style tests, publishes to npm (sprites rebuilt via `prepublishOnly`, provenance via trusted publishing), and creates the GitHub release with generated notes — edit them afterwards if the commit list needs a consumer-facing summary.

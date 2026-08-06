@@ -1,0 +1,41 @@
+name: Release style package
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # gh release create
+  id-token: write # npm trusted publishing + provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # prepublishOnly rebuilds the sprites; mise supplies spreet at the
+      # pinned version, and the POI badges compose from @iconify-json.
+      - uses: jdx/mise-action@v4
+      - run: npm ci
+
+      - name: Check tag matches package version
+        run: |
+          version="$(node -p 'require("./style/package.json").version')"
+          test "$GITHUB_REF_NAME" = "v$version" || {
+            echo "Tag $GITHUB_REF_NAME does not match style/package.json version $version"
+            exit 1
+          }
+
+      - run: npm test --workspace style
+      - run: npm publish --workspace style
+
+      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
