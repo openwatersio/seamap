@@ -1,376 +1,40 @@
-# Seamap.java - Planetiler Profile for Nautical Charts
+# Seamap — open nautical charts
 
-![Screenshot](sh.png)
-![Split View](split.png)
+Free nautical charts for the whole planet, built from [OpenStreetMap](https://www.openstreetmap.org) seamark data and rebuilt weekly. Part of [Open Waters](https://openwaters.io).
 
-## Overview
-This Java file implements a Planetiler profile that converts OpenStreetMap data directly into PMTiles vector tiles for nautical charts.
-Additionally, in the Demopage, all Bathymetry/Contours/Spotsoundings are rendered ondemand via a patched version of the [maplibre-contour](https://github.com/prozessor13/maplibre-contour) plugin.
+**[View the chart →](https://openwatersio.github.io/seamap/)**
 
-For offline usage on boats, the [SignalK Seamap Plugin](https://github.com/prozessor13/signalk-seamap-plugin) provides intelligent map tile caching with multi-tier retrieval: filesystem cache (7-day retention), offline PMTiles sectors (~350km² coverage at zoom 6), and online fallback via HTTP range requests. Supports vector tiles (OSM, Seamap) and raster bathymetry (GEBCO, EMOD) with serverside dynamic contour and bathymetry generation.
+![Chart of the German Bight](sh.png)
 
-## Features
+The chart shows what you'd expect from a paper chart, drawn live from open data: buoys and beacons with IALA colours and topmarks, lights with sector arcs and characteristics (`Fl(3)WRG.10s`), depth shading, contours and spot soundings, rocks, wrecks and obstructions, traffic separation schemes, anchorages and restricted areas, marinas, slipways and shore facilities.
 
-### 1. Seamark Base Objects (`seamark:*` tags)
-- Processes all seamark types: buoys, beacons, lights, landmarks, harbours, etc.
-- Extracts comprehensive attributes:
-  - `osm_id`, `type`, `name`, `reference`, `function`, `category`, `shape`
-  - `color`, `color_pattern` (with semicolon → underscore conversion)
-  - `light` (abbreviated format), `light_color`, `light_sequence`
-  - `topmark_color`, `topmark_shape` (sanitized)
-- Creates separate layers:
-  - `seamark_point` - Point features
-  - `seamark_linestring` - Line features
-  - `seamark_polygon` - Polygon features with additional label points (PointOnSurface)
+## Use the tiles
 
-### 2. Derived Seamark Features
-Maps standard OSM tags to seamark types:
+Everything is served from `tiles.openwaters.io` and free to use with OSM attribution:
 
-| OSM Tags | Seamark Type | Category | Geometries |
-|----------|--------------|----------|------------|
-| `route=ferry` | `ferry_route` | - | linestring |
-| `waterway:sign=anchor` | `anchorage` | - | point/line/polygon |
-| `power=cable` + `location=underwater` | `cable_submarine` | `power` | linestring |
-| `man_made=pipeline` + `location=underwater` | `pipeline_submarine` | substance | linestring |
-| `man_made=pier` | `mooring` | `pier` | point/line/polygon |
-| `leisure=marina` | `harbour` | `marina` | line/polygon |
-| `leisure=swimming_area\|nature_reserve` | `restricted_area` | leisure value | line/polygon |
-| `man_made=tower\|windmill\|gasometer` | `landmark` | `man_made` | point |
-| `man_made=lighthouse` | `lighthouse` | - | point (with full light attributes) |
+- **TileJSON:** `https://tiles.openwaters.io/seamap/tiles.json` — vector tiles, zoom 0–14.
+- **Ready-made style:** `https://tiles.openwaters.io/seamap/style.json` — the complete chart (base map, bathymetry, symbology) for any MapLibre GL client.
+- **npm package:** [`@openwaters/seamap`](style/README.md) — the style as a library, composable with your own layers.
+- **Whole-planet download:** each build is a dated, immutable archive at `https://tiles.openwaters.io/seamap/<YYYY-MM-DD>.pmtiles` for offline use.
 
-### 3. Land and Water Layer
+Bathymetry (depth shading, contours, soundings) comes from the companion [Seascape](https://github.com/openwatersio/seascape) project, which mosaics GEBCO with higher-resolution regional surveys (NOAA, EMODnet, and more).
 
-#### Land Layer
-- Downloads and processes global land polygons from [osmdata.openstreetmap.de](https://osmdata.openstreetmap.de/data/land-polygons.html)
-- Source: `land-polygons-split-4326.zip` (~600 MB)
-- Projection: WGS84 (EPSG:4326)
-- Automatic download on first run if not present
-- Creates `land` layer with polygon features
-- Attributes: None (simple land mask geometry)
-- Buffer: 4 pixels for smooth rendering at tile boundaries
+## Contributing
 
-#### Water Layer
-- Extracts water bodies from OSM (`natural=water`)
-- **Water cut from land**: every OSM water polygon is cut out of the land layer, so the bathymetry underneath (surveyed or not) renders with the OSM shoreline as its edge
-- **Water WITH bathymetry** (e.g., IJsselmeer, Bodensee, coastal lagoons):
-  - Cut out from land polygons via tile post-processing
-  - Allows bathymetry rendering beneath the water surface
-  - Not included in final `water` layer
-- **Water WITHOUT bathymetry** (e.g., small inland lakes, ponds):
-  - Kept in `water` layer for normal blue water rendering
-  - Prevents green interpolation artifacts from missing bathymetry data
-  - Attributes: `name`, `water` (type: lake, reservoir, pond, etc.)
+- To improve the chart data (add a missing buoy, fix a mislabeled harbour), see [improving chart data](docs/OSM.md).
+- To improve how data is displayed on the chart (symbology, rendering, tooling), see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-This approach ensures that:
-- Large navigable waters with hydrographic surveys show detailed bathymetry
-- Small inland waters without surveys render as standard blue water features
-- No confusing green "depth 0" areas appear where no real bathymetry data exists
+## Data sources
 
-### 4. Light Sector Layer
-Generates geometric representations of light sectors for navigational lights:
-
-#### Light Geometries
-- **Arcs**: Colored sector arcs showing the visible range of each light color
-- **Rays**: Lines at sector boundaries marking the transitions between colors
-
-#### Light Types
-| Type | Arc Radius | Ray Radius |
-|------|------------|------------|
-| `light_major` | 0.7 NM (~1296m) | 2.5 NM (~4630m) |
-| `light_minor` | 0.4 NM (~741m) | 1.2 NM (~2222m) |
-
-#### Attributes
-- `osm_id` (integer) - Reference to parent seamark
-- `type` (string) - Parent seamark type (e.g., `light_major`, `light_minor`)
-- `subtype` (string) - Geometry type: `arc` or `ray`
-- `color` (string) - Light color for arcs (e.g., `red`, `green`, `white`)
-- `range` (string) - Nominal range in nautical miles
-- `sector_start` (integer) - Start bearing in degrees (0-360, for arcs only)
-- `sector_end` (integer) - End bearing in degrees (0-360, for arcs only)
-
-#### Source Tags
-Processes `seamark:light:N:*` tags where N is the sector number:
-- `seamark:light:N:colour` - Light color
-- `seamark:light:N:range` - Nominal range
-- `seamark:light:N:sector_start` - Sector start bearing
-- `seamark:light:N:sector_end` - Sector end bearing
-
-#### Example
-For a lighthouse with red (0-120°) and green (120-240°) sectors:
-- 2 arc features (one red, one green)
-- 4 ray features (at 0°, 120°, 120°, 240°)
-
-### 5. Places Layer
-- Extracts `natural=bay` features
-- Creates point geometry:
-  - Points: direct geometry
-  - Lines: centroid point
-  - Polygons: point on surface
-- Attributes: `osm_id`, `type`, `subtype`, `name`, `reference`
-
-### 6. Default Values for IALA Maritime Buoyage System
-Implements automatic defaults for standardized seamark types:
-
-#### Cardinal Marks
-- **North**: black_yellow horizontal, 2 cones up, black topmark
-- **East**: black_yellow_black horizontal, 2 cones base together, black topmark
-- **South**: yellow_black horizontal, 2 cones down, black topmark
-- **West**: yellow_black_yellow horizontal, 2 cones point together, black topmark
-
-#### Isolated Danger
-- Color: red_black_red horizontal
-- Topmark: 2 spheres, black
-
-#### Safe Water
-- Color: red_white vertical
-- Topmark: sphere, red
-
-#### Special Purpose
-- Color: yellow
-
-#### Generic Defaults
-- All beacons: shape = buoyant (transformed from pile)
-- All buoys: shape = pillar
-- Colors with underscore: color_pattern = horizontal
-
-### 5. Light Abbreviation
-Replicates SQL `seamark_light_abbr()` function:
-- Format: `<character>(<group>).<COLORS>.<period>s<height>m<range>M`
-- Supports single and multi-light configurations
-- Extracts max range per color
-- Example: `Fl(3).WRG.10s15m12M`
-
-
-## Usage
-
-### Setup
-
-Requires Java 21+ (the Gradle wrapper handles everything else; `mise install`
-provisions a matching toolchain if you use mise). Resolve dependencies and compile:
-
-```bash
-bin/setup
-```
-
-### Run
-
-Basic usage (downloads OSM data from Geofabrik):
-```bash
-bin/run --area=croatia --force
-```
-
-**With depth data** for automatic depth calculation on rocks and wrecks:
-```bash
-bin/run --area=croatia --depth=data/depth.pmtiles --force
-```
-
-The `--depth` parameter accepts a PMTiles file with bathymetry data (Terrarium-encoded). Download GEBCO bathymetry:
-```bash
-mkdir -p data
-wget https://fsn1.your-objectstorage.com/mtk-seamap/gebco.pmtiles -O data/depth.pmtiles
-```
-
-**Memory optimization for large areas** (e.g., Germany):
-```bash
-bin/run --area=germany --storage=mmap --nodemap-type=array --force
-```
-
-## Output Layers
-
-### Point/Line/Polygon features for all seamark objects
-
-**Attributes:**
-- `osm_id` (integer)
-- `type` (string) - seamark type
-- `name` (string)
-- `reference` (string)
-- `function` (string)
-- `category` (string)
-- `shape` (string)
-- `color` (string)
-- `color_pattern` (string)
-- `light` (string) - abbreviated light characteristics
-- `light_color` (string)
-- `light_sequence` (string)
-- `topmark_color` (string)
-- `topmark_shape` (string)
-
-**Note:** Polygon features also generate a corresponding point feature for labeling (using point on surface).
-
-## Build PMTiles file for the whole planet
-
-This command takes about 1h on a strong hetzner machine (Ryzen 9 & 128 GB RAM).
-The output is written to `data/seamarks.pmtiles`.
-
-```bash
-JAVA_OPTS="-Xmx20g -XX:+UseParallelGC -XX:ParallelGCThreads=4" \
-  bin/run \
-  --download \
-  --osm-url=https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf \
-  --maxzoom=14 \
-  --tmp=/data/tmp \
-  --nodemap-type=array \
-  --storage=mmap \
-  --threads=20 \
-  --download-threads=10 \
-  --http-retries=3 \
-  --force
-```
-
-## Viewer (`viewer/`)
-
-A MapLibre GL JS viewer for the nautical chart, built with Vite. The chart
-style — base map, bathymetry, symbology, and sprite sheet — lives in the
-[`@openwaters/seamap`](style/README.md) npm package in `style/`, usable from
-this viewer or any other app; the viewer itself is a thin runtime shell.
-
-```bash
-npm install
-bin/sprites                       # build the chart symbols (needs mise install)
-npm run dev --workspace viewer    # local dev server
-npm run build --workspace viewer  # static build → viewer/dist/
-```
-
-`maplibre-gl` and `@openwaters/seamap` are its only dependencies —
-the style package brings `@versatiles/style` and `@openwaters/seascape` along.
-
-### Previewing a local build
-
-`npm run dev` shows the *published* tiles, so a fresh `bin/run` changes nothing on screen. To see a build you just made, load it into the worker's local R2 simulation and hand the viewer a `?tiles=` override:
-
-```bash
-bin/run --area=malta --force      # → data/seamarks.pmtiles
-npm run seed --workspace worker   # copy that build into the local R2 sim
-npm run dev  --workspace worker   # serves it at localhost:8788
-npm run dev  --workspace viewer   # localhost:5173 — check its output, it takes the next free port
-```
-
-Then open the viewer pointed at that worker, positioned over the area you built:
-
-```
-http://localhost:5173/?tiles=http://localhost:8788/seamap/tiles.json#12/35.90/14.45
-```
-
-The hash is not optional in practice: the viewer centres on Aarhus, so a regional build without one shows an empty chart that looks like a failure. `#zoom/lat/lon` puts you over the data — `#12/35.90/14.45` for Malta, `#12/45.07/13.64` for Croatia.
-
-`npm run seed` copies the archive rather than reading it live, so re-run it after every rebuild. The `/seamap` prefix is optional locally (`localhost:8788/tiles.json` works too) — the worker accepts it with or without, since the prefix only exists in production routing.
-
-### Data Sources for the Demopage
-
-#### 1. Base Map
-- **Provider**: [VersaTiles](https://tiles.versatiles.org)
-- **Style**: Colorful style with desaturated colors (-30% saturation)
-- **Purpose**: Base map with streets, labels, and general cartography
-
-#### 2. Seamark Vector Tiles
-- **Source**: MapToolkit Data Connector
-- **Tile Endpoint**: `https://dataconnector.maptoolkit.net/seamap/seamap/{z}/{x}/{y}.pbf?api_key=seamap`
-- **Pmtiles Source**: `https://fsn1.your-objectstorage.com/mtk-seamap/seamap.pmtiles`
-- **Format**: Vector tiles (PMTiles served via API)
-- **Max Zoom**: 14
-- **Layers**:
-  - `seamark` - All nautical features (buoys, beacons, lights, etc.)
-  - `land` - Land polygons for coastline
-  - `light` - Light sector geometries (arcs and rays)
-
-#### 3. Seamark Sprites
-- **Source**: MapToolkit Icons
-- **Endpoint**: `http://icons.maptoolkit.net/seamap`
-- **Format**: Sprite sheets with S-57 nautical symbols
-- **Purpose**: Icon rendering for buoys, beacons, landmarks, etc.
-
-#### 4. Land Hillshading
-- **Provider**: [VersaTiles](https://tiles.versatiles.org) elevation tiles (Mapterhorn data)
-- **TileJSON**: `https://tiles.versatiles.org/tiles/elevation/tiles.json`
-- **Features**: hillshade layer added by the style builder; attribution rides in via the TileJSON
-
-#### 5. Bathymetry (Seascape)
-- **Source**: [Seascape](https://github.com/openwatersio/seascape) — GEBCO + regional high-res mosaic (NOAA S-102/CUDEM, EMODnet, and more)
-- **Raster DEM TileJSON**: `https://tiles.openwaters.io/seascape/raster.json` (Terrarium-encoded depth, tiles to z14 where high-res sources exist)
-- **Vector TileJSON**: `https://tiles.openwaters.io/seascape/vector.json`
-- **Features**:
-  - Depth-shaded color relief + bathymetric hillshading from the raster DEM
-  - Server-rendered depth contours at non-uniform intervals (`contours` layer, metric set)
-  - Spot soundings, shoalest-per-cell (`soundings` layer)
-  - Drying areas / foreshore polygons (`drying` layer)
-  - Attribution is carried in the TileJSONs and credited automatically
-
-### Technology Stack
-
-- **MapLibre GL JS**: Open-source map rendering engine
-- **VersaTiles Style**: Base map styling library
-- **tiles.openwaters.io**: Serves the Seamap vector tiles and Seascape bathymetry
-
-### Features Rendered
-
-The demo visualizes:
-- **Bathymetry**: Colored depth zones with contours and soundings
-- **Land**: Coastline with terrain hillshading
-- **Seamarks**: Buoys, beacons, lights with IALA colors and symbols
-- **Light Sectors**: Colored arcs and rays showing navigational light coverage
-- **Navigation**: Traffic separation schemes, fairways, anchorages
-- **Hazards**: Rocks, wrecks with appropriate symbols
-- **Infrastructure**: Cables, pipelines, platforms, landmarks
-
-## Create EMODnet Bathymetry
-
-### Download data
-
-Download EMODnet bathymetry dataset (NetCDF format with elevation data for European waters)
-
-    wget https://erddap.emodnet.eu/erddap/files/bathymetry_dtm_2024/EMODnet_bathymetry_2024.nc
-
-Download OSM land polygons (global coastline shapefile in WGS84)
-
-    wget https://osmdata.openstreetmap.de/download/land-polygons-complete-4326.zip
-    unzip land-polygons-complete-4326.zip
-
-### Process bathymetry data
-
-1. Extract elevation layer from NetCDF and convert to GeoTIFF
-    - Assigns WGS84 coordinate system (EPSG:4326)
-    - Converts from NetCDF format to standard GeoTIFF raster
-```
-gdal_translate -a_srs EPSG:4326 NETCDF:"EMODnet_bathymetry_2024.nc":elevation bathymetry_elevation.tif
-```
-
-2. Rasterize land polygons to mask land areas
-   - burn 0: Set land pixels to elevation 0 (sea level)
-   - init nan: Initialize all pixels as NaN (no data)
-   - tr: Target resolution ~0.00104° (~115m at equator, matching EMODnet resolution)
-   - te: Extent covering Europe (-36°W to 43°E, 15°N to 90°N)
-   - ot Float32: Output as 32-bit floating point for precise elevation values
-```
-gdal_rasterize -burn 0 -init nan -a_nodata nan -tr 0.001041666666666 0.001041666666666 -te -36 15 43 89.999999999933507 -ot Float32 -of GTiff -l land_polygons land-polygons-complete-4326/land_polygons.shp land0.tif
-```
-
-3. Merge land mask with bathymetry data
-   - Overlays land0.tif (land=0) onto bathymetry_elevation.tif (ocean depths)
-   - Preserves NaN values where no data exists in either source
-   - Result: Combined raster with land at 0m and bathymetry for sea areas
-```
-gdalwarp -overwrite -ot Float32 -srcnodata "nan" -dstnodata "nan" -of GTiff land0.tif bathymetry_elevation.tif merged.tif
-```
-
-4. Fill small gaps in data using interpolation
-   - md 5: Maximum distance of 5 pixels to search for valid values
-   - Interpolates missing data (NaN) using surrounding valid pixels
-   - Creates seamless bathymetry raster without gaps
-```
-gdal_fillnodata.py -md 5 merged.tif filled.tif
-```
-
-5. Create raster-dem tiles
-
-This command takes about 10h on a strong Hetzner machine
-
-```
-rio rgbify -v -e terrarium --min-z 3 --max-z 11 -r -2 -j 4 --format webp filled.tif emod.mbtiles
-pmtiles convert emod.mbtiles emod.pmtiles
-```
+| Source                                                            | Used for                       | License                 |
+| ----------------------------------------------------------------- | ------------------------------ | ----------------------- |
+| [OpenStreetMap](https://www.openstreetmap.org/copyright)          | seamarks, coastline, waterways | ODbL                    |
+| [Seascape](https://github.com/openwatersio/seascape)              | bathymetry                     | per-source, see project |
+| [VersaTiles](https://versatiles.org)                              | base map, glyphs               | ODbL data, free tiles   |
+| [quantenschaum/mapping](https://github.com/quantenschaum/mapping) | chart symbol artwork           | GPL-3.0 © Adam Lucke    |
 
 ## License
 
-This project's code is licensed under the [MIT License](LICENSE.md).
+Code is [MIT](LICENSE.md). The sprite artwork is GPL-3.0 (see `style/sprites/PROVENANCE.md`). Chart data is not included in this repo; each source above carries its own license and attribution requirements.
 
-Data (OSM, GEBCO, EMODnet) is not included and must be downloaded separately; each source has its own license and attribution requirements.
+This project is a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap), whose profile and style it grew from.
