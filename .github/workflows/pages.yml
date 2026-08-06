@@ -31,11 +31,11 @@ jobs:
           cache: npm
 
       # Sprites are generated, not committed; without this step the deployed
-      # viewer has no chart symbols. mise supplies spreet at the pinned version.
+      # viewer has no chart symbols. mise supplies spreet at the pinned version;
+      # npm ci must come first — the POI badges compose from @iconify-json.
       - uses: jdx/mise-action@v4
-      - run: bin/sprites
-
       - run: npm ci
+      - run: bin/sprites
 
       # Project Pages serve under /<repo>/, so assets need that base path.
       # Change to /  when this moves to a custom domain (e.g. openwaters.io).

@@ -33,12 +33,12 @@ jobs:
           cache: npm
 
       # Sprites are generated, not committed, and wrangler uploads them as the
-      # Worker's assets. mise supplies spreet at the pinned version.
+      # Worker's assets. mise supplies spreet at the pinned version; npm ci must
+      # come first — the POI badges compose from the @iconify-json packages.
       - uses: jdx/mise-action@v4
-      - run: bin/sprites
-
       - name: Install workspace (runs the style package's prepare — tsc → style/dist)
         run: npm ci
+      - run: bin/sprites
 
       - name: wrangler deploy
         working-directory: worker
