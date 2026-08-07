@@ -1,10 +1,18 @@
-import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 
 /**
  * Fixed shore and harbour works: piers and breakwaters, piles and dolphins, platforms, cranes,
  * and shore stations.
  */
 export function structures(): LayerSpecification[] {
+  // access values that mean "not open to the public" (OpenSeaMap-vector's PRIVATE_TAGS).
+  // An untagged feature gets null, and `in` against null is false, so it reads as public.
+  const restricted: ExpressionSpecification = [
+    "in",
+    ["get", "access"],
+    ["literal", ["no", "private", "permit", "customers"]],
+  ];
+
   return [
     {
       id: "shoreline-constructions",
@@ -100,7 +108,8 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 14,
-      filter: ["==", ["get", "type"], "small_craft_facility"],
+      // Only show small craft facilities that are open to the public.
+      filter: ["all", ["==", ["get", "type"], "small_craft_facility"], ["!", restricted]],
       layout: {
         "icon-image": [
           "match",
@@ -159,6 +168,8 @@ export function structures(): LayerSpecification[] {
       filter: [
         "all",
         ["==", ["geometry-type"], "Point"],
+        // without the type check this also catches small_craft_facility/fishing points
+        ["==", ["get", "type"], "harbour"],
         ["in", ["get", "category"], ["literal", ["marina", "fishing"]]],
       ],
       layout: {
@@ -180,6 +191,8 @@ export function structures(): LayerSpecification[] {
         "text-offset": [1, 0],
       },
       paint: {
+        "icon-opacity": ["case", restricted, 0.5, 1],
+        "text-opacity": ["case", restricted, 0.5, 1],
         "text-color": "magenta",
         "text-halo-color": "rgba(255,255,255,0.8)",
         "text-halo-width": 2,

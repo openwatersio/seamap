@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
-import { validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
+import {
+  createExpression,
+  featureFilter,
+  validateStyleMin,
+} from "@maplibre/maplibre-gl-style-spec";
 import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { layers, sources, sprite, style } from "./index.ts";
 
@@ -118,6 +122,50 @@ it("keeps layer ids and order stable", () => {
     "seamark-label",
     "lights-label",
   ]);
+});
+
+const PRIVATE = ["no", "private", "permit", "customers"];
+
+describe("restricted access", () => {
+  const layer = (id: string) =>
+    all.find((l) => l.id === id) as { filter: never; paint: Record<string, unknown> };
+  const point = (properties: Record<string, string>) => ({ type: 1, properties }) as never;
+
+  const drawn = (id: string, properties: Record<string, string>) =>
+    featureFilter(layer(id).filter).filter({ zoom: 16 }, point(properties), undefined as never);
+
+  const slipway = { type: "small_craft_facility", category: "slipway" };
+
+  it("hides small-craft facilities the public can't use", () => {
+    for (const access of PRIVATE) {
+      expect(drawn("small-craft-facilities", { ...slipway, access })).toBe(false);
+    }
+  });
+
+  // ["get", "access"] on an untagged feature is null, and `in` against null is false
+  it("keeps facilities that are untagged or openly accessible", () => {
+    expect(drawn("small-craft-facilities", slipway)).toBe(true);
+    expect(drawn("small-craft-facilities", { ...slipway, access: "yes" })).toBe(true);
+  });
+
+  // marinas and fishing harbours are landmarks either way, so they fade instead of vanishing
+  it("fades restricted harbours instead of dropping them", () => {
+    expect(drawn("harhours", { type: "harbour", category: "marina", access: "private" })).toBe(
+      true,
+    );
+    // a fishing *facility* is not a fishing harbour; without the type check it drew in both layers
+    expect(drawn("harhours", { type: "small_craft_facility", category: "fishing" })).toBe(false);
+
+    for (const key of ["icon-opacity", "text-opacity"]) {
+      const compiled = createExpression(layer("harhours").paint[key]);
+      if (compiled.result !== "success") throw new Error(`${key} failed to compile`);
+      const opacity = (access?: string) =>
+        compiled.value.evaluate({ zoom: 12 }, point(access ? { access } : {}));
+      for (const access of PRIVATE) expect(opacity(access)).toBe(0.5);
+      expect(opacity()).toBe(1);
+      expect(opacity("yes")).toBe(1);
+    }
+  });
 });
 
 // bin/sprites pads fill-pattern icons into a 32-unit repeat cell; one it doesn't know about
