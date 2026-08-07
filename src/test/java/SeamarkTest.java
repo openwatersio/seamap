@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Test;
 
 class SeamarkTest {
 
-  /** A lone W is not charted: only sector and alternating lights name white (Chart No. 1 P-11.1). */
+  /**
+   * A lone W is not charted: only sector and alternating lights name white (Chart No. 1 P-11.1).
+   */
   @Test
   void singleLight() {
     assertEquals(

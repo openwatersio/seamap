@@ -477,9 +477,9 @@ public class Seamark {
   }
 
   /**
-   * One colour for the flare and each arc, by the S-52 LIGHTS06 precedence: red and green win
-   * their combinations with white, orange and amber collapse to yellow, a plain white light keeps
-   * its white flare, and anything else is undescribed.
+   * One colour for the flare and each arc, by the S-52 LIGHTS06 precedence: red and green win their
+   * combinations with white, orange and amber collapse to yellow, a plain white light keeps its
+   * white flare, and anything else is undescribed.
    */
   static String resolveLightColor(Set<String> colours) {
     if (colours.isEmpty()) return null;
@@ -513,11 +513,11 @@ public class Seamark {
   }
 
   /**
-   * The light description printed beside a lit mark, in S-4 paper-chart conventions:
-   * dot-separated, sector colours merged into one string (`Fl(3)WRG.10s15m12M`), with the
-   * chart's omissions — a lone W (charted only on sector and alternating lights, US Chart
-   * No. 1 §P-11.1), a trivial (1) signal group (S-52 §10.6.3), and the elevation and range of
-   * minor lights (S-4 §B-471.6/.7). A fog signal joins on its own line.
+   * The light description printed beside a lit mark, in S-4 paper-chart conventions: dot-separated,
+   * sector colours merged into one string (`Fl(3)WRG.10s15m12M`), with the chart's omissions — a
+   * lone W (charted only on sector and alternating lights, US Chart No. 1 §P-11.1), a trivial (1)
+   * signal group (S-52 §10.6.3), and the elevation and range of minor lights (S-4 §B-471.6/.7). A
+   * fog signal joins on its own line.
    */
   static String seamarkLightAbbr(Map<String, Object> tags) {
     LightInfo light = lightInfo(tags);
@@ -567,8 +567,7 @@ public class Seamark {
     if (l.period() != null) tail.append(formatTagNumber(l.period())).append("s");
     // the major-light test is a nominal range of 10 M (S-52 LIGHTS06)
     boolean major =
-        "light_major".equals(value(tags, "seamark:type"))
-            || (l.range() != null && l.range() >= 10);
+        "light_major".equals(value(tags, "seamark:type")) || (l.range() != null && l.range() >= 10);
     if (major) {
       if (l.height() != null) tail.append(formatTagNumber(l.height())).append("m");
       if (l.range() != null) tail.append(formatNumber(l.range())).append("M");

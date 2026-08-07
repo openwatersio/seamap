@@ -42,8 +42,8 @@ public class SeamarkZoomRules {
 
   /**
    * Get the minimum zoom level for light sectors/geometries. Sector arcs draw at a fixed ground
-   * radius (0.4-0.7 NM), which is sub-pixel below ~z10 — carrying the geometry in lower-zoom
-   * tiles is dead weight the style never draws.
+   * radius (0.4-0.7 NM), which is sub-pixel below ~z10 — carrying the geometry in lower-zoom tiles
+   * is dead weight the style never draws.
    */
   public static int getLightMinZoom(String type) {
     return 10;
