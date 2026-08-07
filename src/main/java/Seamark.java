@@ -224,71 +224,42 @@ public class Seamark {
     String type = attrs.get("type") != null ? attrs.get("type").toString() : null;
     String category = attrs.get("category") != null ? attrs.get("category").toString() : null;
 
-    // set defaults for shape, color, patterns, topmarks
-    if ("buoy_cardinal".equals(type)
-        || ("beacon_cardinal".equals(type) && "north".equals(category))) {
-      attrs.put(
-          "shape",
-          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
-      attrs.put("color", coalesceObj(attrs.get("color"), "black_yellow"));
-      attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
-      attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_up"));
-      attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
-    } else if ("buoy_cardinal".equals(type)
-        || ("beacon_cardinal".equals(type) && "east".equals(category))) {
-      attrs.put(
-          "shape",
-          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
-      attrs.put("color", coalesceObj(attrs.get("color"), "black_yellow_black"));
-      attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
-      attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_base_together"));
-      attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
-    } else if ("buoy_cardinal".equals(type)
-        || ("beacon_cardinal".equals(type) && "south".equals(category))) {
-      attrs.put(
-          "shape",
-          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
-      attrs.put("color", coalesceObj(attrs.get("color"), "yellow_black"));
-      attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
-      attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_down"));
-      attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
-    } else if ("buoy_cardinal".equals(type)
-        || ("beacon_cardinal".equals(type) && "west".equals(category))) {
-      attrs.put(
-          "shape",
-          coalesceObj(attrs.get("shape"), "buoy_cardinal".equals(type) ? "pillar" : "pile"));
-      attrs.put("color", coalesceObj(attrs.get("color"), "yellow_black_yellow"));
-      attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
-      attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_cones_point_together"));
-      attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
+    // set defaults for color, patterns, topmarks (shape defaults follow below, by buoy/beacon)
+    if ("buoy_cardinal".equals(type) || "beacon_cardinal".equals(type)) {
+      // CATCAM quadrant -> colour + topmark (IALA R1001 2.2.4 Tables 5-6). A cardinal with no
+      // quadrant gets no guess: a wrong quadrant inverts which side is safe water.
+      String[] cardinal =
+          switch (category == null ? "" : category) {
+            case "north" -> new String[] {"black_yellow", "2_cones_up"};
+            case "east" -> new String[] {"black_yellow_black", "2_cones_base_together"};
+            case "south" -> new String[] {"yellow_black", "2_cones_down"};
+            case "west" -> new String[] {"yellow_black_yellow", "2_cones_point_together"};
+            default -> null;
+          };
+      if (cardinal != null) {
+        attrs.put("color", coalesceObj(attrs.get("color"), cardinal[0]));
+        attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
+        attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), cardinal[1]));
+        attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
+      }
     } else if ("buoy_isolated_danger".equals(type) || "beacon_isolated_danger".equals(type)) {
-      attrs.put(
-          "shape",
-          coalesceObj(attrs.get("shape"), "buoy_isolated_danger".equals(type) ? "pillar" : "pile"));
-      attrs.put("color", coalesceObj(attrs.get("color"), "red_black_red"));
+      // black with red bands (BRB), IALA R1001 2.3.2.2 Table 7
+      attrs.put("color", coalesceObj(attrs.get("color"), "black_red_black"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "2_spheres"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "black"));
     } else if ("buoy_safe_water".equals(type) || "beacon_safe_water".equals(type)) {
-      attrs.put(
-          "shape",
-          coalesceObj(attrs.get("shape"), "buoy_safe_water".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "red_white"));
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "vertical"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "sphere"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "red"));
     } else if ("buoy_special_purpose".equals(type) || "beacon_special_purpose".equals(type)) {
-      attrs.put(
-          "shape",
-          coalesceObj(attrs.get("shape"), "buoy_special_purpose".equals(type) ? "pillar" : "pile"));
       attrs.put("color", coalesceObj(attrs.get("color"), "yellow"));
     }
     if (type != null && type.startsWith("beacon_"))
       attrs.put("shape", coalesceObj(attrs.get("shape"), "pile"));
     if (type != null && type.startsWith("buoy_"))
       attrs.put("shape", coalesceObj(attrs.get("shape"), "pillar"));
-    if (attrs.get("shape") != null && "pile".equals(attrs.get("shape").toString()))
-      attrs.put("shape", "buoyant");
     if (attrs.get("color") != null && attrs.get("color").toString().contains("_"))
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
 
