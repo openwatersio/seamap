@@ -229,11 +229,13 @@ public class Seamap implements Profile {
         feature.setSortKey(rank + depth).setPointLabelGridSizeAndLimit(12, 16, 1);
       }
 
-      // add labels for small polygons in low zoomlevels
-      if ("harbour".equals(type)
-          || "landmark".equals(type)
-          || "light_major".equals(type)
-          || "light_minor".equals(type) && !sf.isPoint()) {
+      // add labels for small polygons in low zoomlevels; point sources are already
+      // points — a second centroid would duplicate them
+      if (!sf.isPoint()
+          && ("harbour".equals(type)
+              || "landmark".equals(type)
+              || "light_major".equals(type)
+              || "light_minor".equals(type))) {
         FeatureCollector.Feature labelFeature =
             sf.canBePolygon() ? features.pointOnSurface("seamark") : features.centroid("seamark");
         attrs.forEach((k, v) -> labelFeature.setAttr(k, v));

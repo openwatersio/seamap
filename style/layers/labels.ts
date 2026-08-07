@@ -1,5 +1,6 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
+import { anchorOffsets } from "./placement.js";
 
 const halo = {
   "text-halo-color": colors.halo,
@@ -99,8 +100,18 @@ export function labels(): LayerSpecification[] {
         ],
         "text-size": 12,
         "text-font": ["Noto Sans Regular"],
-        "text-anchor": "left",
-        "text-offset": [1, -0.5],
+        // tracks icon-size to hold ~7.5px from icon edge to glyph, leaving ~5px clear of the halo.
+        // Sprites are 22 x 30 display px at icon-size 1, hence the taller vertical offsets.
+        "text-variable-anchor-offset": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          anchorOffsets(1.08, 1.25),
+          12,
+          anchorOffsets(1.82, 2.25),
+        ],
+        "text-justify": "auto",
         "text-optional": true,
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.3],
       },
@@ -162,11 +173,21 @@ export function labels(): LayerSpecification[] {
         ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour"]]]],
       ],
       layout: {
-        "text-anchor": "right",
         "text-field": ["get", "name"],
         "text-font": ["Noto Sans Regular"],
-        "text-offset": [-1.3, -0.3],
+        "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13],
+        // mark bodies are bottom-anchored 4px below the position and stack topmarks upward, so a
+        // name below the mark needs far less clearance than one above it
+        "text-variable-anchor-offset": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          12,
+          anchorOffsets(1.85, 3.15, 1.15),
+          16,
+          anchorOffsets(1.42, 2.42, 0.88),
+        ],
       },
       paint: { "text-color": colors.label, ...halo },
     },
@@ -178,7 +199,6 @@ export function labels(): LayerSpecification[] {
       minzoom: 11,
       filter: ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
       layout: {
-        "text-anchor": "left",
         "text-field": [
           "case",
           ["all", ["==", ["get", "type"], "landmark"], ["has", "name"]],
@@ -186,9 +206,20 @@ export function labels(): LayerSpecification[] {
           ["get", "light"],
         ],
         "text-font": ["Noto Sans Regular"],
-        "text-justify": "left",
-        "text-offset": [1.2, 0.2],
+        "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14],
+        // matches the gap `landmarks` leaves off the same symbol, in ems of this layer's text-size
+        "text-variable-anchor-offset": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          11,
+          anchorOffsets(1.96, 2.4),
+          12,
+          anchorOffsets(2.18, 2.7),
+          16,
+          anchorOffsets(1.56, 1.93),
+        ],
       },
       paint: { ...halo },
     },
