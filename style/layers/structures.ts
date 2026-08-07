@@ -1,5 +1,6 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
+import { anchorOffsets } from "./placement.js";
 
 /**
  * Fixed shore and harbour works: piers and breakwaters, piles and dolphins, platforms, cranes,
@@ -187,9 +188,19 @@ export function structures(): LayerSpecification[] {
         "text-font": ["Noto Sans Regular"],
         "text-field": ["get", "name"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
-        "text-anchor": "left",
+        // tracks icon-size to hold ~7.5px from icon edge to glyph, leaving ~5px clear of the halo.
+        // The marina sprite is a square 32 display px at icon-size 1, so both axes match.
+        "text-variable-anchor-offset": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          anchorOffsets(1.37),
+          12,
+          anchorOffsets(1.96),
+        ],
+        "text-justify": "auto",
         "text-optional": true,
-        "text-offset": [1, 0],
       },
       paint: {
         "icon-opacity": ["case", restricted, 0.5, 1],
