@@ -607,7 +607,7 @@ public class Seamark {
     String period = seamarkValue(tags, "fog_signal", "period");
     if (period != null && !period.isEmpty()) {
       if (sb.charAt(sb.length() - 1) != ')') sb.append(".");
-      sb.append(period).append("s");
+      sb.append(formatTagNumber(period)).append("s");
     }
     return sb.toString();
   }

@@ -105,6 +105,8 @@ public class Lights {
       Double sectorStart = parseDoubleOrNull(segment.get("sector_start"));
       Double sectorEnd = parseDoubleOrNull(segment.get("sector_end"));
       if (sectorStart == null || sectorEnd == null) continue;
+      // a full-circle sector has no real boundaries to mark, same as the arc skip above
+      if (sectorStart.equals(sectorEnd) || (sectorStart == 0 && sectorEnd == 360)) continue;
       angleToRange.put(sectorStart, segment.get("range"));
       angleToRange.put(sectorEnd, segment.get("range"));
     }

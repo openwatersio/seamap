@@ -103,8 +103,9 @@ export function lights(): LayerSpecification[] {
       filter: ["all", ["==", ["get", "subtype"], "arc"], visible],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        // same hexes as the flare sprites, so a light's arc and its own flare agree;
-        // anything the S-52 precedence can't name draws magenta, never a fake colour
+        // same hexes as the flare sprites, so a light's arc and its own flare agree; orange
+        // and amber cover older tiles' raw values, and anything the S-52 precedence can't
+        // name falls through to magenta, never a fake colour
         "line-color": [
           "match",
           ["get", "color"],
@@ -112,11 +113,9 @@ export function lights(): LayerSpecification[] {
           colors.lightGreen,
           "red",
           colors.lightRed,
-          ["white", "yellow"],
+          ["white", "yellow", "orange", "amber"],
           colors.lightYellow,
-          "generic",
           colors.magenta,
-          colors.lightYellow,
         ],
         "line-opacity": 1,
         "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 14, 3],
