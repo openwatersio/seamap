@@ -59,6 +59,52 @@ class SeamarkTest {
     assertEquals("2_spheres", buoy.get("topmark_shape"));
   }
 
+  /** Lateral colours flip by IALA region; the hull shape says the side in both. */
+  @Test
+  void lateralDefaultsByRegion() {
+    // Denmark: Region A, port is red and can-shaped
+    var dk = attrs(Map.of("seamark:type", "buoy_lateral", "seamark:buoy_lateral:category", "port"));
+    assertEquals("red", dk.get("color"));
+    assertEquals("can", dk.get("shape"));
+
+    var dkStarboard =
+        attrs(Map.of("seamark:type", "buoy_lateral", "seamark:buoy_lateral:category", "starboard"));
+    assertEquals("green", dkStarboard.get("color"));
+    assertEquals("conical", dkStarboard.get("shape"));
+
+    // a lateral with no side gets no colour guess
+    var unknown = attrs(Map.of("seamark:type", "buoy_lateral"));
+    assertNull(unknown.get("color"));
+
+    // beacons take the colour but keep their own shape default
+    var beacon =
+        attrs(Map.of("seamark:type", "beacon_lateral", "seamark:beacon_lateral:category", "port"));
+    assertEquals("red", beacon.get("color"));
+    assertEquals("pile", beacon.get("shape"));
+  }
+
+  /** Region boxes agree with the per-country table (iala-regions.csv). */
+  @Test
+  void ialaRegionBoxes() {
+    // Region A
+    org.junit.jupiter.api.Assertions.assertFalse(Seamark.isIalaRegionB(4.4, 51.9)); // Rotterdam
+    org.junit.jupiter.api.Assertions.assertFalse(Seamark.isIalaRegionB(151.2, -33.9)); // Sydney
+    org.junit.jupiter.api.Assertions.assertFalse(Seamark.isIalaRegionB(121.5, 31.2)); // Shanghai
+    org.junit.jupiter.api.Assertions.assertFalse(Seamark.isIalaRegionB(118.1, 24.45)); // Xiamen
+    org.junit.jupiter.api.Assertions.assertFalse(Seamark.isIalaRegionB(127.6, 39.9)); // Wonsan
+    org.junit.jupiter.api.Assertions.assertFalse(Seamark.isIalaRegionB(-51.7, 64.2)); // Nuuk
+    org.junit.jupiter.api.Assertions.assertFalse(Seamark.isIalaRegionB(-25.7, 37.7)); // Azores
+    // Region B
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(-74.0, 40.7)); // New York
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(-43.2, -22.9)); // Rio
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(139.8, 35.6)); // Tokyo
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(129.1, 35.1)); // Busan
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(121.5, 25.1)); // Taipei
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(120.97, 14.6)); // Manila
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(-57.9, -51.7)); // Stanley
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(-176.6, 51.9)); // Adak
+  }
+
   /** An explicitly tagged pile beacon stays a pile instead of being rewritten to buoyant. */
   @Test
   void explicitPileShapeSurvives() {
