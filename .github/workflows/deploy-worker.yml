@@ -1,17 +1,11 @@
 name: Deploy tile worker
 
-# The Worker serving tiles.openwaters.io/seamap/*. It resolves the published
-# archive from the seamap/latest pointer at request time, so a release needs no
-# deploy — this runs only when the Worker (or the style it bundles) changes.
+# The Worker serving tiles.openwaters.io/seamap/*. Deploys ride the planet
+# build (build-planet.yml dispatches this after flipping `latest`), so style
+# changes that depend on a new tile schema ship together with the tiles that
+# carry it. For a worker/style fix that can't wait for the next build, dispatch
+# this manually — it deploys main against the currently published tiles.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "worker/**"
-      - "style/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/deploy-worker.yml"
   workflow_dispatch:
 
 # Never let two deploys race the same Worker; a newer push wins.

@@ -1,0 +1,87 @@
+name: Previews
+
+# Uploads a preview version of the tiles Worker and the viewer for each PR and
+# for pushes to main (what the next planet build will ship). Preview versions
+# get their own workers.dev URLs and receive zero production traffic. Both
+# serve against the published `latest` tiles — tile-schema changes still need
+# a planet build before they're visible.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "viewer/**"
+      - "style/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/preview.yml"
+  pull_request:
+    paths:
+      - "worker/**"
+      - "viewer/**"
+      - "style/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/preview.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    # Fork PRs can't see the Cloudflare secrets.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      MESSAGE: "${{ github.event_name == 'pull_request' && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title) || format('main@{0}', github.sha) }}"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      # Sprites are generated, not committed. mise supplies spreet at the
+      # pinned version; npm ci must come first — the POI badges compose from
+      # the @iconify-json packages.
+      - uses: jdx/mise-action@v4
+      - run: npm ci
+      - run: bin/sprites
+
+      - name: Upload Worker preview version
+        id: worker
+        working-directory: worker
+        run: |
+          npx wrangler versions upload --message "$MESSAGE" | tee upload.log
+          echo "url=$(grep -om1 'https://[^ ]*\.workers\.dev' upload.log)" >> "$GITHUB_OUTPUT"
+
+      - run: npm run build --workspace viewer
+
+      - name: Upload viewer preview version
+        id: viewer
+        working-directory: viewer
+        run: |
+          npx wrangler versions upload --message "$MESSAGE" | tee upload.log
+          echo "url=$(grep -om1 'https://[^ ]*\.workers\.dev' upload.log)" >> "$GITHUB_OUTPUT"
+
+      - name: Write preview URLs to the run summary
+        env:
+          WORKER_URL: ${{ steps.worker.outputs.url }}
+          VIEWER_URL: ${{ steps.viewer.outputs.url }}
+        run: |
+          {
+            echo "## Previews"
+            echo
+            echo "| What | URL |"
+            echo "| --- | --- |"
+            echo "| Viewer (this branch's style, published tiles) | $VIEWER_URL |"
+            echo "| Viewer via this branch's Worker | $VIEWER_URL/?tiles=$WORKER_URL/tiles.json |"
+            echo "| Worker style.json | $WORKER_URL/style.json |"
+            echo "| Worker tiles.json | $WORKER_URL/tiles.json |"
+          } >> "$GITHUB_STEP_SUMMARY"

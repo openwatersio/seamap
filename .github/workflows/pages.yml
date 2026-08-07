@@ -1,14 +1,9 @@
 name: Deploy viewer to GitHub Pages
 
+# Deploys ride the planet build (build-planet.yml dispatches this after
+# flipping `latest`) so the viewer's bundled style ships together with the
+# tiles it expects. Dispatch manually for a fix that can't wait.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "viewer/**"
-      - "style/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 # Allow the deploy-pages action to publish.
