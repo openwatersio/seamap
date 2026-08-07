@@ -109,6 +109,13 @@ public class Seamark {
       attrs.put("color", replaceSemiWithUnderscore(seamarkValue(tags, type, "colour")));
       attrs.put("color_pattern", seamarkValue(tags, type, "colour_pattern"));
       attrs.put("radar_reflector", radarReflector(tags, type));
+      // a racon is an active radar beacon (RTPBCN), charted with its Morse group — never the
+      // passive reflector caret
+      String transponder = seamarkValue(tags, "radar_transponder", "category");
+      if (transponder != null) {
+        attrs.put("radar_transponder", transponder);
+        attrs.put("radar_transponder_group", seamarkValue(tags, "radar_transponder", "group"));
+      }
       attrs.put("radio_station", collectTags(tags, "radio_station"));
       attrs.put("light", seamarkLightAbbr(tags));
       LightInfo light = lightInfo(tags);
@@ -164,8 +171,13 @@ public class Seamark {
       attrs.put("category", "offshore_platform");
       attrs.put("name", value(tags, "name"));
     } else if ("pier".equals(value(tags, "man_made"))) {
-      attrs.put("type", "shoreline_construction");
-      attrs.put("category", "pier");
+      // a floating pier is a pontoon (PONTON), its own S-57 feature, not shore construction
+      if ("yes".equals(value(tags, "floating"))) {
+        attrs.put("type", "pontoon");
+      } else {
+        attrs.put("type", "shoreline_construction");
+        attrs.put("category", "pier");
+      }
       attrs.put("name", value(tags, "name"));
     } else if ("groyne".equals(value(tags, "man_made"))) {
       attrs.put("type", "shoreline_construction");
@@ -354,13 +366,10 @@ public class Seamark {
   private static String radarReflector(Map<String, Object> tags, String type) {
     String reflector = value(tags, "seamark:radar_reflector");
     String reflectivity = seamarkValue(tags, type, "reflectivity");
-    String transponder = seamarkValue(tags, "radar_transponder", "category");
     if ("yes".equals(reflector)) {
       return "yes";
     } else if ("conspicuous".equals(reflectivity) || "reflector".equals(reflectivity)) {
       return reflectivity;
-    } else if (transponder != null) {
-      return transponder;
     } else {
       return null;
     }
