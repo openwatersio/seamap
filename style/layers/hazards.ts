@@ -1,4 +1,5 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { colors } from "./palette.js";
 
 /**
  * Point hazards and seabed text. These draw with the symbols, above the land fills — a near-shore
@@ -86,8 +87,8 @@ export function hazards(): LayerSpecification[] {
         "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 13, 11],
       },
       paint: {
-        "text-color": "#333",
-        "text-halo-color": "rgba(255,255,255,0.8)",
+        "text-color": colors.label,
+        "text-halo-color": colors.halo,
         "text-halo-width": 2,
         "text-halo-blur": 1,
       },

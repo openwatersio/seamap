@@ -1,4 +1,5 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { colors } from "./palette.js";
 
 /**
  * Things vessels follow or must stay clear of, drawn as lines: traffic separation schemes, ferry
@@ -32,15 +33,16 @@ export function routes(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       filter: ["==", ["get", "type"], "separation_zone"],
-      paint: { "fill-color": "magenta", "fill-opacity": 0.15 },
+      paint: { "fill-color": colors.magenta, "fill-opacity": 0.15 },
     },
     {
+      // routeing is magenta with no exceptions (S-4 §B-435j); fainter than the zone fill
       id: "TSS-crossing-zone",
       type: "fill",
       source: "seamap",
       "source-layer": "seamark",
       filter: ["==", ["get", "type"], "separation_crossing"],
-      paint: { "fill-color": "yellow", "fill-opacity": 0.1 },
+      paint: { "fill-color": colors.magenta, "fill-opacity": 0.1 },
     },
     {
       id: "TSS-separation-lane-arrows",
@@ -66,10 +68,11 @@ export function routes(): LayerSpecification[] {
       "source-layer": "seamark",
       filter: ["==", ["get", "type"], "separation_boundary"],
       paint: {
-        "line-color": "magenta",
+        // the boundary is the dominant TSS line (TRFCD); the separation line stays faint (TRFCF)
+        "line-color": colors.magenta,
         "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2],
         "line-dasharray": [4, 4],
-        "line-opacity": 0.4,
+        "line-opacity": 0.8,
       },
     },
     {
@@ -79,18 +82,10 @@ export function routes(): LayerSpecification[] {
       "source-layer": "seamark",
       filter: ["==", ["get", "type"], "separation_line"],
       paint: {
-        "line-color": "magenta",
+        "line-color": colors.magenta,
         "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2],
         "line-opacity": 0.4,
       },
-    },
-    {
-      id: "traffic-lane",
-      type: "line",
-      source: "seamap",
-      "source-layer": "seamark",
-      filter: ["==", ["get", "type"], "separation_lane"],
-      paint: { "line-color": "yellow", "line-opacity": 0.05 },
     },
     {
       id: "ferry",
@@ -100,7 +95,7 @@ export function routes(): LayerSpecification[] {
       filter: ["==", ["get", "type"], "ferry_route"],
       layout: { "line-join": "round" },
       paint: {
-        "line-color": "#7c8af6",
+        "line-color": colors.ferry,
         "line-dasharray": [2, 2],
         "line-opacity": 0.6,
         "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.7, 14, 2],
@@ -112,7 +107,7 @@ export function routes(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       filter: ["==", ["get", "type"], "navigation_line"],
-      paint: { "line-color": "black", "line-width": 0.8, "line-dasharray": [4, 2] },
+      paint: { "line-color": colors.navigationLine, "line-width": 0.8, "line-dasharray": [4, 2] },
     },
     {
       id: "navigation-tracks",
@@ -120,7 +115,7 @@ export function routes(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       filter: ["==", ["get", "type"], "recommended_track"],
-      paint: { "line-color": "gray", "line-width": 1 },
+      paint: { "line-color": colors.recommendedTrack, "line-width": 1 },
     },
   ];
 }

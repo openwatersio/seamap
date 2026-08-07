@@ -1,7 +1,8 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { colors } from "./palette.js";
 
 const halo = {
-  "text-halo-color": "rgba(255,255,255,0.8)",
+  "text-halo-color": colors.halo,
   "text-halo-width": 2,
   "text-halo-blur": 1,
 };
@@ -103,7 +104,7 @@ export function labels(): LayerSpecification[] {
         "text-optional": true,
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.3],
       },
-      paint: { "text-color": "#333", ...halo },
+      paint: { "text-color": colors.label, ...halo },
     },
     {
       id: "line_symbols",
@@ -119,7 +120,7 @@ export function labels(): LayerSpecification[] {
         "text-font": ["Noto Sans Regular"],
       },
       paint: {
-        "text-color": ["case", ["==", ["get", "type"], "ferry_route"], "#7c8af6", "#333"],
+        "text-color": ["case", ["==", ["get", "type"], "ferry_route"], colors.ferry, colors.label],
         ...halo,
       },
     },
@@ -146,7 +147,7 @@ export function labels(): LayerSpecification[] {
         "text-pitch-alignment": "viewport",
         "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10, 16, 13],
       },
-      paint: { "text-color": "#333", ...halo },
+      paint: { "text-color": colors.label, ...halo },
     },
     {
       id: "seamark-label",
@@ -167,7 +168,7 @@ export function labels(): LayerSpecification[] {
         "text-offset": [-1.3, -0.3],
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13],
       },
-      paint: { "text-color": "#333", ...halo },
+      paint: { "text-color": colors.label, ...halo },
     },
     {
       id: "lights-label",

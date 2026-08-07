@@ -1,12 +1,9 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { colors } from "./palette.js";
 
-/** Restricted-area colouring: military magenta, conservation green, everything else red. */
+/** Restricted-area colouring: conservation green, everything else chart magenta (RESARE04). */
 const restrictionColor: ExpressionSpecification = [
   "case",
-  ["in", ["get", "type"], ["literal", ["military_area"]]],
-  "magenta",
-  ["in", ["get", "category"], ["literal", ["military"]]],
-  "magenta",
   [
     "in",
     ["get", "category"],
@@ -24,8 +21,8 @@ const restrictionColor: ExpressionSpecification = [
       ],
     ],
   ],
-  "green",
-  "red",
+  colors.conservation,
+  colors.magenta,
 ];
 
 /** The restriction value, resolved across the type-specific key and its unprefixed fallbacks. */
@@ -61,7 +58,7 @@ export function areas(): LayerSpecification[] {
         "line-color": [
           "case",
           ["in", ["get", "type"], ["literal", ["anchorage", "anchor_berth", "mooring"]]],
-          "magenta",
+          colors.magenta,
           "black",
         ],
         "line-dasharray": [4, 4],
@@ -144,7 +141,7 @@ export function areas(): LayerSpecification[] {
       },
       paint: {
         "text-color": restrictionColor,
-        "text-halo-color": "rgba(255,255,255,0.8)",
+        "text-halo-color": colors.halo,
         "text-halo-width": 2,
         "text-halo-blur": 1,
       },

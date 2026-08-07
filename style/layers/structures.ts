@@ -1,4 +1,5 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { colors } from "./palette.js";
 
 /**
  * Fixed shore and harbour works: piers and breakwaters, piles and dolphins, platforms, cranes,
@@ -22,7 +23,7 @@ export function structures(): LayerSpecification[] {
       minzoom: 12,
       filter: ["==", ["get", "type"], "shoreline_construction"],
       paint: {
-        "line-color": "#3d3d3d",
+        "line-color": colors.coastline,
         "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
       },
     },
@@ -97,7 +98,7 @@ export function structures(): LayerSpecification[] {
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 5, 12, 40],
         "circle-opacity": 0,
-        "circle-stroke-color": "magenta",
+        "circle-stroke-color": colors.magenta,
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1.5],
       },
     },
@@ -193,8 +194,9 @@ export function structures(): LayerSpecification[] {
       paint: {
         "icon-opacity": ["case", restricted, 0.5, 1],
         "text-opacity": ["case", restricted, 0.5, 1],
-        "text-color": "magenta",
-        "text-halo-color": "rgba(255,255,255,0.8)",
+        // magenta is reserved for AtoN and regulated areas; names read like every other label
+        "text-color": colors.label,
+        "text-halo-color": colors.halo,
         "text-halo-width": 2,
         "text-halo-blur": 1,
       },

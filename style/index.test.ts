@@ -94,7 +94,6 @@ it("keeps layer ids and order stable", () => {
     "TSS-separation-lane-arrows",
     "TSS-separation-boundary",
     "TSS-separation-line",
-    "traffic-lane",
     "ferry",
     "navigation-lines",
     "navigation-tracks",

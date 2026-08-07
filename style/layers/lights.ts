@@ -1,4 +1,5 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { colors } from "./palette.js";
 
 /** Sprite folder for the flare icon: floodlights have their own artwork. */
 const lightPrefix: ExpressionSpecification = [
@@ -58,7 +59,7 @@ export function lights(): LayerSpecification[] {
       filter: ["==", ["get", "subtype"], "ray"],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": "#666",
+        "line-color": colors.sectorLeg,
         "line-dasharray": [2, 3],
         "line-opacity": 0.8,
         "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 10, 1],
@@ -73,13 +74,14 @@ export function lights(): LayerSpecification[] {
       filter: ["==", ["get", "subtype"], "arc"],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
+        // same hexes as the flare sprites, so a light's arc and its own flare agree
         "line-color": [
           "case",
           ["==", ["get", "color"], "green"],
-          "#009a00",
+          colors.lightGreen,
           ["==", ["get", "color"], "red"],
-          "#F00",
-          "#FF0",
+          colors.lightRed,
+          colors.lightYellow,
         ],
         "line-opacity": 1,
         "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 14, 3],

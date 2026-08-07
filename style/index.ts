@@ -39,6 +39,7 @@ import {
   type Unit,
 } from "@openwaters/seascape";
 import { chartLayers } from "./layers/index.js";
+import { colors } from "./layers/palette.js";
 
 /** Sprite artwork credit; sprites aren't a MapLibre source, so this can't ride along on one. */
 export const attribution =
@@ -235,7 +236,7 @@ export async function style({
     {
       id: "background",
       type: "background",
-      paint: { "background-color": "#e9f7ff" },
+      paint: { "background-color": colors.background },
     },
     ...bathymetry,
     ...areas,
@@ -244,7 +245,7 @@ export async function style({
       source: "seamap",
       "source-layer": "land",
       type: "fill",
-      paint: { "fill-color": "#fdf1d2" },
+      paint: { "fill-color": colors.land },
     },
   );
 
@@ -261,7 +262,7 @@ export async function style({
     "source-layer": "land",
     type: "line",
     paint: {
-      "line-color": "#3d3d3d",
+      "line-color": colors.coastline,
       // thin and faint at low zoom
       "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.1, 12, 1],
       "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 12, 1],
