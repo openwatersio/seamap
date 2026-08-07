@@ -87,7 +87,7 @@ CI runs all of these on every push; run the relevant ones before pushing:
 
 ## Releases
 
-Three independent release tracks, all cheap:
+Three release tracks, all cheap:
 
 ### Tiles (weekly, automatic)
 
@@ -96,9 +96,13 @@ Three independent release tracks, all cheap:
 - Out-of-cycle build: dispatch the workflow manually (an `area` input does a cheap smoke build that doesn't touch `latest`).
 - Rollback: dispatch `.github/workflows/repoint-latest.yml` with a previous version — pointer flip only, no rebuild.
 
-### Worker and viewer (on push, automatic)
+### Worker and viewer (ride the planet build)
 
-Pushing to `main` deploys the Worker (`deploy-worker.yml`, when `worker/` or `style/` changed) and the GitHub Pages viewer (`pages.yml`). A tile release needs no deploy — the Worker resolves the archive from the pointer per request.
+The Worker (`deploy-worker.yml`) and the GitHub Pages viewer (`pages.yml`) deploy when a planet build publishes, not on push — so a style change that depends on a profile change ships together with the tiles that carry it. Merging to `main` stages changes; the next build (or a manual dispatch of either workflow, for a fix that can't wait) makes them live against the published tiles.
+
+### Previews
+
+Every PR — and every push to `main` — touching `worker/`, `viewer/`, or `style/` uploads preview versions to Cloudflare (`preview.yml`), so what's staged for the next planet build is always viewable. No production traffic. The run summary links a viewer preview (the branch's style against published tiles) and a Worker preview URL; the combined link (`?tiles=...`) exercises both. Previews serve the published `latest` tiles, so tile-schema changes aren't visible in them until a planet build runs.
 
 ### npm package + GitHub release (tag-driven)
 

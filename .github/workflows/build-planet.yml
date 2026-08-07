@@ -28,6 +28,10 @@ concurrency:
   group: build-planet
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  actions: write # dispatches the worker/viewer deploys after publishing
+
 env:
   # Types are tried in order against live capacity (the datacenter API lists
   # which types are orderable right now); capacity moves around, so no location
@@ -149,6 +153,17 @@ jobs:
             bin/build-planet
           fi
           REMOTE
+
+      # Worker and viewer deploy only here (plus manual dispatch), so style
+      # changes ship together with the tiles that carry the schema they expect.
+      # Smoke builds don't flip `latest`, so they don't deploy anything.
+      - name: Dispatch worker & viewer deploys
+        if: env.AREA == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run deploy-worker.yml --ref main
+          gh workflow run pages.yml --ref main
 
       - name: Destroy server
         if: always()

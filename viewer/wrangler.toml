@@ -1,0 +1,10 @@
+# Assets-only Worker holding viewer builds. Production stays on GitHub Pages;
+# this Worker serves no route — it exists so PRs can upload preview versions,
+# each with its own workers.dev URL (see preview.yml).
+name = "seamap-viewer"
+compatibility_date = "2025-04-01"
+workers_dev = false
+preview_urls = true
+
+[assets]
+directory = "dist"
