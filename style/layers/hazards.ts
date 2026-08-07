@@ -13,6 +13,7 @@ export function hazards(): LayerSpecification[] {
       type: "symbol",
       source: "seamap",
       "source-layer": "seamark",
+      minzoom: 8,
       filter: ["==", ["get", "type"], "rock"],
       layout: {
         "icon-overlap": "always",
@@ -25,6 +26,7 @@ export function hazards(): LayerSpecification[] {
       type: "symbol",
       source: "seamap",
       "source-layer": "seamark",
+      minzoom: 8,
       filter: ["==", ["get", "type"], "rock"],
       layout: {
         "icon-overlap": "always",
@@ -49,24 +51,29 @@ export function hazards(): LayerSpecification[] {
       },
     },
     {
+      // minzoom 6 defers to the tile pipeline (SeamarkZoomRules): below zoom 8 the tiles carry
+      // only dangerous wrecks, so those appear early without a separate layer split
       id: "obstructions",
       type: "symbol",
       source: "seamap",
       "source-layer": "seamark",
-      minzoom: 8,
+      minzoom: 6,
       filter: ["in", ["get", "type"], ["literal", ["wreck", "obstruction"]]],
       layout: {
         "icon-image": [
           "case",
+          // foul ground: safe to navigate over, avoid anchoring (FOULGND1, INT 1 K31)
+          ["in", ["get", "category"], ["literal", ["foul_ground", "distributed_remains"]]],
+          "freenauticalchart:foul",
           ["==", ["get", "type"], "obstruction"],
           "freenauticalchart:obstruction",
-          ["in", ["get", "category"], ["literal", ["non-dangerous", "distributed_remains"]]],
+          ["==", ["get", "category"], "non-dangerous"],
           "freenauticalchart:wreck-non-dangerous",
-          ["in", ["get", "category"], ["literal", ["dangerous", "mast_showing"]]],
-          "freenauticalchart:wreck-dangerous",
-          ["==", ["get", "category"], "hull_showing"],
+          // mast showing = part of the wreck is visible (K25), same family as hull showing
+          ["in", ["get", "category"], ["literal", ["hull_showing", "mast_showing"]]],
           "freenauticalchart:wreck-hull_showing",
-          "freenauticalchart:wreck-non-dangerous",
+          // an undescribed wreck must not read as safe: default is dangerous (WRECKS05)
+          "freenauticalchart:wreck-dangerous",
         ],
         "icon-overlap": "always",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],

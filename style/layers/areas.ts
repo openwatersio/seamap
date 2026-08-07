@@ -202,7 +202,7 @@ export function areas(): LayerSpecification[] {
             ["in", "no_entry", ["var", "restriction"]],
             "freenauticalchart:no-entry",
             ["in", "restricted_entry", ["var", "restriction"]],
-            "freenauticalchart:no-anchor",
+            "freenauticalchart:no-entry",
             ["in", "no_anchoring", ["var", "restriction"]],
             "freenauticalchart:no-anchor",
             "",
