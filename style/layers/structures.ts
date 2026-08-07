@@ -29,6 +29,20 @@ export function structures(): LayerSpecification[] {
       },
     },
     {
+      // floating docks (PONTON): same linework as piers — at chart scales a pontoon just
+      // needs to not disappear, and the line outlines polygon geometries too
+      id: "pontoons",
+      type: "line",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 12,
+      filter: ["==", ["get", "type"], "pontoon"],
+      paint: {
+        "line-color": colors.coastline,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
+      },
+    },
+    {
       id: "piles",
       type: "circle",
       source: "seamap",

@@ -108,13 +108,15 @@ public class Seamark {
       attrs.put("shape", seamarkValue(tags, type, "shape"));
       attrs.put("color", replaceSemiWithUnderscore(seamarkValue(tags, type, "colour")));
       attrs.put("color_pattern", seamarkValue(tags, type, "colour_pattern"));
-      attrs.put("radar_reflector", radarReflector(tags, type));
       // a racon is an active radar beacon (RTPBCN), charted with its Morse group — never the
-      // passive reflector caret
+      // passive reflector caret, even when the mark carries both
       String transponder = seamarkValue(tags, "radar_transponder", "category");
       if (transponder != null) {
         attrs.put("radar_transponder", transponder);
         attrs.put("radar_transponder_group", seamarkValue(tags, "radar_transponder", "group"));
+      } else {
+        String reflector = radarReflector(tags, type);
+        if (reflector != null) attrs.put("radar_reflector", reflector);
       }
       attrs.put("radio_station", collectTags(tags, "radio_station"));
       attrs.put("light", seamarkLightAbbr(tags));

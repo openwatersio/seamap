@@ -427,9 +427,19 @@ class SeamarkTest {
                 "seamark:type", "buoy_safe_water",
                 "seamark:radar_transponder:category", "racon",
                 "seamark:radar_transponder:group", "D"));
-    assertNull(racon.get("radar_reflector"));
+    org.junit.jupiter.api.Assertions.assertFalse(racon.containsKey("radar_reflector"));
     assertEquals("racon", racon.get("radar_transponder"));
     assertEquals("D", racon.get("radar_transponder_group"));
+
+    // even when the mark also carries a passive reflector, the racon wins
+    var both =
+        attrs(
+            Map.of(
+                "seamark:type", "buoy_safe_water",
+                "seamark:radar_reflector", "yes",
+                "seamark:radar_transponder:category", "racon"));
+    org.junit.jupiter.api.Assertions.assertFalse(both.containsKey("radar_reflector"));
+    assertEquals("racon", both.get("radar_transponder"));
 
     var reflector = attrs(Map.of("seamark:type", "buoy_lateral", "seamark:radar_reflector", "yes"));
     assertEquals("yes", reflector.get("radar_reflector"));
