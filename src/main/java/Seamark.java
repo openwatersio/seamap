@@ -253,6 +253,19 @@ public class Seamark {
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "vertical"));
       attrs.put("topmark_shape", coalesceObj(attrs.get("topmark_shape"), "sphere"));
       attrs.put("topmark_color", coalesceObj(attrs.get("topmark_color"), "red"));
+    } else if ("buoy_lateral".equals(type) || "beacon_lateral".equals(type)) {
+      // Colour flips by IALA region (A: port red, B: port green); the hull shape does not
+      // (R1001 2.1.3-2.1.4). No topmark default: R1001 fits topmarks only where the shape
+      // doesn't already say the side, and OSM tags them where they exist.
+      String side = category;
+      if ("port".equals(side) || "starboard".equals(side)) {
+        boolean b = isIalaRegionB(sf);
+        boolean port = "port".equals(side);
+        attrs.put("color", coalesceObj(attrs.get("color"), (port ^ b) ? "red" : "green"));
+        if ("buoy_lateral".equals(type)) {
+          attrs.put("shape", coalesceObj(attrs.get("shape"), port ? "can" : "conical"));
+        }
+      }
     } else if ("buoy_special_purpose".equals(type) || "beacon_special_purpose".equals(type)) {
       attrs.put("color", coalesceObj(attrs.get("color"), "yellow"));
     }
@@ -369,6 +382,42 @@ public class Seamark {
       }
     }
     return sb.length() > 0 ? sb.toString() : null;
+  }
+
+  /**
+   * IALA Region B is the Americas plus Japan, South Korea, Taiwan, and the Philippines; everything
+   * else is Region A (US Chart No. 1 Q-130; per-country table in the standards library's
+   * iala-regions.csv). Coarse geographic boxes, accurate to the country level with known fringe
+   * tolerances: Kinmen sits 2 km off the Chinese coast and reads as A, and the DMZ-adjacent Korean
+   * islands straddle the latitude cut.
+   */
+  static boolean isIalaRegionB(double lon, double lat) {
+    // the Americas without Greenland, plus the Aleutian tail across the dateline
+    if (lon >= -170 && lon <= -32 && lat >= -60 && lat <= 75 && !(lat > 59 && lon > -67)) {
+      return true;
+    }
+    // western Aleutians only: Attu starts at 172.4E, and Russia's Commander Islands end at
+    // 168.2E, so the cut at 170 keeps Region A east of it
+    if (lon >= 170 && lon <= 180 && lat >= 50 && lat <= 56) return true;
+    if (lon >= -180 && lon <= -165 && lat >= 50 && lat <= 56) return true;
+    if (lon >= 116.9 && lon <= 127 && lat >= 4.5 && lat <= 21) return true; // Philippines
+    if (lon >= 119.3 && lon <= 122.1 && lat >= 21.7 && lat <= 25.4) return true; // Taiwan
+    if (lon >= 124.5 && lon <= 130 && lat >= 33 && lat <= 38.2) return true; // South Korea
+    if (lon >= 128.5 && lon <= 147 && lat >= 30 && lat <= 37) return true; // Kyushu, Shikoku
+    if (lon >= 132 && lon <= 146.5 && lat >= 37 && lat <= 45.8) return true; // Honshu, Hokkaido
+    if (lon >= 122.9 && lon <= 132 && lat >= 24 && lat <= 30) return true; // Ryukyu Islands
+    return false;
+  }
+
+  private static boolean isIalaRegionB(SourceFeature sf) {
+    try {
+      Coordinate c = sf.centroid().getCoordinate();
+      return isIalaRegionB(
+          com.onthegomap.planetiler.geo.GeoUtils.getWorldLon(c.x),
+          com.onthegomap.planetiler.geo.GeoUtils.getWorldLat(c.y));
+    } catch (Exception e) {
+      return false; // Region A covers most of the world's coastline
+    }
   }
 
   /** S-57 colour abbreviations; anything unlisted falls back to its capitalised initial. */
