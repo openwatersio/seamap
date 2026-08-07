@@ -94,11 +94,7 @@ export function marks(): LayerSpecification[] {
             "image",
             [
               "case",
-              [
-                "all",
-                ["==", ["get", "shape"], "withy"],
-                ["==", ["get", "category"], "port"],
-              ],
+              ["all", ["==", ["get", "shape"], "withy"], ["==", ["get", "category"], "port"]],
               "freenauticalchart:withy-port",
               ["==", ["get", "shape"], "withy"],
               "freenauticalchart:withy-starboard",

@@ -253,9 +253,7 @@ export async function style({
   // otherwise landuse polygons reaching the shore eat its landward half and its weight varies
   // along the shore (S-52 gives the coastline priority 7-8, above all land detail). It still
   // sits below the base map's POIs and labels, which start at the first poi-/label- layer.
-  const firstBaseSymbol = s.layers.findIndex((l) =>
-    /^(poi-|label-|marking-|symbol-)/.test(l.id),
-  );
+  const firstBaseSymbol = s.layers.findIndex((l) => /^(poi-|label-|marking-|symbol-)/.test(l.id));
   s.layers.splice(firstBaseSymbol === -1 ? s.layers.length : firstBaseSymbol, 0, {
     id: "land_outline",
     source: "seamap",
