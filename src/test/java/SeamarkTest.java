@@ -13,8 +13,12 @@ class SeamarkTest {
   private static final GeometryFactory GF = new GeometryFactory();
 
   private static Map<String, Object> attrs(Map<String, Object> tags) {
+    return attrs(tags, 10.2, 56.1); // Denmark: IALA Region A
+  }
+
+  private static Map<String, Object> attrs(Map<String, Object> tags, double lon, double lat) {
     return Seamark.extractSeamarkAttributes(
-        SimpleFeature.create(GF.createPoint(new Coordinate(10.2, 56.1)), tags));
+        SimpleFeature.create(GF.createPoint(new Coordinate(lon, lat)), tags));
   }
 
   /** Every quadrant gets its own colours and cones, not North's (IALA R1001 2.2.4). */
@@ -83,6 +87,26 @@ class SeamarkTest {
     assertEquals("pile", beacon.get("shape"));
   }
 
+  /** In Region B the colours flip: green to port, red to starboard (R1001 2.1.4). */
+  @Test
+  void lateralDefaultsInRegionB() {
+    var nyPort =
+        attrs(
+            Map.of("seamark:type", "buoy_lateral", "seamark:buoy_lateral:category", "port"),
+            -74.0,
+            40.7);
+    assertEquals("green", nyPort.get("color"));
+    assertEquals("can", nyPort.get("shape"));
+
+    var nyStarboard =
+        attrs(
+            Map.of("seamark:type", "buoy_lateral", "seamark:buoy_lateral:category", "starboard"),
+            -74.0,
+            40.7);
+    assertEquals("red", nyStarboard.get("color"));
+    assertEquals("conical", nyStarboard.get("shape"));
+  }
+
   /** Region boxes agree with the per-country table (iala-regions.csv). */
   @Test
   void ialaRegionBoxes() {
@@ -103,6 +127,9 @@ class SeamarkTest {
     org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(120.97, 14.6)); // Manila
     org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(-57.9, -51.7)); // Stanley
     org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(-176.6, 51.9)); // Adak
+    org.junit.jupiter.api.Assertions.assertTrue(Seamark.isIalaRegionB(173.2, 52.9)); // Attu
+    org.junit.jupiter.api.Assertions.assertFalse(
+        Seamark.isIalaRegionB(166.5, 55.2)); // Commander Is.
   }
 
   /** An explicitly tagged pile beacon stays a pile instead of being rewritten to buoyant. */

@@ -393,7 +393,9 @@ public class Seamark {
     if (lon >= -170 && lon <= -32 && lat >= -60 && lat <= 75 && !(lat > 59 && lon > -67)) {
       return true;
     }
-    if (lon >= 166 && lat >= 50 && lat <= 56) return true;
+    // western Aleutians only: Attu starts at 172.4E, and Russia's Commander Islands end at
+    // 168.2E, so the cut at 170 keeps Region A east of it
+    if (lon >= 170 && lon <= 180 && lat >= 50 && lat <= 56) return true;
     if (lon >= -180 && lon <= -165 && lat >= 50 && lat <= 56) return true;
     if (lon >= 116.9 && lon <= 127 && lat >= 4.5 && lat <= 21) return true; // Philippines
     if (lon >= 119.3 && lon <= 122.1 && lat >= 21.7 && lat <= 25.4) return true; // Taiwan
