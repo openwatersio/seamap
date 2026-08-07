@@ -1,11 +1,61 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import com.onthegomap.planetiler.reader.SimpleFeature;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
 
 class SeamarkTest {
+
+  private static final GeometryFactory GF = new GeometryFactory();
+
+  private static Map<String, Object> attrs(Map<String, Object> tags) {
+    return Seamark.extractSeamarkAttributes(
+        SimpleFeature.create(GF.createPoint(new Coordinate(10.2, 56.1)), tags));
+  }
+
+  /** Every quadrant gets its own colours and cones, not North's (IALA R1001 2.2.4). */
+  @Test
+  void cardinalQuadrantDefaults() {
+    var south =
+        attrs(Map.of("seamark:type", "buoy_cardinal", "seamark:buoy_cardinal:category", "south"));
+    assertEquals("yellow_black", south.get("color"));
+    assertEquals("2_cones_down", south.get("topmark_shape"));
+
+    var west =
+        attrs(
+            Map.of("seamark:type", "beacon_cardinal", "seamark:beacon_cardinal:category", "west"));
+    assertEquals("yellow_black_yellow", west.get("color"));
+    assertEquals("2_cones_point_together", west.get("topmark_shape"));
+  }
+
+  /** A cardinal with no quadrant gets no colour guess: a wrong quadrant inverts safe water. */
+  @Test
+  void cardinalWithoutQuadrantGetsNoColourDefault() {
+    var unknown = attrs(Map.of("seamark:type", "buoy_cardinal"));
+    assertNull(unknown.get("color"));
+    assertNull(unknown.get("topmark_shape"));
+    assertEquals("pillar", unknown.get("shape"));
+  }
+
+  /** Isolated danger is black with red bands (BRB), not the inverse (R1001 2.3.2.2). */
+  @Test
+  void isolatedDangerDefaults() {
+    var buoy = attrs(Map.of("seamark:type", "buoy_isolated_danger"));
+    assertEquals("black_red_black", buoy.get("color"));
+    assertEquals("2_spheres", buoy.get("topmark_shape"));
+  }
+
+  /** An explicitly tagged pile beacon stays a pile instead of being rewritten to buoyant. */
+  @Test
+  void explicitPileShapeSurvives() {
+    var pile =
+        attrs(Map.of("seamark:type", "beacon_lateral", "seamark:beacon_lateral:shape", "pile"));
+    assertEquals("pile", pile.get("shape"));
+  }
 
   /**
    * A lone W is not charted: only sector and alternating lights name white (Chart No. 1 P-11.1).
