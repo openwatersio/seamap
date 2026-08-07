@@ -292,13 +292,15 @@ public class Seamark {
     if (attrs.get("color") != null && attrs.get("color").toString().contains("_"))
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
 
-    // rocks/wrecks: fill missing depth values
+    // rocks/wrecks: sample the seabed around an uncharted hazard. This is not the hazard's
+    // surveyed least depth (VALSOU, the `depth` attr, charted as a numeral) — it only informs
+    // the danger decision, like S-101's surroundingDepth, and is never printed.
     if (("wreck".equals(type) || "rock".equals(type)) && attrs.get("depth") == null) {
       try {
         org.locationtech.jts.geom.Point centroid = (org.locationtech.jts.geom.Point) sf.centroid();
         if (depthCalculator != null && centroid != null) {
           Coordinate coord = centroid.getCoordinate();
-          attrs.put("depth", depthCalculator.getDepthAtLocation(coord));
+          attrs.put("surrounding_depth", depthCalculator.getDepthAtLocation(coord));
         }
       } catch (Exception e) {
       }
