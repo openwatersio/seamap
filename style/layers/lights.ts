@@ -1,6 +1,16 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 
+/** A sector where the light shows; obscured/faint sectors draw uncoloured (S-52 LIGHTS06). */
+const visible: ExpressionSpecification = [
+  "!",
+  [
+    "in",
+    ["coalesce", ["get", "visibility"], ""],
+    ["literal", ["obscured", "part_obscured", "partially_obscured", "faint"]],
+  ],
+];
+
 /** Sprite folder for the flare icon: floodlights have their own artwork. */
 const lightPrefix: ExpressionSpecification = [
   "case",
@@ -28,9 +38,11 @@ export function lights(): LayerSpecification[] {
       minzoom: 10,
       filter: ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
       layout: {
-        // colour combinations the sheet doesn't carry fall back to the generic flare
+        // light_color is the S-52 LIGHTS06 precedence resolved in the tiles; older tiles
+        // without it fall back to the raw colour value, then to the generic flare
         "icon-image": [
           "coalesce",
+          ["image", ["concat", "freenauticalchart:", lightPrefix, ["get", "light_color"]]],
           [
             "image",
             [
@@ -51,11 +63,13 @@ export function lights(): LayerSpecification[] {
       },
     },
     {
+      // arcs and rays are fixed ground figures (0.4-0.7 NM) and sub-pixel below ~z11; showing
+      // them before the flare that casts them reads as stray coloured specks
       id: "light_ray",
       type: "line",
       source: "seamap",
       "source-layer": "light",
-      minzoom: 5,
+      minzoom: 11,
       filter: ["==", ["get", "subtype"], "ray"],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
@@ -66,25 +80,61 @@ export function lights(): LayerSpecification[] {
       },
     },
     {
+      // S-52 cases every arc in a wide neutral stroke (LIGHTS06: 4-unit OUTLW under the
+      // colour); it's what makes a yellow arc on pale water read as a chart feature
+      id: "light_arc_casing",
+      type: "line",
+      source: "seamap",
+      "source-layer": "light",
+      minzoom: 11,
+      filter: ["all", ["==", ["get", "subtype"], "arc"], visible],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": colors.label,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1.5, 14, 5],
+      },
+    },
+    {
       id: "light_arc",
       type: "line",
       source: "seamap",
       "source-layer": "light",
-      minzoom: 5,
-      filter: ["==", ["get", "subtype"], "arc"],
+      minzoom: 11,
+      filter: ["all", ["==", ["get", "subtype"], "arc"], visible],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        // same hexes as the flare sprites, so a light's arc and its own flare agree
+        // same hexes as the flare sprites, so a light's arc and its own flare agree; orange
+        // and amber cover older tiles' raw values, and anything the S-52 precedence can't
+        // name falls through to magenta, never a fake colour
         "line-color": [
-          "case",
-          ["==", ["get", "color"], "green"],
+          "match",
+          ["get", "color"],
+          "green",
           colors.lightGreen,
-          ["==", ["get", "color"], "red"],
+          "red",
           colors.lightRed,
+          ["white", "yellow", "orange", "amber"],
           colors.lightYellow,
+          colors.magenta,
         ],
         "line-opacity": 1,
         "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 14, 3],
+      },
+    },
+    {
+      // an obscured, partly-obscured or faint sector is where the light is NOT (fully)
+      // visible: S-52 leaves the arc uncoloured, dashed like the legs
+      id: "light_arc_obscured",
+      type: "line",
+      source: "seamap",
+      "source-layer": "light",
+      minzoom: 11,
+      filter: ["all", ["==", ["get", "subtype"], "arc"], ["!", visible]],
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": colors.sectorLeg,
+        "line-dasharray": [2, 2],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.5, 14, 2],
       },
     },
     {

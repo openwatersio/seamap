@@ -110,7 +110,9 @@ it("keeps layer ids and order stable", () => {
     // lights
     "lights",
     "light_ray",
+    "light_arc_casing",
     "light_arc",
+    "light_arc_obscured",
     "light-minor",
     "light-major",
     "fogsignals",

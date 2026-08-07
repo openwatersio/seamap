@@ -16,35 +16,37 @@ public class SeamarkZoomRules {
     String type = (String) attrs.get("type");
     String category = (String) attrs.get("category");
 
+    int base;
     if (type == null) {
-      return 8; // default
+      base = 8; // default
+    } else if (isHighPriorityType(type)) {
+      // High priority features visible from zoom 4
+      base = 4;
+    } else if (isMediumHighPriorityType(type, category)) {
+      // Medium-high priority features visible from zoom 6
+      base = 6;
+    } else {
+      base = 8;
     }
 
-    // High priority features visible from zoom 4
-    if (isHighPriorityType(type)) {
-      return 4;
+    // A light's reach outranks how its host happens to be typed: plenty of real lighthouses are
+    // tagged light_minor or sit on plain beacons. The S-52 major-light test is 10 M nominal
+    // range (LIGHTS06); 15 M is landfall class. Range only ever promotes, never demotes.
+    Object range = attrs.get("light_range");
+    if (range instanceof Number n) {
+      if (n.doubleValue() >= 15) return Math.min(base, 4);
+      if (n.doubleValue() >= 10) return Math.min(base, 6);
     }
-
-    // Medium-high priority features visible from zoom 6
-    if (isMediumHighPriorityType(type, category)) {
-      return 6;
-    }
-
-    // Default: visible from zoom 8
-    return 8;
+    return base;
   }
 
   /**
-   * Get the minimum zoom level for light sectors/geometries.
-   *
-   * @param type The type of the parent seamark
-   * @return minimum zoom level for the light geometry
+   * Get the minimum zoom level for light sectors/geometries. Sector arcs draw at a fixed ground
+   * radius (0.4-0.7 NM), which is sub-pixel below ~z10 — carrying the geometry in lower-zoom tiles
+   * is dead weight the style never draws.
    */
   public static int getLightMinZoom(String type) {
-    if ("light_major".equals(type) || "light_minor".equals(type)) {
-      return 6;
-    }
-    return 8;
+    return 10;
   }
 
   /** Check if a seamark type is high priority (visible from zoom 4). */

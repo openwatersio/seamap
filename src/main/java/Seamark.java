@@ -111,6 +111,13 @@ public class Seamark {
       attrs.put("radar_reflector", radarReflector(tags, type));
       attrs.put("radio_station", collectTags(tags, "radio_station"));
       attrs.put("light", seamarkLightAbbr(tags));
+      LightInfo light = lightInfo(tags);
+      if (light.present()) {
+        attrs.put("light_color", resolveLightColor(new LinkedHashSet<>(light.colours())));
+        // 9 M is the S-52 default nominal range when none is tagged; drives zoom and the
+        // major-light geometry split, never printed (S-52 LIGHTS06)
+        attrs.put("light_range", light.range() != null ? light.range() : 9.0);
+      }
       attrs.put(
           "topmark_color",
           replaceSemiWithUnderscore(
@@ -404,7 +411,7 @@ public class Seamark {
           Map.entry("magenta", "M"));
 
   /** Splits a `;`-separated colour list into lowercase tokens, preserving order. */
-  private static void addColours(Set<String> into, String value) {
+  private static void addColours(Collection<String> into, String value) {
     if (value == null) return;
     for (String colour : value.split(";")) {
       String token = colour.trim().toLowerCase();
@@ -412,57 +419,195 @@ public class Seamark {
     }
   }
 
-  static String seamarkLightAbbr(Map<String, Object> tags) {
-    Set<String> colours = new LinkedHashSet<>();
-    String group = null;
-    String character = null;
-    Double range = 0.0;
-    String period = null;
-    String height = null;
+  /** Everything the chart needs to know about a feature's light, gathered once. */
+  record LightInfo(
+      List<String> colours,
+      String character,
+      String group,
+      String period,
+      String height,
+      Double range,
+      String category,
+      String multiple,
+      boolean sectored) {
+    boolean present() {
+      return !colours.isEmpty() || character != null;
+    }
+  }
 
-    // Single light definition
-    if (tags.containsKey("seamark:light:colour")) {
-      addColours(colours, seamarkValue(tags, "light", "colour"));
-      group = seamarkValue(tags, "light", "group");
-      character = seamarkValue(tags, "light", "character");
-      range = Parse.parseDoubleOrNull(seamarkValue(tags, "light", "range"));
-      period = seamarkValue(tags, "light", "period");
-      height = seamarkValue(tags, "light", "height");
+  static LightInfo lightInfo(Map<String, Object> tags) {
+    List<String> colours = new ArrayList<>();
+    String character = null, group = null, period = null, height = null;
+    String category = null, multiple = null;
+    Double range = null;
+    boolean sectored = false;
 
-      // Sectored light. Sectors are numbered from 1, so walk them in order rather than in tag
-      // order, and name each distinct colour once — Fl.WRG.10s, not Fl.WRGW.10s.
-    } else if (tags.containsKey("seamark:light:1:colour")) {
+    // Sectored light. Sectors are numbered from 1, so walk them in order rather than in tag
+    // order, and name each distinct colour once — Fl.WRG.10s, not Fl.WRGW.10s.
+    if (tags.containsKey("seamark:light:1:colour")) {
+      sectored = true;
+      // dedupe across sectors — Fl.WRG.10s, not Fl.WRGW.10s — but keep sector order
+      Set<String> sectorColours = new LinkedHashSet<>();
       for (int i = 1; tags.containsKey("seamark:light:" + i + ":colour"); i++) {
-        addColours(colours, seamarkValue(tags, "light", i + ":colour"));
+        addColours(sectorColours, seamarkValue(tags, "light", i + ":colour"));
         Double sectorRange = Parse.parseDoubleOrNull(seamarkValue(tags, "light", i + ":range"));
-        if (sectorRange != null && sectorRange > range) range = sectorRange;
+        if (sectorRange != null && (range == null || sectorRange > range)) range = sectorRange;
       }
-      // Character, period and height describe the light as a whole, not the sector.
-      group = seamarkValue(tags, "light", "1:group");
+      colours.addAll(sectorColours);
+      // Character, group, period, height and disposition describe the light as a whole.
       character = seamarkValue(tags, "light", "1:character");
+      group = seamarkValue(tags, "light", "1:group");
       period = seamarkValue(tags, "light", "1:period");
       height = seamarkValue(tags, "light", "1:height");
+      category = seamarkValue(tags, "light", "1:category");
+      multiple = seamarkValue(tags, "light", "1:multiple");
+    } else if (tags.containsKey("seamark:light:colour")
+        || seamarkValue(tags, "light", "character") != null) {
+      addColours(colours, seamarkValue(tags, "light", "colour"));
+      character = seamarkValue(tags, "light", "character");
+      group = seamarkValue(tags, "light", "group");
+      period = seamarkValue(tags, "light", "period");
+      height = seamarkValue(tags, "light", "height");
+      category = seamarkValue(tags, "light", "category");
+      multiple = seamarkValue(tags, "light", "multiple");
+      range = Parse.parseDoubleOrNull(seamarkValue(tags, "light", "range"));
     }
+    return new LightInfo(
+        colours, character, group, period, height, range, category, multiple, sectored);
+  }
 
-    // Build abbreviation
+  /**
+   * One colour for the flare and each arc, by the S-52 LIGHTS06 precedence: red and green win their
+   * combinations with white, orange and amber collapse to yellow, a plain white light keeps its
+   * white flare, and anything else is undescribed.
+   */
+  static String resolveLightColor(Set<String> colours) {
     if (colours.isEmpty()) return null;
-    StringBuilder sb = new StringBuilder();
-    if (character != null) sb.append(character);
-    if (group != null) sb.append("(").append(group).append(")");
-    else sb.append(".");
-    for (String colour : colours) {
-      String abbr = LIGHT_COLOUR_ABBR.get(colour);
-      sb.append(abbr != null ? abbr : colour.substring(0, 1).toUpperCase());
+    if (colours.contains("red") && (colours.contains("white") || colours.size() == 1)) return "red";
+    if (colours.contains("green") && (colours.contains("white") || colours.size() == 1)) {
+      return "green";
     }
-    sb.append(".");
-    if (period != null) sb.append(period).append("s");
-    if (height != null) sb.append(height).append("m");
-    if (range != null && range > 0) sb.append(Math.round(range)).append("M");
+    if (colours.contains("yellow") || colours.contains("orange") || colours.contains("amber")) {
+      return "yellow";
+    }
+    if (colours.contains("white")) return "white";
+    return "generic";
+  }
 
-    // A light tagged with no character, or none of period/height/range, would otherwise carry a
-    // dangling separator onto the chart.
+  /** resolveLightColor over a raw `;`-separated tag value. */
+  static String resolveLightColor(String value) {
+    Set<String> colours = new LinkedHashSet<>();
+    addColours(colours, value);
+    return resolveLightColor(colours);
+  }
+
+  /** A tag number the chart can print: 5 for "5.0", but 1.5 keeps its decimals. */
+  private static String formatTagNumber(String raw) {
+    Double v = Parse.parseDoubleOrNull(raw);
+    return v != null ? formatNumber(v) : raw;
+  }
+
+  /** Trims a numeric value for the chart: 12 not 12.0, but 0.1 keeps its decimals. */
+  private static String formatNumber(double v) {
+    return v == Math.floor(v) ? String.valueOf((long) v) : String.valueOf(v);
+  }
+
+  /**
+   * The light description printed beside a lit mark, in S-4 paper-chart conventions: dot-separated,
+   * sector colours merged into one string (`Fl(3)WRG.10s15m12M`), with the chart's omissions — a
+   * lone W (charted only on sector and alternating lights, US Chart No. 1 §P-11.1), a trivial (1)
+   * signal group (S-52 §10.6.3), and the elevation and range of minor lights (S-4 §B-471.6/.7). A
+   * fog signal joins on its own line.
+   */
+  static String seamarkLightAbbr(Map<String, Object> tags) {
+    LightInfo light = lightInfo(tags);
+    String lightStr = light.present() ? lightAbbr(light, tags) : null;
+    String fogStr = fogSignalAbbr(tags);
+    if (lightStr == null) return fogStr;
+    return fogStr == null ? lightStr : lightStr + "\n" + fogStr;
+  }
+
+  private static String lightAbbr(LightInfo l, Map<String, Object> tags) {
+    StringBuilder sb = new StringBuilder();
+    if ("directional".equals(l.category())) sb.append("Dir");
+    if ("aero".equals(l.category()) || "air_obstruction".equals(l.category())) sb.append("Aero");
+    if (l.multiple() != null) sb.append(l.multiple());
+
+    // a signal group of (1) on a simple character is not charted (S-52 §10.6.3); inside a
+    // composite character like Q(1)+LFl it is structural and stays
+    String group = l.group();
+    boolean composite = l.character() != null && l.character().contains("+");
+    if (group != null && !composite && ("1".equals(group) || group.isEmpty())) group = null;
+
+    if (composite && group != null) {
+      // the group belongs to the first element: UQ(1)+LFl, never UQ+LFl(1)
+      String[] parts = l.character().split("\\+", 2);
+      sb.append(parts[0]).append("(").append(group).append(")+").append(parts[1]);
+    } else if (l.character() != null) {
+      sb.append(l.character());
+      if (group != null) sb.append("(").append(group).append(")");
+    } else if (group != null) {
+      sb.append("(").append(group).append(")");
+    }
+
+    boolean loneWhite =
+        l.colours().size() == 1
+            && l.colours().contains("white")
+            && !l.sectored()
+            && (l.character() == null || !l.character().startsWith("Al"));
+    if (!l.colours().isEmpty() && !loneWhite) {
+      if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ')') sb.append(".");
+      for (String colour : l.colours()) {
+        String abbr = LIGHT_COLOUR_ABBR.get(colour);
+        sb.append(abbr != null ? abbr : colour.substring(0, 1).toUpperCase());
+      }
+    }
+
+    StringBuilder tail = new StringBuilder();
+    if (l.period() != null) tail.append(formatTagNumber(l.period())).append("s");
+    // the major-light test is a nominal range of 10 M (S-52 LIGHTS06)
+    boolean major =
+        "light_major".equals(value(tags, "seamark:type")) || (l.range() != null && l.range() >= 10);
+    if (major) {
+      if (l.height() != null) tail.append(formatTagNumber(l.height())).append("m");
+      if (l.range() != null) tail.append(formatNumber(l.range())).append("M");
+    }
+    if (tail.length() > 0) {
+      if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ')') sb.append(".");
+      sb.append(tail);
+    }
+
+    switch (l.category() == null ? "" : l.category()) {
+      case "vertical" -> sb.append("(vert)");
+      case "horizontal" -> sb.append("(hor)");
+      case "front" -> sb.append("(Front)");
+      case "rear" -> sb.append("(Rear)");
+      case "upper" -> sb.append("(Upper)");
+      case "lower" -> sb.append("(Lower)");
+      default -> {}
+    }
+
     while (sb.length() > 0 && sb.charAt(0) == '.') sb.deleteCharAt(0);
     while (sb.length() > 0 && sb.charAt(sb.length() - 1) == '.') sb.setLength(sb.length() - 1);
+    return sb.length() == 0 ? null : sb.toString();
+  }
+
+  /** `Horn(2)8s` — category, signal group, period. Fog-signal ranges are not charted. */
+  private static String fogSignalAbbr(Map<String, Object> tags) {
+    String category = seamarkValue(tags, "fog_signal", "category");
+    if (category == null || category.isEmpty()) return null;
+    StringBuilder sb = new StringBuilder();
+    sb.append(Character.toUpperCase(category.charAt(0)))
+        .append(category.substring(1).replace('_', ' '));
+    String group = seamarkValue(tags, "fog_signal", "group");
+    if (group != null && !group.isEmpty() && !"1".equals(group)) {
+      sb.append("(").append(group).append(")");
+    }
+    String period = seamarkValue(tags, "fog_signal", "period");
+    if (period != null && !period.isEmpty()) {
+      if (sb.charAt(sb.length() - 1) != ')') sb.append(".");
+      sb.append(formatTagNumber(period)).append("s");
+    }
     return sb.toString();
   }
 
