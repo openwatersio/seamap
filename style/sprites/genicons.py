@@ -63,6 +63,9 @@ color_types = {  # to reduce numer of combinations
     "cylinder cone_point_down cone_point_up": "black white red green yellow",
     "circle sphere_over_rhombus": "black white red green",
     "triangle_point_up triangle_point_down square rhombus flag": "black white red green yellow grey",
+    "board rectangle_horizontal rectangle_vertical trapezium_up trapezium_down cube_point_up arrow": "black white red green yellow orange",
+    "t-shape 2_upright_crosses": "black white red yellow",
+    "triangle_point_up_over_circle upright_cross_over_circle rhombus_over_circle circle_over_triangle_point_up cylinder_over_sphere cone_point_up_over_sphere": "black white red green yellow",
 }
 
 

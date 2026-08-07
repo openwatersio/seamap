@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.0"
+   width="7"
+   height="6"
+   id="rectangle_vertical"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <style
+     type="text/css"
+     id="base">
+      .outline {
+        fill: none;
+        stroke: black;
+        stroke-width: 0.3;
+      }
+      .inline {
+        fill: none;
+        stroke: none;
+        stroke-width: 0.8;
+      }
+      .fill {
+        fill: none;
+        stroke: none;
+        stroke-width: 0.3;
+      }
+      .baseline {
+        fill: none;
+        stroke: black;
+        stroke-width: 0.5;
+      }
+      .basepoint {
+        fill: white;
+        stroke: black;
+        stroke-width: 0.5;
+      }
+      COLORING{}
+  </style>
+  <g
+     id="g1">
+    <path
+       class="baseline"
+       d="M 3.5,3.91 V 6" />
+    <path
+       class="fill uniform"
+       d="M 2.45,0.5 L 4.55,0.5 L 4.55,3.91 L 2.45,3.91 Z" />
+    <path
+       class="outline"
+       d="M 2.45,0.5 L 4.55,0.5 L 4.55,3.91 L 2.45,3.91 Z" />
+  </g>
+</svg>
