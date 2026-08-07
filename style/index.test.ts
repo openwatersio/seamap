@@ -114,10 +114,10 @@ it("keeps layer ids and order stable", () => {
     "light-minor",
     "light-major",
     "fogsignals",
-    // marks
-    "radar-reflectors",
-    "topmarks",
+    // marks — bodies first, so a hull can never paint over its topmark or reflector
     "buoys",
+    "topmarks",
+    "radar-reflectors",
     // labels — last, so they win symbol collisions against the icons below
     "landmarks",
     "line_symbols",
