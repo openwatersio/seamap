@@ -20,6 +20,16 @@ class SeamarkTest {
   /** Every quadrant gets its own colours and cones, not North's (IALA R1001 2.2.4). */
   @Test
   void cardinalQuadrantDefaults() {
+    var north =
+        attrs(Map.of("seamark:type", "buoy_cardinal", "seamark:buoy_cardinal:category", "north"));
+    assertEquals("black_yellow", north.get("color"));
+    assertEquals("2_cones_up", north.get("topmark_shape"));
+
+    var east =
+        attrs(Map.of("seamark:type", "buoy_cardinal", "seamark:buoy_cardinal:category", "east"));
+    assertEquals("black_yellow_black", east.get("color"));
+    assertEquals("2_cones_base_together", east.get("topmark_shape"));
+
     var south =
         attrs(Map.of("seamark:type", "buoy_cardinal", "seamark:buoy_cardinal:category", "south"));
     assertEquals("yellow_black", south.get("color"));
