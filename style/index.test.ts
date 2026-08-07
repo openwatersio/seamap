@@ -39,8 +39,10 @@ it("assembles a valid whole style", async () => {
   for (const id of ["background", "buoys", "lights", "land_area"]) {
     expect(ids).toContain(id);
   }
-  // chart symbols end the stack, sea areas sit below land
-  expect(ids.indexOf("rocks")).toBeLessThan(ids.indexOf("land_area"));
+  // sea-area fills sit below land; hazard points draw above it, and the coastline above its fill
+  expect(ids.indexOf("restricted-areas")).toBeLessThan(ids.indexOf("land_area"));
+  expect(ids.indexOf("rocks")).toBeGreaterThan(ids.indexOf("land_area"));
+  expect(ids.indexOf("land_outline")).toBeGreaterThan(ids.indexOf("land_area"));
   expect(ids.at(-1)).toBe("lights-label");
 });
 
@@ -71,18 +73,20 @@ it("carries both land and sea hillshade layers without id collisions", async () 
 // so renames and reorders are breaking changes.
 it("keeps layer ids and order stable", () => {
   expect(areas.map((l) => l.id)).toEqual([
-    "rocks_outline",
-    "rocks",
-    "obstructions",
-    "seabed",
+    // allowed before restricted: RESARE outranks ACHARE where they overlap
+    "allowed-areas",
+    "allowed-areas-labels",
     "restricted-areas",
     "restricted-areas-label",
     "restricted-areas-fill",
     "restricted-areas-fill-pattern",
-    "allowed-areas",
-    "allowed-areas-labels",
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
+    // hazards — point symbols draw above land so the coastline never hides them
+    "rocks_outline",
+    "rocks",
+    "obstructions",
+    "seabed",
     // routes
     "cables-pipes",
     "TSS-separation-zone",

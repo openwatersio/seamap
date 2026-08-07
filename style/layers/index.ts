@@ -1,5 +1,6 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { areas } from "./areas.js";
+import { hazards } from "./hazards.js";
 import { routes } from "./routes.js";
 import { structures } from "./structures.js";
 import { lights } from "./lights.js";
@@ -21,6 +22,6 @@ export function chartLayers(): {
 } {
   return {
     areas: areas(),
-    symbols: [...routes(), ...structures(), ...lights(), ...marks(), ...labels()],
+    symbols: [...hazards(), ...routes(), ...structures(), ...lights(), ...marks(), ...labels()],
   };
 }
