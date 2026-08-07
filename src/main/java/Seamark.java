@@ -303,6 +303,7 @@ public class Seamark {
           attrs.put("surrounding_depth", depthCalculator.getDepthAtLocation(coord));
         }
       } catch (Exception e) {
+        System.err.println("Failed to sample seabed depth for " + sf.id() + ": " + e);
       }
     }
 

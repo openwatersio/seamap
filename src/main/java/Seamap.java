@@ -50,6 +50,15 @@ public class Seamap implements Profile {
     return sf.id();
   }
 
+  /**
+   * Depth for label-grid sorting (shallower first): the surveyed value when tagged, else the
+   * sampled seabed around the hazard. Never charted, only sorted on.
+   */
+  private static int sortDepth(java.util.Map<String, Object> attrs) {
+    Object depth = attrs.get("depth") != null ? attrs.get("depth") : attrs.get("surrounding_depth");
+    return depth instanceof Number n ? Math.round(n.floatValue()) : 0;
+  }
+
   public static void main(String[] args) throws Exception {
     var arguments = Arguments.fromArgsOrConfigFile(args).withDefault("download", true);
     String area = arguments.getString("area", "geofabrik area to download", "monaco");
@@ -198,8 +207,7 @@ public class Seamap implements Profile {
             (String)
                 coalesceAttr(
                     attrs, "seamark:rock:water_level", "seamark:water_level", "water_level");
-        int depth =
-            attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
+        int depth = sortDepth(attrs);
         int rank;
         if ("submerged".equals(waterLevel))
           rank = 0; // Most dangerous: always underwater, invisible
@@ -215,8 +223,7 @@ public class Seamap implements Profile {
       // create label-grid for wrecks, sorted by danger level
       if (type.equals("wreck")) {
         String wreckCategory = (String) attrs.get("category");
-        int depth =
-            attrs.get("depth") != null ? Math.round(((Number) attrs.get("depth")).floatValue()) : 0;
+        int depth = sortDepth(attrs);
         int rank;
         if ("dangerous".equals(wreckCategory))
           rank = 0; // Most dangerous: dangerous to surface navigation
