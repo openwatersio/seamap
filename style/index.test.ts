@@ -239,6 +239,16 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
   });
 });
 
+// Charts never draw a centerline through navigable water (S-57 UOC §4.7.6),
+// and OSM centerlines run through wide rivers too — so none survive.
+it("drops waterway centerlines", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  const ids = whole.layers.map((l) => l.id);
+  for (const id of ["water-river", "water-canal", "water-stream", "water-ditch"]) {
+    expect(ids).not.toContain(id);
+  }
+});
+
 // ["==", "type", "ferry_route"] compares two constants and is always false, but it is valid
 // style-spec so nothing complains — the layer just silently draws nothing. Only the operands
 // of == and != are checked: `in` legitimately takes a literal needle (["in", "buoy", …]).

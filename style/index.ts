@@ -273,5 +273,9 @@ export async function style({
   );
   s.layers.splice(1, 0, ...unsurveyed); // index 1: just above `background`, below bathymetry
 
+  // Charts never draw a centerline through navigable water (S-57 UOC §4.7.6)
+  const waterwayLineIds = ["water-river", "water-canal", "water-stream", "water-ditch"];
+  s.layers = s.layers.filter((l) => !waterwayLineIds.includes(l.id));
+
   return s;
 }
