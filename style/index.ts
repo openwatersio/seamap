@@ -65,9 +65,9 @@ export interface LayersOptions {
 
 /**
  * The chart layers, referencing the `seamap` source from sources(). Split to
- * preserve draw order: `areas` (sea areas — rocks, obstructions, seabed,
- * restricted areas) belong below land fills, `symbols` (buoys, lights,
- * topmarks, landmarks, labels) on top of everything.
+ * preserve draw order: `areas` (anchorage and restricted-area boundaries and
+ * fills) belong below land fills, `symbols` (hazards, buoys, lights, topmarks,
+ * landmarks, labels) on top of everything.
  */
 export function layers({ font }: LayersOptions = {}): {
   areas: LayerSpecification[];
@@ -171,7 +171,9 @@ export async function style({
     recolor: { saturate: -0.3, blend: 0.2, blendColor: "#ffffff" },
     textScale: 0.9,
     iconScale: 0.8,
-    // ESA WorldCover fills land/water below the zooms where OSM polygons appear
+    // low-zoom landcover tint, and load-bearing for the water-area→unsurveyed restyle below:
+    // without it versatiles adds an opacity ramp to water-area that turns inland lakes into
+    // dark stipple blobs at low zoom
     experimental: { landcover: true },
     hillshade,
   });
@@ -238,18 +240,6 @@ export async function style({
     ...bathymetry,
     ...areas,
     {
-      id: "land_outline",
-      source: "seamap",
-      "source-layer": "land",
-      type: "line",
-      paint: {
-        "line-color": "#3d3d3d",
-        // thin at low zoom or world-view coastlines read as heavy black blobs
-        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 12, 3],
-        "line-opacity": 0.8,
-      },
-    },
-    {
       id: "land_area",
       source: "seamap",
       "source-layer": "land",
@@ -257,6 +247,26 @@ export async function style({
       paint: { "fill-color": "#fdf1d2" },
     },
   );
+
+  // the coastline draws above the base map's land fills, not just the chart's land fill —
+  // otherwise landuse polygons reaching the shore eat its landward half and its weight varies
+  // along the shore (S-52 gives the coastline priority 7-8, above all land detail). It still
+  // sits below the base map's POIs and labels, which start at the first poi-/label- layer.
+  const firstBaseSymbol = s.layers.findIndex((l) =>
+    /^(poi-|label-|marking-|symbol-)/.test(l.id),
+  );
+  s.layers.splice(firstBaseSymbol === -1 ? s.layers.length : firstBaseSymbol, 0, {
+    id: "land_outline",
+    source: "seamap",
+    "source-layer": "land",
+    type: "line",
+    paint: {
+      "line-color": "#3d3d3d",
+      // thin and faint at low zoom
+      "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.1, 12, 1],
+      "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 12, 1],
+    },
+  });
 
   // draw seamarks: buoys, lights, topmarks, landmarks, labels
   s.layers = s.layers.concat(symbols);
