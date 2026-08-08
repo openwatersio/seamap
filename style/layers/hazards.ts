@@ -86,7 +86,14 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       type: "circle",
       source: "seamap",
       "source-layer": "seamark",
-      filter: ["all", ["in", ["get", "type"], ["literal", HAZARD_TYPES]], isKnownShallow(safety)],
+      // Point only: a circle layer marks every vertex of a polygon, and a shallow hazard
+      // area already reads dangerous through its dotted boundary
+      filter: [
+        "all",
+        ["==", ["geometry-type"], "Point"],
+        ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
+        isKnownShallow(safety),
+      ],
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 6, 12, 10],
         "circle-opacity": 0,
