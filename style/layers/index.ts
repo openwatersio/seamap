@@ -16,12 +16,19 @@ import { labels } from "./labels.js";
  * later a layer appears here the more likely its label survives a crowded harbour. Labels last is
  * deliberate.
  */
-export function chartLayers(): {
+export function chartLayers({ safety, unit }: { safety?: number; unit?: "m" | "ft" | "fm" } = {}): {
   areas: LayerSpecification[];
   symbols: LayerSpecification[];
 } {
   return {
     areas: areas(),
-    symbols: [...hazards(), ...routes(), ...structures(), ...lights(), ...marks(), ...labels()],
+    symbols: [
+      ...hazards(safety, unit),
+      ...routes(),
+      ...structures(),
+      ...lights(),
+      ...marks(),
+      ...labels(),
+    ],
   };
 }

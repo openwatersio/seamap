@@ -18,6 +18,10 @@ export const day = {
   ferry: "#7c8af6",
   navigationLine: "black",
   recommendedTrack: "gray",
+  /** CHGRD chart grey: linework that recedes (deep-hazard boundaries, safe soundings) */
+  chartGrey: "#768c97",
+  /** DEPVS shallow-water tint, for hazard-area fills */
+  shallowWater: "#61b7ff",
   /** light flare/arc colours, matching the flare sprites (sprites/genicons.py) */
   lightGreen: "#00a650",
   lightRed: "#ed1c24",

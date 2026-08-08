@@ -211,15 +211,26 @@ export function labels(): LayerSpecification[] {
         "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13],
         // mark bodies are bottom-anchored 4px below the position and stack topmarks upward, so a
-        // name below the mark needs far less clearance than one above it
+        // name below the mark needs far less clearance than one above it. Hazards are centred
+        // symbols (and can wear the wide isolated-danger octagon), so they take even margins.
         "text-variable-anchor-offset": [
           "interpolate",
           ["linear"],
           ["zoom"],
           12,
-          anchorOffsets(1.85, 3.15, 1.15),
+          [
+            "case",
+            ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
+            anchorOffsets(1.7),
+            anchorOffsets(1.85, 3.15, 1.15),
+          ],
           16,
-          anchorOffsets(1.42, 2.42, 0.88),
+          [
+            "case",
+            ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
+            anchorOffsets(1.4),
+            anchorOffsets(1.42, 2.42, 0.88),
+          ],
         ],
       },
       paint: { "text-color": colors.label, ...halo },
