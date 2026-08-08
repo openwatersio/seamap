@@ -418,6 +418,44 @@ class SeamarkTest {
                 "seamark:light:period", "1.5")));
   }
 
+  /** A racon is an active radar beacon, never the passive reflector caret. */
+  @Test
+  void raconIsNotAReflector() {
+    var racon =
+        attrs(
+            Map.of(
+                "seamark:type", "buoy_safe_water",
+                "seamark:radar_transponder:category", "racon",
+                "seamark:radar_transponder:group", "D"));
+    org.junit.jupiter.api.Assertions.assertFalse(racon.containsKey("radar_reflector"));
+    assertEquals("racon", racon.get("radar_transponder"));
+    assertEquals("D", racon.get("radar_transponder_group"));
+
+    // even when the mark also carries a passive reflector, the racon wins
+    var both =
+        attrs(
+            Map.of(
+                "seamark:type", "buoy_safe_water",
+                "seamark:radar_reflector", "yes",
+                "seamark:radar_transponder:category", "racon"));
+    org.junit.jupiter.api.Assertions.assertFalse(both.containsKey("radar_reflector"));
+    assertEquals("racon", both.get("radar_transponder"));
+
+    var reflector = attrs(Map.of("seamark:type", "buoy_lateral", "seamark:radar_reflector", "yes"));
+    assertEquals("yes", reflector.get("radar_reflector"));
+  }
+
+  /** A floating pier is a pontoon, its own S-57 feature, not shore construction. */
+  @Test
+  void floatingPierIsAPontoon() {
+    var pontoon = attrs(Map.of("man_made", "pier", "floating", "yes"));
+    assertEquals("pontoon", pontoon.get("type"));
+
+    var pier = attrs(Map.of("man_made", "pier"));
+    assertEquals("shoreline_construction", pier.get("type"));
+    assertEquals("pier", pier.get("category"));
+  }
+
   // The S-52 LIGHTS06 colour precedence for the flare and arcs.
 
   @Test
