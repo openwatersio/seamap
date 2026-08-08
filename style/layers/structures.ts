@@ -36,11 +36,7 @@ export function structures(): LayerSpecification[] {
       minzoom: 12,
       // the dry works; a wall that covers draws in the dashed layer below (the validator
       // accepts a per-feature line-dasharray but the renderer ignores it, hence two layers)
-      filter: [
-        "all",
-        ["==", ["get", "type"], "shoreline_construction"],
-        ["!", submergedWall],
-      ],
+      filter: ["all", ["==", ["get", "type"], "shoreline_construction"], ["!", submergedWall]],
       paint: {
         "line-color": colors.coastline,
         "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
