@@ -57,9 +57,10 @@ export function sources({ url = DEFAULT_TILEJSON }: { url?: string } = {}): Reco
 
 export interface LayersOptions {
   /**
-   * Rename glyph fontstacks to match the consumer's glyph server. The chart
-   * layers use "Noto Sans Regular"; e.g. VersaTiles wants
-   * (f) => f.toLowerCase().replaceAll(" ", "_").
+   * Rename glyph fontstacks to match the consumer's glyph server. The chart layers use
+   * "Noto Sans Regular", plus "Noto Sans Italic" for hydrographic text — a stack Noto
+   * doesn't actually have, so map it to whatever italic your server serves (the built-in
+   * builder uses versatiles' open_sans_regular_italic).
    */
   font?: (name: string) => string;
 }
@@ -79,9 +80,26 @@ export function layers({ font }: LayersOptions = {}): {
     for (const layer of [...areas, ...symbols]) {
       const layout = "layout" in layer ? (layer.layout as { "text-font"?: string[] }) : undefined;
       if (layout?.["text-font"]) layout["text-font"] = layout["text-font"].map(font);
+      // format expressions carry their own fontstacks in {"text-font": ["literal", [...]]}
+      // section options, which the layout rename above never sees
+      if (layout && "text-field" in layout) renameFormatFonts((layout as any)["text-field"], font);
     }
   }
   return { areas, symbols };
+}
+
+function renameFormatFonts(expr: unknown, font: (name: string) => string): void {
+  if (!Array.isArray(expr)) return;
+  for (const part of expr) {
+    if (Array.isArray(part)) {
+      renameFormatFonts(part, font);
+    } else if (part && typeof part === "object" && "text-font" in part) {
+      const tf = (part as { "text-font": unknown })["text-font"];
+      if (Array.isArray(tf) && tf[0] === "literal" && Array.isArray(tf[1])) {
+        tf[1] = (tf[1] as string[]).map(font);
+      }
+    }
+  }
 }
 
 /**
@@ -95,8 +113,11 @@ export function sprite(base: string): { id: string; url: string } {
   };
 }
 
-// versatiles glyph names are lowercase with underscores
-const versatilesFont = (f: string) => f.toLowerCase().replaceAll(" ", "_");
+// versatiles glyph names are lowercase with underscores. Noto Sans has no italic cut
+// anywhere, so the chart's italic hydrographic text maps to the closest humanist match
+// versatiles serves.
+const versatilesFont = (f: string) =>
+  f === "Noto Sans Italic" ? "open_sans_regular_italic" : f.toLowerCase().replaceAll(" ", "_");
 
 export interface StyleOptions {
   /** Seamark TileJSON URL. */

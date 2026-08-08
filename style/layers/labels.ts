@@ -24,7 +24,8 @@ export function labels(): LayerSpecification[] {
       type: "symbol",
       source: "seamap",
       "source-layer": "seamark",
-      minzoom: 8,
+      // the tiles carry only conspicuous landmarks below z8 (SeamarkZoomRules)
+      minzoom: 6,
       filter: [
         "all",
         ["==", ["get", "type"], "landmark"],
@@ -113,9 +114,41 @@ export function labels(): LayerSpecification[] {
         ],
         "text-justify": "auto",
         "text-optional": true,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.3],
+        // a conspicuous landmark (CONVIS) draws bolder: it is the one worth steering by
+        "icon-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          6,
+          ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 0.7, 0.5],
+          12,
+          ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 1.6, 1.3],
+        ],
       },
       paint: { "text-color": colors.label, ...halo },
+    },
+    {
+      // an active radar beacon is charted by name with its Morse group, magenta (INT 1 S3.6)
+      id: "racon-labels",
+      type: "symbol",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 11,
+      filter: ["has", "radar_transponder"],
+      layout: {
+        "text-field": [
+          "case",
+          ["has", "radar_transponder_group"],
+          ["concat", "Racon(", ["get", "radar_transponder_group"], ")"],
+          "Racon",
+        ],
+        "text-font": ["Noto Sans Italic"],
+        "text-size": 10,
+        "text-anchor": "top",
+        "text-offset": [0, 1.4],
+        "text-optional": true,
+      },
+      paint: { "text-color": colors.magenta, ...halo },
     },
     {
       id: "line_symbols",
@@ -199,11 +232,21 @@ export function labels(): LayerSpecification[] {
       minzoom: 11,
       filter: ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
       layout: {
+        // the characteristic sets italic per paper-chart convention (hydrographic text);
+        // a lit landmark's name stays roman — it is a fixed structure
         "text-field": [
           "case",
           ["all", ["==", ["get", "type"], "landmark"], ["has", "name"]],
-          ["concat", ["get", "name"], "\n", ["get", "light"]],
-          ["get", "light"],
+          [
+            "format",
+            ["get", "name"],
+            {},
+            "\n",
+            {},
+            ["get", "light"],
+            { "text-font": ["literal", ["Noto Sans Italic"]] },
+          ],
+          ["format", ["get", "light"], { "text-font": ["literal", ["Noto Sans Italic"]] }],
         ],
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",

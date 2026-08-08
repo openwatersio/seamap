@@ -14,7 +14,26 @@ export function hazards(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 8,
-      filter: ["==", ["get", "type"], "rock"],
+      // a rock that never covers gets no danger circle and no tint (INT 1 K10); the danger
+      // line is reserved ink (S-4 B-420.1)
+      filter: [
+        "all",
+        ["==", ["get", "type"], "rock"],
+        [
+          "!",
+          [
+            "in",
+            [
+              "coalesce",
+              ["get", "seamark:rock:water_level"],
+              ["get", "seamark:water_level"],
+              ["get", "water_level"],
+              "",
+            ],
+            ["literal", ["dry", "part-submerged", "part_submerged"]],
+          ],
+        ],
+      ],
       layout: {
         "icon-overlap": "always",
         "icon-image": "freenauticalchart:obstruction",
@@ -45,6 +64,8 @@ export function hazards(): LayerSpecification[] {
           "freenauticalchart:rock-covers",
           "awash",
           "freenauticalchart:rock-awash",
+          ["dry", "part-submerged", "part_submerged"],
+          "freenauticalchart:rock-dry",
           "freenauticalchart:rock-submerged",
         ],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1],
@@ -86,8 +107,11 @@ export function hazards(): LayerSpecification[] {
       "source-layer": "seamark",
       filter: ["has", "seamark:seabed_area:surface"],
       layout: {
+        // the plain word beats the INT 1 J abbreviation here: "mud" answers the anchoring
+        // question instantly, "M" needs a legend the chart doesn't have. The italic is the
+        // chart convention that matters — it marks hydrographic text.
         "text-field": ["get", "seamark:seabed_area:surface"],
-        "text-font": ["Noto Sans Regular"],
+        "text-font": ["Noto Sans Italic"],
         "text-letter-spacing": 0.1,
         "text-max-width": 5,
         "text-padding": 10,

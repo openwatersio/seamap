@@ -95,10 +95,12 @@ it("keeps layer ids and order stable", () => {
     "TSS-separation-boundary",
     "TSS-separation-line",
     "ferry",
+    "ferry-symbols",
     "navigation-lines",
     "navigation-tracks",
     // structures
     "shoreline-constructions",
+    "shoreline-constructions-submerged",
     "pontoons",
     "piles",
     "platforms",
@@ -123,6 +125,7 @@ it("keeps layer ids and order stable", () => {
     "radar-reflectors",
     // labels — last, so they win symbol collisions against the icons below
     "landmarks",
+    "racon-labels",
     "line_symbols",
     "seamark-line-label",
     "seamark-label",

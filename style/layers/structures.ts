@@ -6,6 +6,18 @@ import { anchorOffsets } from "./placement.js";
  * Fixed shore and harbour works: piers and breakwaters, piles and dolphins, platforms, cranes,
  * and shore stations.
  */
+const submergedWall: ExpressionSpecification = [
+  "in",
+  [
+    "coalesce",
+    ["get", "seamark:shoreline_construction:water_level"],
+    ["get", "seamark:water_level"],
+    ["get", "water_level"],
+    "",
+  ],
+  ["literal", ["covers", "flooding", "awash"]],
+];
+
 export function structures(): LayerSpecification[] {
   // access values that mean "not open to the public" (OpenSeaMap-vector's PRIVATE_TAGS).
   // An untagged feature gets null, and `in` against null is false, so it reads as public.
@@ -22,10 +34,26 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 12,
-      filter: ["==", ["get", "type"], "shoreline_construction"],
+      // the dry works; a wall that covers draws in the dashed layer below (the validator
+      // accepts a per-feature line-dasharray but the renderer ignores it, hence two layers)
+      filter: ["all", ["==", ["get", "type"], "shoreline_construction"], ["!", submergedWall]],
       paint: {
         "line-color": colors.coastline,
         "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
+      },
+    },
+    {
+      // a training wall or causeway that covers draws dashed (SLCONS04, WATLEV 3/4)
+      id: "shoreline-constructions-submerged",
+      type: "line",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 12,
+      filter: ["all", ["==", ["get", "type"], "shoreline_construction"], submergedWall],
+      paint: {
+        "line-color": colors.coastline,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
+        "line-dasharray": [2, 2],
       },
     },
     {
@@ -62,6 +90,20 @@ export function structures(): LayerSpecification[] {
         "icon-image": "freenauticalchart:platform",
         "icon-overlap": "always",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 10, 1],
+        // OFSPLF carries its name on the chart
+        "text-field": ["get", "name"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11,
+        "text-variable-anchor": ["left", "right", "bottom", "top"],
+        "text-radial-offset": 1,
+        "text-justify": "auto",
+        "text-optional": true,
+      },
+      paint: {
+        "text-color": colors.label,
+        "text-halo-color": colors.halo,
+        "text-halo-width": 2,
+        "text-halo-blur": 1,
       },
     },
     {

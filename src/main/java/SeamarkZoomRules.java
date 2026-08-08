@@ -29,6 +29,13 @@ public class SeamarkZoomRules {
       base = 8;
     }
 
+    // A conspicuous landmark is part of what a mariner steers by (CONVIS promotes to the
+    // STANDARD display category in S-52): visible from z6 like the other promoted marks.
+    if ("landmark".equals(type)
+        && "conspicuous".equals(attrs.get("seamark:landmark:conspicuity"))) {
+      base = Math.min(base, 6);
+    }
+
     // A light's reach outranks how its host happens to be typed: plenty of real lighthouses are
     // tagged light_minor or sit on plain beacons. The S-52 major-light test is 10 M nominal
     // range (LIGHTS06); 15 M is landfall class. Range only ever promotes, never demotes.
