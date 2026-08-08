@@ -1,13 +1,107 @@
-import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 
+const HAZARD_TYPES = ["rock", "wreck", "obstruction"];
+
 /**
- * Point hazards and seabed text. These draw with the symbols, above the land fills — a near-shore
- * rock or wreck must never be hidden by an imprecise OSM coastline (S-52 draws points over
- * coincident areas, §10.3.4.1).
+ * What the chart knows about a hazard's depth: the surveyed least depth when tagged, else the
+ * seabed sampled around it. The two defaults encode opposite burdens of proof: a hazard is
+ * only RUNG as an isolated danger when a known depth puts it at or above the safety depth
+ * (9999 keeps unknowns out), but its area boundary only RELAXES to the safe style when a
+ * known depth puts it below (-9999 keeps unknowns dangerous, per S-52's no-VALSOU rows).
  */
-export function hazards(): LayerSpecification[] {
+const notKnownDeep = (safety: number): ExpressionSpecification => [
+  "<=",
+  ["coalesce", ["get", "depth"], ["get", "surrounding_depth"], -9999],
+  safety,
+];
+const isKnownShallow = (safety: number): ExpressionSpecification => [
+  "<=",
+  ["coalesce", ["get", "depth"], ["get", "surrounding_depth"], 9999],
+  safety,
+];
+
+/**
+ * Point hazards, hazard areas, and seabed text. These draw with the symbols, above the land
+ * fills — a near-shore rock or wreck must never be hidden by an imprecise OSM coastline (S-52
+ * draws points over coincident areas, §10.3.4.1).
+ *
+ * `safety` is the safety depth in metres, defaulting to seascape's 2 m small-craft default; it
+ * drives the isolated-danger highlight and the hazard-area boundary style.
+ */
+export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecification[] {
+  // the surveyed depth in the mariner's unit, floored toward shallower — the safe direction
+  // (S-4 B-412); metres print as tagged, often with a decimal
+  const depthText: ExpressionSpecification =
+    unit === "m"
+      ? ["to-string", ["get", "depth"]]
+      : ["to-string", ["floor", ["*", ["get", "depth"], unit === "ft" ? 3.28084 : 0.546807]]];
   return [
+    {
+      // a hazard with area extent tints like very shallow water (S-52 fills no-VALSOU hazard
+      // areas with DEPVS) so a square kilometre of foul area stops looking like a single snag
+      id: "hazard-areas-fill",
+      type: "fill",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 8,
+      filter: [
+        "all",
+        ["==", ["geometry-type"], "Polygon"],
+        ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
+      ],
+      paint: { "fill-color": colors.shallowWater, "fill-opacity": 0.2 },
+    },
+    {
+      // the hazard-area limit: dotted for dangers at or above the safety depth (and unsurveyed
+      // ones), dashed grey for those safely below it (S-52 OBSTRN07/WRECKS05 area portrayal)
+      id: "hazard-areas",
+      type: "line",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 8,
+      filter: [
+        "all",
+        ["==", ["geometry-type"], "Polygon"],
+        ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
+      ],
+      paint: {
+        "line-color": ["case", notKnownDeep(safety), colors.label, colors.chartGrey],
+        "line-dasharray": [
+          "case",
+          notKnownDeep(safety),
+          ["literal", [1, 1.5]],
+          ["literal", [4, 2]],
+        ],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 14, 1.4],
+      },
+    },
+    {
+      // a hazard at or above the mariner's safety depth wears a quiet magenta ring behind its
+      // own paper symbol. Paper charts have no equivalent (they cannot know the safety depth);
+      // the ECDIS answer is the loud ISODGR01 octagon, which replaces the symbol — this keeps
+      // the paper symbology and whispers what ECDIS shouts. S-64 5.1 permits deciding on depth
+      // alone, without the full surrounding-water test.
+      id: "isolated-dangers",
+      type: "circle",
+      source: "seamap",
+      "source-layer": "seamark",
+      // Point only: a circle layer marks every vertex of a polygon, and a shallow hazard
+      // area already reads dangerous through its dotted boundary
+      filter: [
+        "all",
+        ["==", ["geometry-type"], "Point"],
+        ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
+        isKnownShallow(safety),
+      ],
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 6, 12, 10],
+        "circle-opacity": 0,
+        "circle-stroke-color": colors.magenta,
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 8, 1, 12, 1.4],
+        "circle-stroke-opacity": 0.85,
+      },
+    },
     {
       id: "rocks_outline",
       type: "symbol",
@@ -98,6 +192,40 @@ export function hazards(): LayerSpecification[] {
         ],
         "icon-overlap": "always",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],
+      },
+    },
+    {
+      // the surveyed least depth over a hazard is the most important thing a chart says about
+      // it (S-4 B-420); the sampled surrounding_depth is never printed, only decided on
+      id: "hazard-depths",
+      type: "symbol",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 12,
+      filter: [
+        "all",
+        ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
+        ["has", "depth"],
+        // a negative depth is a drying height, whose underlined notation needs glyph work
+        // (tracked with seascape's soundings); don't print a minus sign the chart never uses
+        [">=", ["get", "depth"], 0],
+      ],
+      layout: {
+        "text-field": depthText,
+        "text-font": ["Noto Sans Italic"],
+        "text-size": 10,
+        // let the numeral find a clear side of the symbol, like the name labels do
+        "text-variable-anchor": ["left", "right", "bottom", "top"],
+        "text-radial-offset": 1.7,
+        "text-justify": "auto",
+        "text-optional": true,
+      },
+      paint: {
+        // black jumps, grey recedes: the sounding emphasis pair (SNDG2/SNDG1)
+        "text-color": ["case", ["<=", ["get", "depth"], safety], "#000", colors.chartGrey],
+        "text-halo-color": colors.halo,
+        "text-halo-width": 1.5,
+        "text-halo-blur": 1,
       },
     },
     {

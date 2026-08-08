@@ -7,6 +7,7 @@ import {
 } from "@maplibre/maplibre-gl-style-spec";
 import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { layers, sources, sprite, style } from "./index.ts";
+import { chartLayers } from "./layers/index.ts";
 
 const { areas, symbols } = layers();
 const all = [...areas, ...symbols];
@@ -83,9 +84,13 @@ it("keeps layer ids and order stable", () => {
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
     // hazards — point symbols draw above land so the coastline never hides them
+    "hazard-areas-fill",
+    "hazard-areas",
+    "isolated-dangers",
     "rocks_outline",
     "rocks",
     "obstructions",
+    "hazard-depths",
     "seabed",
     // routes
     "cables-pipes",
@@ -130,6 +135,30 @@ it("keeps layer ids and order stable", () => {
     "seamark-label",
     "lights-label",
   ]);
+});
+
+describe("isolated dangers", () => {
+  const layer = chartLayers({ safety: 2 }).symbols.find((l) => l.id === "isolated-dangers") as {
+    filter: never;
+  };
+  const point = (properties: Record<string, unknown>) => ({ type: 1, properties }) as never;
+  const highlighted = (properties: Record<string, unknown>) =>
+    featureFilter(layer.filter).filter({ zoom: 12 }, point(properties), undefined as never);
+
+  it("rings a hazard at or above the safety depth", () => {
+    expect(highlighted({ type: "wreck", depth: 1.5 })).toBe(true);
+    expect(highlighted({ type: "rock", surrounding_depth: 0.5 })).toBe(true);
+  });
+
+  it("prefers the surveyed depth over the sampled one", () => {
+    expect(highlighted({ type: "wreck", depth: 8, surrounding_depth: 1 })).toBe(false);
+  });
+
+  it("leaves deep and depthless hazards alone", () => {
+    expect(highlighted({ type: "wreck", depth: 12 })).toBe(false);
+    expect(highlighted({ type: "wreck" })).toBe(false);
+    expect(highlighted({ type: "buoy_lateral", depth: 1 })).toBe(false);
+  });
 });
 
 const PRIVATE = ["no", "private", "permit", "customers"];

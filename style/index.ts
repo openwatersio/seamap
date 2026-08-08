@@ -63,6 +63,13 @@ export interface LayersOptions {
    * builder uses versatiles' open_sans_regular_italic).
    */
   font?: (name: string) => string;
+  /**
+   * Safety depth in metres for the isolated-danger highlight and hazard-area boundaries;
+   * defaults to the 2 m small-craft value seascape's depth shading also defaults to.
+   */
+  safety?: number;
+  /** Depth unit for hazard depth numerals, matching seascape's soundings. */
+  unit?: "m" | "ft" | "fm";
 }
 
 /**
@@ -71,11 +78,11 @@ export interface LayersOptions {
  * fills) belong below land fills, `symbols` (hazards, buoys, lights, topmarks,
  * landmarks, labels) on top of everything.
  */
-export function layers({ font }: LayersOptions = {}): {
+export function layers({ font, safety, unit }: LayersOptions = {}): {
   areas: LayerSpecification[];
   symbols: LayerSpecification[];
 } {
-  const { areas, symbols } = chartLayers();
+  const { areas, symbols } = chartLayers({ safety, unit });
   if (font) {
     for (const layer of [...areas, ...symbols]) {
       const layout = "layout" in layer ? (layer.layout as { "text-font"?: string[] }) : undefined;
@@ -247,7 +254,7 @@ export async function style({
     paint: { "fill-pattern": "freenauticalchart:unsurveyed" },
   });
 
-  const { areas, symbols } = layers({ font: versatilesFont });
+  const { areas, symbols } = layers({ font: versatilesFont, safety, unit });
 
   // draw sea: replace versatiles' first two layers (background, water) with the
   // chart's own background, bathymetry, sea areas, and seamap land
