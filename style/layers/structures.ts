@@ -26,6 +26,20 @@ export function structures(): LayerSpecification[] {
       paint: {
         "line-color": colors.coastline,
         "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
+        // a training wall or causeway that covers draws dashed (SLCONS04, WATLEV 3/4)
+        "line-dasharray": [
+          "match",
+          [
+            "coalesce",
+            ["get", "seamark:shoreline_construction:water_level"],
+            ["get", "seamark:water_level"],
+            ["get", "water_level"],
+            "",
+          ],
+          ["covers", "flooding", "awash"],
+          ["literal", [2, 2]],
+          ["literal", [1, 0]],
+        ],
       },
     },
     {
@@ -62,6 +76,20 @@ export function structures(): LayerSpecification[] {
         "icon-image": "freenauticalchart:platform",
         "icon-overlap": "always",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 10, 1],
+        // OFSPLF carries its name on the chart
+        "text-field": ["get", "name"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11,
+        "text-variable-anchor": ["left", "right", "bottom", "top"],
+        "text-radial-offset": 1,
+        "text-justify": "auto",
+        "text-optional": true,
+      },
+      paint: {
+        "text-color": colors.label,
+        "text-halo-color": colors.halo,
+        "text-halo-width": 2,
+        "text-halo-blur": 1,
       },
     },
     {
