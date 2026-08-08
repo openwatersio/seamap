@@ -6,16 +6,12 @@ import { anchorOffsets } from "./placement.js";
  * Fixed shore and harbour works: piers and breakwaters, piles and dolphins, platforms, cranes,
  * and shore stations.
  */
-const submergedWall: ExpressionSpecification = [
-  "in",
-  [
-    "coalesce",
-    ["get", "seamark:shoreline_construction:water_level"],
-    ["get", "seamark:water_level"],
-    ["get", "water_level"],
-    "",
-  ],
-  ["literal", ["covers", "flooding", "awash"]],
+const wallWaterLevel: ExpressionSpecification = [
+  "coalesce",
+  ["get", "seamark:shoreline_construction:water_level"],
+  ["get", "seamark:water_level"],
+  ["get", "water_level"],
+  "",
 ];
 
 export function structures(): LayerSpecification[] {
@@ -34,26 +30,18 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 12,
-      // the dry works; a wall that covers draws in the dashed layer below (the validator
-      // accepts a per-feature line-dasharray but the renderer ignores it, hence two layers)
-      filter: ["all", ["==", ["get", "type"], "shoreline_construction"], ["!", submergedWall]],
+      filter: ["==", ["get", "type"], "shoreline_construction"],
       paint: {
         "line-color": colors.coastline,
         "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
-      },
-    },
-    {
-      // a training wall or causeway that covers draws dashed (SLCONS04, WATLEV 3/4)
-      id: "shoreline-constructions-submerged",
-      type: "line",
-      source: "seamap",
-      "source-layer": "seamark",
-      minzoom: 12,
-      filter: ["all", ["==", ["get", "type"], "shoreline_construction"], submergedWall],
-      paint: {
-        "line-color": colors.coastline,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
-        "line-dasharray": [2, 2],
+        // a training wall or causeway that covers draws dashed (SLCONS04, WATLEV 3/4)
+        "line-dasharray": [
+          "match",
+          wallWaterLevel,
+          ["covers", "flooding", "awash"],
+          ["literal", [2, 2]],
+          ["literal", [1, 0]],
+        ],
       },
     },
     {

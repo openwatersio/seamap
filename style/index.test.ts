@@ -100,7 +100,6 @@ it("keeps layer ids and order stable", () => {
     "navigation-tracks",
     // structures
     "shoreline-constructions",
-    "shoreline-constructions-submerged",
     "pontoons",
     "piles",
     "platforms",
