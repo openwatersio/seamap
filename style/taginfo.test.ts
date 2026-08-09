@@ -17,11 +17,17 @@ const java = ["Seamark", "Seamap", "Lights"]
 const keys = new Set(taginfo.tags.map((t) => t.key));
 const pairs = new Set(taginfo.tags.filter((t) => t.value).map((t) => `${t.key}=${t.value}`));
 
-/** The literal body of a Java field declaration, e.g. TAG_WHITELIST's Set.of(...). */
+/**
+ * The literal body of a Java field declaration, e.g. TAG_WHITELIST's Set.of(...).
+ * Asserts on the declaration itself: a renamed field would otherwise search from
+ * index 0 and hand back whichever unrelated block matched first.
+ */
 function field(name: string, open: string, close: string): string {
-  const start = java.indexOf(open, java.indexOf(`${name} =`));
+  const decl = java.indexOf(`${name} =`);
+  expect(decl, `${name} is not declared in the profile — did it get renamed?`).toBeGreaterThan(-1);
+  const start = java.indexOf(open, decl);
   const end = java.indexOf(close, start);
-  expect(start, `${name} not found in Seamark.java`).toBeGreaterThan(0);
+  expect(end, `${name} has no closing ${close}`).toBeGreaterThan(start);
   return java.slice(start, end);
 }
 

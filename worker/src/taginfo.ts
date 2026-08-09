@@ -323,7 +323,9 @@ export const taginfo = {
     ),
     {
       key: "seamark:radar_reflector",
-      description: "seamark:radar_reflector=yes draws the radar reflector caret on the mark.",
+      value: "yes",
+      description:
+        "Draws the radar reflector caret on the mark. Only yes is read; a reflector is otherwise tagged seamark:<type>:reflectivity=*.",
     },
     {
       key: "seamark:radio_station:category",
