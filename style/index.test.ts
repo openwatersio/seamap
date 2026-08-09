@@ -205,6 +205,27 @@ describe("restricted access", () => {
   });
 });
 
+describe("fuel dock labels", () => {
+  const layout = (all.find((l) => l.id === "small-craft-facilities") as { layout: never })
+    .layout as Record<string, unknown>;
+  const compiled = createExpression(layout["text-field"]);
+  if (compiled.result !== "success") throw new Error("text-field failed to compile");
+  const label = (properties: Record<string, string>) =>
+    compiled.value
+      .evaluate({ zoom: 16 }, { type: 1, properties } as never)
+      .toString()
+      .trim();
+
+  it("prints the grades a fuel dock sells", () => {
+    expect(label({ category: "fuel_station", fuel: "D · 95" })).toBe("D · 95");
+  });
+
+  it("leaves the other badges to speak for themselves", () => {
+    expect(label({ category: "slipway", fuel: "D" })).toBe("");
+    expect(label({ category: "fuel_station" })).toBe("");
+  });
+});
+
 // bin/sprites pads fill-pattern icons into a 32-unit repeat cell; one it doesn't know about
 // renders as a solid mass instead of chart hatching. It can't read the layer modules, so it
 // carries the list — keep the two in step.

@@ -456,6 +456,16 @@ class SeamarkTest {
     assertEquals("pier", pier.get("category"));
   }
 
+  /** A fuel dock carries its offerings as a derived attribute. */
+  @Test
+  void fuelDockCarriesItsFuel() {
+    var dock = attrs(Map.of("waterway", "fuel", "fuel:diesel", "yes"));
+    assertEquals("fuel_station", dock.get("category"));
+    assertEquals("D", dock.get("fuel"));
+
+    assertNull(attrs(Map.of("waterway", "fuel")).get("fuel"));
+  }
+
   // The S-52 LIGHTS06 colour precedence for the flare and arcs.
 
   @Test
