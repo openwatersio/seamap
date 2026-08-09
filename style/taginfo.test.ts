@@ -4,14 +4,16 @@
 // key through and the style composes keys at render time — so it's written by
 // hand and checked here.
 import { expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { layers } from "./index.ts";
 import { taginfo } from "../worker/src/taginfo.ts";
 
-// The whole profile, not just the seamark extraction: Seamap.java reads the
-// tags behind the water, wetland and waterway layers.
-const java = ["Seamark", "Seamap", "Lights"]
-  .map((f) => readFileSync(new URL(`../src/main/java/${f}.java`, import.meta.url), "utf8"))
+// Every profile source, globbed rather than listed: a new class that reads tags
+// is exactly the case a hand-maintained list misses.
+const profile = new URL("../src/main/java/", import.meta.url);
+const java = readdirSync(profile)
+  .filter((f) => f.endsWith(".java"))
+  .map((f) => readFileSync(new URL(f, profile), "utf8"))
   .join("\n");
 
 const keys = new Set(taginfo.tags.map((t) => t.key));
@@ -30,6 +32,23 @@ function field(name: string, open: string, close: string): string {
   expect(end, `${name} has no closing ${close}`).toBeGreaterThan(start);
   return java.slice(start, end);
 }
+
+// Localized names are carried into the tiles but no layer reads them, and
+// taginfo has no wildcard to list hundreds of languages against — the `name`
+// entry says so in prose instead.
+const PREFIXES_DOCUMENTED_IN_PROSE = new Set(["name:"]);
+
+it("documents a key under every prefix the profile carries", () => {
+  const prefixes = [...field("TAG_PREFIXES", "{", "};").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  expect(prefixes.length).toBeGreaterThan(2);
+
+  // A whole prefix family reaching the tiles undocumented is the widest way
+  // this file can be wrong, and the cheapest to miss.
+  const uncovered = prefixes
+    .filter((p) => !PREFIXES_DOCUMENTED_IN_PROSE.has(p))
+    .filter((p) => ![...keys].some((k) => k.startsWith(p)));
+  expect(uncovered).toSatisfyDocumented(new Set());
+});
 
 it("documents every tag the profile reads", () => {
   const whitelist = [...field("TAG_WHITELIST", "(", ");").matchAll(/"([^"]+)"/g)].map((m) => m[1]);

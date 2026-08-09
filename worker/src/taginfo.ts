@@ -52,6 +52,31 @@ const LIGHT_SUBKEYS = [
   "multiple",
 ];
 
+// The abbreviations Fuel.java prints; everything else spells out.
+const FUEL_ABBREVIATIONS: Record<string, string> = {
+  diesel: "D",
+  biodiesel: "BD",
+  petrol: "P",
+  lpg: "LPG",
+  cng: "CNG",
+  electricity: "EV",
+};
+
+// Fuel.java reads any octane_<number>; these are the grades the planet carries.
+const OCTANE_GRADES = [80, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 95, 97, 98, 100];
+
+// The marine-relevant and widely-tagged rest, which land in the label verbatim.
+const FUELS_SPELLED_OUT = [
+  "marine_diesel",
+  "barge_diesel",
+  "gasoline",
+  "kerosene",
+  "e5",
+  "e10",
+  "e85",
+  "adblue",
+];
+
 const carried = (keys: string[], description: string): Tag[] =>
   keys.map((key) => ({ key, description }));
 
@@ -222,6 +247,27 @@ export const taginfo = {
       "Gives a charted landmark its function.",
     ),
 
+    // ── What a fuel dock sells ──────────────────────────────────────────────
+    // Fuel.java folds the scatter of fuel:*=yes into one label, because MapLibre
+    // can only ask about keys named in advance. Any fuel:* key counts, so this
+    // is the set worth linking rather than the whole of it.
+    ...Object.entries(FUEL_ABBREVIATIONS).map(([fuel, abbr]) => ({
+      key: `fuel:${fuel}`,
+      value: "yes",
+      description: `Listed on a fuel dock's label as "${abbr}". Only yes counts — fuel:${fuel}=no says the dock has none.`,
+    })),
+    ...OCTANE_GRADES.map((octane) => ({
+      key: `fuel:octane_${octane}`,
+      value: "yes",
+      description: `Listed on a fuel dock's label as "${octane}", after petrol and in octane order.`,
+    })),
+    ...FUELS_SPELLED_OUT.map((fuel) => ({
+      key: `fuel:${fuel}`,
+      value: "yes",
+      description:
+        "Listed on a fuel dock's label, spelled out — only the most common fuels get an abbreviation.",
+    })),
+
     // ── Water, wetland and waterway ─────────────────────────────────────────
     // Not seamarks: these draw the waters the chart sits on. Depth shading and
     // soundings come from bathymetry, not from OSM.
@@ -367,9 +413,14 @@ export const taginfo = {
         "access=no, private, permit or customers marks a structure as not open to the public.",
     },
     ...carried(
-      ["name", "ref", "description", "note"],
+      ["ref", "description", "note"],
       "Used to label the feature. seamark:name=* and the type-specific seamark:<type>:name=* win over name=*.",
     ),
+    {
+      key: "name",
+      description:
+        "Used to label the feature, after seamark:name=* and the type-specific seamark:<type>:name=*. Localized name:<lang>=* variants are carried into the tiles for downstream styles, though the chart's own labels don't read them yet.",
+    },
     ...carried(
       ["fee", "charge", "toll", "opening_hours", "operator", "vhf"],
       "Carried into the tiles as detail about a facility.",
