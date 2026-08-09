@@ -6,7 +6,8 @@
  */
 export const day = {
   background: "#e9f7ff",
-  land: "#fdf1d2",
+  /** one step toward chart buff (NOAA #E4CF8F) for figure-ground against deep water */
+  land: "#f5e6bd",
   coastline: "#3d3d3d",
   /** CHBLK — general text */
   label: "#333",
