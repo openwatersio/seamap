@@ -72,6 +72,9 @@ jobs:
           check "bad param"  400 "$BASE/style.json?unit=fathoms"
           check "tile"       200 "$BASE/0/0/0.pbf" protobuf
           check "sprite"     200 "$BASE/sprites/freenauticalchart.json" json
+          # Registered in taginfo/taginfo-projects, so a 404 here breaks a URL
+          # that lives in someone else's repo.
+          check "taginfo"    200 "$BASE/taginfo.json" json
           # tiles.json validates by version, so its ETag names the archive the
           # pointer currently resolves to.
           version=$(curl -sSI "$BASE/tiles.json" | tr -d '\r"' | awk 'tolower($1)=="etag:"{print $2}')

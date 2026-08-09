@@ -5,6 +5,7 @@
  *   GET /seamap/style.json         → the whole chart style (@openwaters/seamap)
  *   GET /seamap/{z}/{x}/{y}.pbf    → MVT (also .mvt)
  *   GET /seamap/sprites/*          → the chart sprite sheet
+ *   GET /seamap/taginfo.json       → the OSM tags the chart reads, for taginfo
  *   GET /seamap/<version>.pmtiles  → the raw archive, range requests included
  *
  * Releases land without a redeploy: bin/publish uploads an immutable
@@ -18,6 +19,7 @@ import { PMTiles, type Source, type RangeResponse } from "pmtiles";
 import { style as chartStyle } from "@openwaters/seamap";
 import { CachedSource, contentEtag } from "./cache";
 import { mountPath, styleQuery } from "./route";
+import { taginfo } from "./taginfo";
 
 export interface Env {
   TILES: R2Bucket;
@@ -153,6 +155,13 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     out.headers.set("access-control-allow-origin", "*");
     return out;
   }
+
+  // The taginfo project file, whose URL is registered in taginfo/taginfo-projects
+  // and fetched from there daily. Static, so it never waits on the R2 pointer.
+  if (rel === "/taginfo.json")
+    return new Response(JSON.stringify(taginfo), {
+      headers: { "content-type": "application/json", "cache-control": JSON_CACHE, ...CORS },
+    });
 
   // Direct download of a published archive — keeps range-reading pmtiles
   // clients (and the publish workflow's existence check) working.
