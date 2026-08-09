@@ -69,7 +69,7 @@ color_types = {  # to reduce numer of combinations
 }
 
 
-def colors_for(s):
+def colors_for(s, pattern=None):
     if s in lights:
         return light_colors.keys()
 
@@ -78,6 +78,9 @@ def colors_for(s):
         types = types.split()
         cols = [""] + cols.split()
         if s in types:
+            # emergency wreck-marking buoys are blue/yellow vertical stripes (R1001 §2.6.2)
+            if pattern == "vertical" and "blue" not in cols:
+                cols.append("blue")
             return cols
 
     return object_colors.keys()
@@ -176,7 +179,7 @@ def main():
 
             for s in sections:
                 # if s > 3:                    continue
-                colors = colors_for(icon)
+                colors = colors_for(icon, p)
 
                 cols = list(
                     filter(
