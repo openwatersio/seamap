@@ -414,7 +414,7 @@ export const taginfo = {
     },
     ...carried(
       ["ref", "description", "note"],
-      "Used to label the feature. seamark:name=* and the type-specific seamark:<type>:name=* win over name=*.",
+      "Carried into the tiles as detail about the feature. Nothing on the chart draws them yet — labels come from name=* and its seamark equivalents.",
     ),
     {
       key: "name",
