@@ -76,6 +76,11 @@ public class Seamark {
     {"canoe", "egress", "small_craft_facility", "access_point"},
     {"canoe", "put_in;egress", "small_craft_facility", "access_point"},
     {"emergency", "water_rescue", "rescue_station", null},
+    // S-4 B-449.2 charts every floating barrier alike; S-101 still keeps the shark net its own
+    // obstruction category (CATOBS 22), and the legend along the line says which one it is.
+    {"barrier", "floating_boom", "obstruction", "boom"},
+    {"barrier", "shark_net", "obstruction", "shark_net"},
+    {"man_made", "dolphin", "mooring", "dolphin"},
   };
 
   /**

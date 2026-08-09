@@ -89,6 +89,8 @@ it("keeps layer ids and order stable", () => {
     "isolated-dangers",
     "rocks_outline",
     "rocks",
+    "floating-barriers",
+    "floating-barriers-label",
     "obstructions",
     "hazard-depths",
     "seabed",
