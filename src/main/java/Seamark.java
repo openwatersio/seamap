@@ -309,6 +309,8 @@ public class Seamark {
     // yet is a style change rather than a planet rebuild. type == null means this isn't a
     // seamark and the map is discarded.
     if (type != null) {
+      String fuel = Fuel.label(tags);
+      if (fuel != null) attrs.put("fuel", fuel);
       passThroughTags(tags, attrs);
     }
 

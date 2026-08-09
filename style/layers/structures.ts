@@ -203,6 +203,35 @@ export function structures(): LayerSpecification[] {
           "freenauticalchart:poi-generic",
         ],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.8, 17, 1],
+        // which grades a dock sells decides whether it's worth the detour; the other badges say
+        // all they need to with the icon
+        "text-field": [
+          "case",
+          ["==", ["get", "category"], "fuel_station"],
+          ["coalesce", ["get", "fuel"], ""],
+          "",
+        ],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 10,
+        // tracks icon-size to hold ~7.5px from the 32px badge edge to the glyph, as the
+        // harbour labels do
+        "text-variable-anchor-offset": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          14,
+          anchorOffsets(2.03),
+          17,
+          anchorOffsets(2.35),
+        ],
+        "text-justify": "auto",
+        "text-optional": true,
+      },
+      paint: {
+        "text-color": colors.label,
+        "text-halo-color": colors.halo,
+        "text-halo-width": 2,
+        "text-halo-blur": 1,
       },
     },
     {
