@@ -251,9 +251,9 @@ export function structures(): LayerSpecification[] {
         "icon-image": [
           "case",
           ["==", ["get", "category"], "marina"],
-          "freenauticalchart:marina",
+          "freenauticalchart:poi-marina",
           ["==", ["get", "category"], "fishing"],
-          "freenauticalchart:fishingharbour",
+          "freenauticalchart:poi-fishing-harbour",
           "",
         ],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],
@@ -262,7 +262,7 @@ export function structures(): LayerSpecification[] {
         "text-field": ["get", "name"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
         // tracks icon-size to hold ~7.5px from icon edge to glyph, leaving ~5px clear of the halo.
-        // The marina sprite is a square 32 display px at icon-size 1, so both axes match.
+        // Both sprites are square 32 display px at icon-size 1, so both axes match.
         "text-variable-anchor-offset": [
           "interpolate",
           ["linear"],
