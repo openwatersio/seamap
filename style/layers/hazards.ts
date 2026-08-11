@@ -4,6 +4,18 @@ import { colors } from "./palette.js";
 const HAZARD_TYPES = ["rock", "wreck", "obstruction"];
 
 /**
+ * Booms, oil and security barriers, log ponds, ice booms and shark nets are all charted the same
+ * way: a dashed black line along the barrier with a legend naming it, never a hazard tint or a
+ * point symbol (S-4 B-449.2, INT 1 F29.1; S-52 OBSTRN CATOBS 8/10 → LS(DASH,1,CSTLN)).
+ */
+const isFloatingBarrier: ExpressionSpecification = [
+  "all",
+  ["==", ["get", "type"], "obstruction"],
+  ["in", ["get", "category"], ["literal", ["boom", "shark_net"]]],
+];
+const notFloatingBarrier: ExpressionSpecification = ["!", isFloatingBarrier];
+
+/**
  * What the chart knows about a hazard's depth: the surveyed least depth when tagged, else the
  * seabed sampled around it. The two defaults encode opposite burdens of proof: a hazard is
  * only RUNG as an isolated danger when a known depth puts it at or above the safety depth
@@ -49,6 +61,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
         "all",
         ["==", ["geometry-type"], "Polygon"],
         ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
+        notFloatingBarrier,
       ],
       paint: { "fill-color": colors.shallowWater, "fill-opacity": 0.2 },
     },
@@ -64,6 +77,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
         "all",
         ["==", ["geometry-type"], "Polygon"],
         ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
+        notFloatingBarrier,
       ],
       paint: {
         "line-color": ["case", notKnownDeep(safety), colors.label, colors.chartGrey],
@@ -166,6 +180,52 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       },
     },
     {
+      id: "floating-barriers",
+      type: "line",
+      source: "seamap",
+      "source-layer": "seamark",
+      filter: isFloatingBarrier,
+      paint: {
+        "line-color": colors.coastline,
+        "line-dasharray": [4, 2],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 14, 1.6],
+      },
+    },
+    {
+      // the legend is part of the symbology, not decoration: a bare dashed line doesn't say
+      // whether it's a boom you can't cross or a limit you can (S-4 B-449.2)
+      id: "floating-barriers-label",
+      type: "symbol",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 12,
+      filter: isFloatingBarrier,
+      layout: {
+        "text-field": [
+          "case",
+          ["has", "name"],
+          ["get", "name"],
+          ["==", ["get", "category"], "shark_net"],
+          "Shark Net",
+          "Floating Barrier",
+        ],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 10,
+        "text-offset": [0, -0.8],
+        "text-optional": true,
+        // "line", not "line-center": a boom long enough to matter is split across tiles, and
+        // the clipped halves have no centre to place on
+        "symbol-placement": "line",
+        "symbol-spacing": 250,
+      },
+      paint: {
+        "text-color": colors.label,
+        "text-halo-color": colors.halo,
+        "text-halo-width": 1.5,
+        "text-halo-blur": 1,
+      },
+    },
+    {
       // minzoom 6 defers to the tile pipeline (SeamarkZoomRules): below zoom 8 the tiles carry
       // only dangerous wrecks, so those appear early without a separate layer split
       id: "obstructions",
@@ -173,7 +233,12 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 6,
-      filter: ["in", ["get", "type"], ["literal", ["wreck", "obstruction"]]],
+      filter: [
+        "all",
+        ["in", ["get", "type"], ["literal", ["wreck", "obstruction"]]],
+        // a barrier mapped as a way is its own line; one icon at the centre misstates where it is
+        ["any", ["==", ["geometry-type"], "Point"], notFloatingBarrier],
+      ],
       layout: {
         "icon-image": [
           "case",

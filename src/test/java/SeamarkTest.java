@@ -466,6 +466,26 @@ class SeamarkTest {
     assertNull(attrs(Map.of("waterway", "fuel")).get("fuel"));
   }
 
+  /** Floating barriers and dolphins reach the chart from their plain tags (S-4 B-449.2). */
+  @Test
+  void plainBarrierAndDolphinTags() {
+    var boom = attrs(Map.of("barrier", "floating_boom", "name", "Oil Boom"));
+    assertEquals("obstruction", boom.get("type"));
+    assertEquals("boom", boom.get("category"));
+    assertEquals("Oil Boom", boom.get("name"));
+
+    assertEquals("shark_net", attrs(Map.of("barrier", "shark_net")).get("category"));
+
+    var dolphin = attrs(Map.of("man_made", "dolphin"));
+    assertEquals("mooring", dolphin.get("type"));
+    assertEquals("dolphin", dolphin.get("category"));
+
+    // explicit seamark tagging still wins
+    assertEquals(
+        "mooring_area",
+        attrs(Map.of("man_made", "dolphin", "seamark:type", "mooring_area")).get("type"));
+  }
+
   // The S-52 LIGHTS06 colour precedence for the flare and arcs.
 
   @Test
