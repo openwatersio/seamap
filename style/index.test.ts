@@ -118,13 +118,15 @@ it("keeps layer ids and order stable", () => {
     "harhours",
     // lights
     "lights",
-    "light_ray",
-    "light_arc_casing",
-    "light_arc",
-    "light_arc_obscured",
     "light-minor",
     "light-major",
     "fogsignals",
+    // sectors — fixed to the display, so sprites rather than ground geometry
+    "sector-legs",
+    "sector-arc-start",
+    "sector-arc-middle",
+    "sector-arc-end",
+    "sector-arc-obscured",
     // marks — bodies first, so a hull can never paint over its topmark or reflector
     "buoys",
     "topmarks",
@@ -228,10 +230,14 @@ describe("thinning and decoration", () => {
     // a lit buoy thinned out of its cell must not leave text or arcs behind
     const thinned = { ...buoy, family: "minor_aid", cell_rank: 9, "seamark:light:colour": "red" };
     expect(draws("buoys", 12, thinned)).toBe(false);
-    for (const id of ["lights-label", "seamark-label", "racon-labels", "light_arc", "light_ray"]) {
-      expect(
-        draws(id, 12, { ...thinned, name: "Nyhavn", radar_transponder: "yes", subtype: "arc" }),
-      ).toBe(false);
+    const dependents = ["lights-label", "seamark-label", "racon-labels"];
+    for (const id of dependents) {
+      expect(draws(id, 12, { ...thinned, name: "Nyhavn", radar_transponder: "yes" })).toBe(false);
+    }
+    for (const id of ["sector-arc-start", "sector-legs"]) {
+      const sector = { ...thinned, subtype: "sector", sector_width: 40, bearing: 10 };
+      expect(draws(id, 12, sector)).toBe(false);
+      expect(draws(id, 12, { ...sector, subtype: "leg" })).toBe(false);
     }
   });
 

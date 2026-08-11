@@ -1,121 +1,147 @@
-import com.onthegomap.planetiler.geo.GeoUtils;
 import com.onthegomap.planetiler.reader.SourceFeature;
 import java.util.*;
 import org.locationtech.jts.geom.*;
 
 /**
- * Creates light sector geometries (Arcs and Rays) from OSM Seamark data. - Light Arcs: Arcs for
- * each color sector - Light Rays: Rays at sector boundaries
+ * Turns a light's OSM sector tags into one point per sector and one per sector limit.
+ *
+ * <p>A sector arc is a symbol, not a measurement: it says the red sector lies over there, and its
+ * distance from the light means nothing. S-52 and S-101 accordingly fix it to the display — 20 mm
+ * radius, 25 mm for the legs and for the smaller of two overlapping sectors (PresLib 4.0.4,
+ * `LIGHTS06`). A line drawn on the ground cannot hold a constant screen size, so the arcs are drawn
+ * from sprites and what the tiles carry is the light's position plus the angles to rotate them to.
  */
 public class Lights {
-
-  private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
-  // In Planetiler normalized coordinates: 1.0 = entire world width
-  private static final double WORLD_WIDTH_METERS = 2.0 * Math.PI * 6378137.0; // ~40075017m
-  // Radii in meters (derived from nautical miles * 1852). Legs extend just past the arc,
-  // in S-52's proportion: a 20 mm arc with 25 mm legs (LIGHTS06), not far beyond it.
-  private static final double MINOR_ARC_RADIUS = 0.4 * 1852; // ~741m
-  private static final double MAJOR_ARC_RADIUS = 0.7 * 1852; // ~1296m
-  private static final double MINOR_RAY_RADIUS = 0.5 * 1852; // ~926m
-  private static final double MAJOR_RAY_RADIUS = 0.875 * 1852; // ~1620m
-  // 1° puts vertices ~13-23m apart at these radii — well under a pixel at the zooms arcs draw
-  private static final double ARC_STEP_DEGREES = 1.0;
 
   public static class LightGeometry {
     public final Geometry geometry;
     public final Map<String, Object> attrs;
 
-    public LightGeometry(
-        String subtype,
+    private LightGeometry(Geometry geometry, Map<String, Object> attrs) {
+      this.geometry = geometry;
+      this.attrs = attrs;
+    }
+
+    /** A coloured sector, drawn as arc sprites rotated to its limits. */
+    static LightGeometry sector(
+        Point at,
         String color,
         String visibility,
         String range,
-        Double sectorStart,
-        Double sectorEnd,
-        Geometry geometry) {
-      this.geometry = geometry;
-      this.attrs = new HashMap<>();
-      attrs.put("subtype", subtype);
+        double start,
+        double end,
+        boolean extended) {
+      Map<String, Object> attrs = new HashMap<>();
+      attrs.put("subtype", "sector");
+      attrs.put("sector_start", start);
+      attrs.put("sector_end", end);
+      attrs.put("sector_width", width(start, end));
+      // the smaller of two overlapping sectors reaches further out so the larger cannot bury it
+      if (extended) attrs.put("extended", true);
       if (color != null) attrs.put("color", color);
       if (visibility != null) attrs.put("visibility", visibility);
       if (range != null) attrs.put("range", range);
-      if (sectorStart != null) attrs.put("sector_start", sectorStart);
-      if (sectorEnd != null) attrs.put("sector_end", sectorEnd);
+      return new LightGeometry(at, attrs);
+    }
+
+    /** One radial leg, at a bearing where some sector begins or ends. */
+    static LightGeometry leg(Point at, double bearing, String range) {
+      Map<String, Object> attrs = new HashMap<>();
+      attrs.put("subtype", "leg");
+      attrs.put("bearing", bearing);
+      if (range != null) attrs.put("range", range);
+      return new LightGeometry(at, attrs);
     }
   }
 
+  /** Sector width in degrees, going clockwise from start to end. */
+  private static double width(double start, double end) {
+    double w = end - start;
+    while (w <= 0) w += 360;
+    return w;
+  }
+
   /**
-   * Extracts all light geometries (Arcs + Rays) from OSM tags.
-   *
-   * @param sf SourceFeature containing OSM Tags
-   * @param seamarkType The seamark:type (e.g. "light_minor" or "light_major")
-   * @return List of LightGeometry objects (Arcs + Rays)
+   * Every sector of a light, plus the legs at its limits. A light with no sector limits — or one
+   * spanning the full circle — is an all-round light: it gets a flare and never an arc (S-52
+   * `LIGHTS06`; S-101 prohibits encoding an all-round light as sectored).
    */
   public static List<LightGeometry> extractLightGeometries(SourceFeature sf, String seamarkType) {
     List<LightGeometry> results = new ArrayList<>();
     Map<Integer, Map<String, String>> segments = parseLightSegments(sf.tags());
     if (segments.isEmpty()) return results;
 
-    // The S-52 major-light test is a nominal range of 10 M (LIGHTS06), regardless of how the
-    // host feature happens to be typed.
-    double maxRange = 0;
-    for (Map<String, String> segment : segments.values()) {
-      double r = parseDoubleOrDefault(segment.get("range"), 0);
-      if (r > maxRange) maxRange = r;
-    }
-    boolean isMajor = "light_major".equals(seamarkType) || maxRange >= 10;
-    double arcRadius = isMajor ? MAJOR_ARC_RADIUS : MINOR_ARC_RADIUS;
-    double rayRadius = isMajor ? MAJOR_RAY_RADIUS : MINOR_RAY_RADIUS;
     Point center;
     try {
       center = sf.worldGeometry().getCentroid();
     } catch (Exception e) {
       return results;
     }
-    // One normalized world unit spans WORLD_WIDTH_METERS·cos(lat) ground meters, so an
-    // uncorrected radius shrinks toward the poles — half size at 60°N, where sector lights
-    // are densest.
-    double lat = GeoUtils.getWorldLat(center.getY());
-    double metersPerWorldUnit = WORLD_WIDTH_METERS * Math.cos(Math.toRadians(lat));
 
-    // 1. Create Arc geometries for each sector that has real limits. A light without sector
-    // limits — or spanning the full circle — is an all-round light: it gets a flare, never an
-    // arc (S-52 LIGHTS06; S-101 prohibits encoding all-round lights as sectored).
-    for (Map.Entry<Integer, Map<String, String>> entry : segments.entrySet()) {
-      Map<String, String> segment = entry.getValue();
-      Double sectorStart = parseDoubleOrNull(segment.get("sector_start"));
-      Double sectorEnd = parseDoubleOrNull(segment.get("sector_end"));
-      if (sectorStart == null || sectorEnd == null) continue;
-      if (sectorStart.equals(sectorEnd) || (sectorStart == 0 && sectorEnd == 360)) continue;
-      Geometry arc = createLightArc(center, sectorStart, sectorEnd, arcRadius, metersPerWorldUnit);
+    List<double[]> limits = new ArrayList<>();
+    for (Map<String, String> segment : segments.values()) {
+      Double from = parseDoubleOrNull(segment.get("sector_start"));
+      Double to = parseDoubleOrNull(segment.get("sector_end"));
+      if (from == null || to == null) continue;
+      if (from.equals(to) || (from == 0 && to == 360)) continue;
+      limits.add(new double[] {from, to});
+    }
+    if (limits.isEmpty()) return results;
+
+    for (Map<String, String> segment : segments.values()) {
+      Double from = parseDoubleOrNull(segment.get("sector_start"));
+      Double to = parseDoubleOrNull(segment.get("sector_end"));
+      if (from == null || to == null) continue;
+      if (from.equals(to) || (from == 0 && to == 360)) continue;
       results.add(
-          new LightGeometry(
-              "arc",
+          LightGeometry.sector(
+              center,
               Seamark.resolveLightColor(segment.get("colour")),
               segment.get("visibility"),
               segment.get("range"),
-              sectorStart,
-              sectorEnd,
-              arc));
+              from,
+              to,
+              overlappedByWider(from, to, limits)));
     }
 
-    // 2. Create Ray geometries at explicitly-defined sector boundaries
-    Map<Double, String> angleToRange = new HashMap<>();
+    // Adjacent sectors share a limit, and one leg per bearing is enough.
+    Map<Double, String> legs = new HashMap<>();
     for (Map<String, String> segment : segments.values()) {
-      Double sectorStart = parseDoubleOrNull(segment.get("sector_start"));
-      Double sectorEnd = parseDoubleOrNull(segment.get("sector_end"));
-      if (sectorStart == null || sectorEnd == null) continue;
-      // a full-circle sector has no real boundaries to mark, same as the arc skip above
-      if (sectorStart.equals(sectorEnd) || (sectorStart == 0 && sectorEnd == 360)) continue;
-      angleToRange.put(sectorStart, segment.get("range"));
-      angleToRange.put(sectorEnd, segment.get("range"));
+      Double from = parseDoubleOrNull(segment.get("sector_start"));
+      Double to = parseDoubleOrNull(segment.get("sector_end"));
+      if (from == null || to == null) continue;
+      if (from.equals(to) || (from == 0 && to == 360)) continue;
+      legs.put(from, segment.get("range"));
+      legs.put(to, segment.get("range"));
     }
-    for (Map.Entry<Double, String> entry : angleToRange.entrySet()) {
-      LineString ray = createLightRay(center, entry.getKey(), rayRadius, metersPerWorldUnit);
-      results.add(new LightGeometry("ray", null, null, entry.getValue(), null, null, ray));
+    for (Map.Entry<Double, String> leg : legs.entrySet()) {
+      results.add(LightGeometry.leg(center, leg.getKey(), leg.getValue()));
     }
 
     return results;
+  }
+
+  /**
+   * Whether some other sector of the same light overlaps this one and is wider. S-52 gives the
+   * smaller of an overlapping pair the extended radius so the wider one cannot hide it (`LIGHTS06`,
+   * Figure 9).
+   */
+  private static boolean overlappedByWider(double from, double to, List<double[]> limits) {
+    double own = width(from, to);
+    for (double[] other : limits) {
+      if (other[0] == from && other[1] == to) continue;
+      if (width(other[0], other[1]) <= own) continue;
+      if (contains(other[0], other[1], from) || contains(from, to, other[0])) return true;
+    }
+    return false;
+  }
+
+  /** Whether a bearing falls inside a sector, going clockwise from its start. */
+  private static boolean contains(double from, double to, double bearing) {
+    double span = width(from, to);
+    double offset = bearing - from;
+    while (offset < 0) offset += 360;
+    return offset > 0 && offset < span;
   }
 
   private static Map<Integer, Map<String, String>> parseLightSegments(Map<String, Object> tags) {
@@ -140,32 +166,6 @@ public class Lights {
     }
 
     return segments;
-  }
-
-  private static LineString createLightArc(
-      Point center, double from, double to, double radiusMeters, double metersPerWorldUnit) {
-    while (to < from) to += 360;
-    double radius = radiusMeters / metersPerWorldUnit;
-    List<Coordinate> coords = new ArrayList<>();
-    // sector bearings are seaward (from the vessel toward the light), hence the sign flip;
-    // "fixing" the negative sin is the classic sector-rendering bug
-    for (double d = from; d < to + ARC_STEP_DEGREES; d += ARC_STEP_DEGREES) {
-      double rad = Math.toRadians(Math.min(d, to));
-      double x = center.getX() - radius * Math.sin(rad);
-      double y = center.getY() + radius * Math.cos(rad);
-      coords.add(new Coordinate(x, y));
-    }
-    return GEOMETRY_FACTORY.createLineString(coords.toArray(new Coordinate[0]));
-  }
-
-  private static LineString createLightRay(
-      Point center, double deg, double radiusMeters, double metersPerWorldUnit) {
-    double rad = Math.toRadians(deg);
-    double radius = radiusMeters / metersPerWorldUnit;
-    double x = center.getX() - radius * Math.sin(rad);
-    double y = center.getY() + radius * Math.cos(rad);
-    Coordinate[] coords = new Coordinate[] {center.getCoordinate(), new Coordinate(x, y)};
-    return GEOMETRY_FACTORY.createLineString(coords);
   }
 
   private static double parseDoubleOrDefault(String str, double defaultValue) {

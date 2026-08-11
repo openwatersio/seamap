@@ -4,6 +4,7 @@ import { hazards } from "./hazards.js";
 import { routes } from "./routes.js";
 import { structures } from "./structures.js";
 import { lights } from "./lights.js";
+import { sectors } from "./sectors.js";
 import { marks } from "./marks.js";
 import { labels } from "./labels.js";
 
@@ -27,6 +28,7 @@ export function chartLayers({ safety, unit }: { safety?: number; unit?: "m" | "f
       ...routes(),
       ...structures(),
       ...lights(),
+      ...sectors(),
       ...marks(),
       ...labels(),
     ],
