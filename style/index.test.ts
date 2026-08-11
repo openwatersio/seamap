@@ -123,6 +123,9 @@ it("keeps layer ids and order stable", () => {
     "fogsignals",
     // sectors — fixed to the display, so sprites rather than ground geometry
     "sector-legs",
+    "sector-arc-start-casing",
+    "sector-arc-middle-casing",
+    "sector-arc-end-casing",
     "sector-arc-start",
     "sector-arc-middle",
     "sector-arc-end",

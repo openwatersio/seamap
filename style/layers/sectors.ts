@@ -21,7 +21,7 @@ const SPRITE_SPAN = [1.48, 4.44, 13.33, 40, 120];
 
 /** Sprite radius in the sheet, which the sheet rasterizes at twice the source size. */
 const SPRITE_RADIUS = 98;
-/** Length of `line-dashed` in the sheet. */
+/** Length of `sector-leg` in the sheet, which is drawn for exactly this use. */
 const LEG_LENGTH = 512;
 /** CSS pixels per millimetre at 96 dpi, for turning the standard's millimetres into icon-size. */
 const PX_PER_MM = 1 / 0.2646;
@@ -85,7 +85,12 @@ const visible: ExpressionSpecification = [
 
 const isSector: ExpressionSpecification = ["==", ["get", "subtype"], "sector"];
 
-function arcLayer(id: string, rotate: ExpressionSpecification): LayerSpecification {
+/**
+ * @param casing the wide neutral stroke S-52 puts under the colour ("First symbolize the Arc with
+ *   a solid line, 4 units wide, COLOUR OUTLW; then symbolize the Arc with the COLOUR"). Without it
+ *   a yellow sector on pale water is barely there — this is legibility, not decoration.
+ */
+function arcLayer(id: string, rotate: ExpressionSpecification, casing = false): LayerSpecification {
   return {
     id,
     type: "symbol",
@@ -99,7 +104,7 @@ function arcLayer(id: string, rotate: ExpressionSpecification): LayerSpecificati
         "freenauticalchart:arc-",
         ["to-string", spriteIndex],
         "-",
-        colourSuffix,
+        casing ? "casing" : colourSuffix,
       ],
       // the arc is a bearing, so it turns with the map and never with the screen
       "icon-rotation-alignment": "map",
@@ -130,7 +135,7 @@ export function sectors(): LayerSpecification[] {
       minzoom: 8,
       filter: ["all", ["==", ["get", "subtype"], "leg"], decoration("sector"), withinBudget],
       layout: {
-        "icon-image": "freenauticalchart:line-dashed",
+        "icon-image": "freenauticalchart:sector-leg",
         // anchored at its foot, so the line runs outward from the light along the bearing
         "icon-anchor": "bottom",
         "icon-rotation-alignment": "map",
@@ -140,8 +145,11 @@ export function sectors(): LayerSpecification[] {
         "icon-overlap": "always",
         "icon-size": mm(25, LEG_LENGTH),
       },
-      paint: { "icon-opacity": 0.8 },
     },
+    // casings first, so every colour stroke lands on its own neutral backing
+    arcLayer("sector-arc-start-casing", start, true),
+    arcLayer("sector-arc-middle-casing", middle, true),
+    arcLayer("sector-arc-end-casing", end, true),
     arcLayer("sector-arc-start", start),
     arcLayer("sector-arc-middle", middle),
     arcLayer("sector-arc-end", end),

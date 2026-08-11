@@ -27,6 +27,7 @@ export const day = {
   lightGreen: "#00a650",
   lightRed: "#ed1c24",
   lightYellow: "#fab20b",
+  /** also baked into sprites/icons/sector-leg.svg, which the style cannot recolour */
   sectorLeg: "#666",
 } as const;
 
