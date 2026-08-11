@@ -35,9 +35,12 @@ $("group").append(
 $("group").value = "(single symbols)";
 
 // `?q=poi-&sea=%23333333` makes any view of the sheet linkable, so a symbol
-// under discussion can be pointed at rather than described.
+// under discussion can be pointed at rather than described. Defaults are read
+// before the URL is applied, so only controls moved off them end up in the link.
+const CONTROLS = ["q", "group", "sea"];
+const defaults = Object.fromEntries(CONTROLS.map((id) => [id, $(id).value]));
 const params = new URLSearchParams(location.search);
-for (const id of ["q", "group", "sea"]) if (params.has(id)) $(id).value = params.get(id);
+for (const id of CONTROLS) if (params.has(id)) $(id).value = params.get(id);
 
 // Cap the DOM rather than the result count — the full sheet is ~5k icons and
 // each card carries a background of a multi-megabyte image.
@@ -155,8 +158,9 @@ function render() {
   const q = $("q").value.trim().toLowerCase();
   const group = $("group").value;
   document.documentElement.style.setProperty("--sea", $("sea").value);
-  const url = new URLSearchParams({ q, group, sea: $("sea").value });
-  history.replaceState(null, "", q || group ? `?${url}` : location.pathname);
+  const changed = CONTROLS.filter((id) => $(id).value !== defaults[id]);
+  const query = String(new URLSearchParams(changed.map((id) => [id, $(id).value])));
+  history.replaceState(null, "", query ? `?${query}` : location.pathname);
 
   // Comma-separated terms are OR'd, so unrelated symbols can be pulled into one
   // view to be compared — the whole point when settling a house style.
