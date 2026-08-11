@@ -9,7 +9,10 @@ cd "$(dirname "$0")/.."
 # Sample rock/wreck depths from Seascape by default, like bin/build-planet, so dev builds
 # behave like production. DEPTH_URL=none skips it (offline builds succeed either way, but
 # every failed sample logs); an explicit --depth= on the command line wins.
-DEPTH_URL="${DEPTH_URL:-https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp}"
+# The default lives in its own variable because the `}` in `{z}` would close a `${VAR:-...}`
+# expansion early, silently yielding `.../seascape/{z/{x}/{y}.webp}` and failing every sample.
+DEPTH_URL_DEFAULT='https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp'
+DEPTH_URL="${DEPTH_URL:-$DEPTH_URL_DEFAULT}"
 depth_args=()
 if [ "$DEPTH_URL" != "none" ] && ! printf '%s\n' "$@" | grep -q -- '--depth'; then
   depth_args=(--depth="$DEPTH_URL")
