@@ -7,6 +7,20 @@ import java.util.*;
 public class SeamarkZoomRules {
 
   /**
+   * Floors that the three priority tiers get wrong in opposite directions.
+   *
+   * <p>A floor answers "may this ever appear here", which is a different question from "is there
+   * room for it" — that one is answered per cell by {@code cell_rank} and the style's budgets. Once
+   * density has its own answer a floor can be generous, so a wind farm reads as a few marks at z6
+   * instead of vanishing below z8. It also has to be honest in the other direction: a fish-cleaning
+   * table in a z8 tile is bytes nothing will ever draw.
+   */
+  private static final Map<String, Integer> FLOORS =
+      Map.of(
+          "landmark", 6,
+          "small_craft_facility", 14);
+
+  /**
    * Get the minimum zoom level for a given seamark based on its type and attributes.
    *
    * @param attrs Map containing seamark attributes (type, category, etc.)
@@ -19,6 +33,8 @@ public class SeamarkZoomRules {
     int base;
     if (type == null) {
       base = 8; // default
+    } else if (FLOORS.containsKey(type)) {
+      base = FLOORS.get(type);
     } else if (isHighPriorityType(type)) {
       // High priority features visible from zoom 4
       base = 4;

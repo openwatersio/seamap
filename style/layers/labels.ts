@@ -1,6 +1,7 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { anchorOffsets } from "./placement.js";
+import { TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
 
 const halo = {
   "text-halo-color": colors.halo,
@@ -11,6 +12,10 @@ const halo = {
 /**
  * Named features and the text that names them. These place last, and MapLibre collides symbols in
  * reverse draw order, so everything here outranks the icon layers below it.
+ *
+ * Order within the group matters for the same reason. A label that changes a decision — a light
+ * characteristic, a Racon group — sits after one that only says what something is called, so it
+ * places first and a name can never take its room.
  *
  * `landmarks` belongs with the labels rather than with the structures: it and `lights-label` share
  * an anchor point, and since `lights-label` places first a lit landmark would otherwise lose its
@@ -29,6 +34,7 @@ export function labels(): LayerSpecification[] {
       filter: [
         "all",
         ["==", ["get", "type"], "landmark"],
+        withinBudget,
         // a bare "tower" with no name, colour or function is not worth a symbol
         [
           "any",
@@ -86,20 +92,26 @@ export function labels(): LayerSpecification[] {
           "freenauticalchart:monument",
         ],
         "icon-overlap": "always",
-        // from z11 lights-label draws the name for lit landmarks, stacked over the characteristic
+        // A name is a decoration: below the decoration zoom the symbol stands alone, which also
+        // keeps landmark labels — placed last, so they win — from taking the space a harbour
+        // badge needs. From z12 lights-label draws the name for lit landmarks instead, stacked
+        // over the characteristic.
         "text-field": [
           "step",
           ["zoom"],
-          ["get", "name"],
-          11,
+          "",
+          12,
           [
             "case",
             ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
+            "",
+            ["!", topOfCell],
             "",
             ["get", "name"],
           ],
         ],
         "text-size": 12,
+        "text-padding": 8,
         "text-font": ["Noto Sans Regular"],
         // tracks icon-size to hold ~7.5px from icon edge to glyph, leaving ~5px clear of the halo.
         // Sprites are 22 x 30 display px at icon-size 1, hence the taller vertical offsets.
@@ -107,48 +119,27 @@ export function labels(): LayerSpecification[] {
           "interpolate",
           ["linear"],
           ["zoom"],
-          8,
-          anchorOffsets(1.08, 1.25),
+          6,
+          anchorOffsets(0.99, 1.13),
           12,
           anchorOffsets(1.82, 2.25),
         ],
         "text-justify": "auto",
         "text-optional": true,
         // a conspicuous landmark (CONVIS) draws bolder: it is the one worth steering by
+        // CONVIS earns a larger full size, not a different floor: the artwork is the same artwork,
+        // so what it can survive shrinking to is the same too
         "icon-size": [
           "interpolate",
           ["linear"],
           ["zoom"],
           6,
-          ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 0.7, 0.5],
+          TOKEN.detail,
           12,
           ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 1.6, 1.3],
         ],
       },
       paint: { "text-color": colors.label, ...halo },
-    },
-    {
-      // an active radar beacon is charted by name with its Morse group, magenta (INT 1 S3.6)
-      id: "racon-labels",
-      type: "symbol",
-      source: "seamap",
-      "source-layer": "seamark",
-      minzoom: 11,
-      filter: ["has", "radar_transponder"],
-      layout: {
-        "text-field": [
-          "case",
-          ["has", "radar_transponder_group"],
-          ["concat", "Racon(", ["get", "radar_transponder_group"], ")"],
-          "Racon",
-        ],
-        "text-font": ["Noto Sans Italic"],
-        "text-size": 10,
-        "text-anchor": "top",
-        "text-offset": [0, 1.4],
-        "text-optional": true,
-      },
-      paint: { "text-color": colors.magenta, ...halo },
     },
     {
       id: "line_symbols",
@@ -204,12 +195,15 @@ export function labels(): LayerSpecification[] {
         ["==", ["geometry-type"], "Point"],
         ["has", "name"],
         ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour"]]]],
+        withinBudget,
+        topOfCell,
       ],
       layout: {
         "text-field": ["get", "name"],
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13],
+        "text-padding": 8,
         // mark bodies are bottom-anchored 4px below the position and stack topmarks upward, so a
         // name below the mark needs far less clearance than one above it. Hazards are centred
         // symbols (and can wear the wide isolated-danger octagon), so they take even margins.
@@ -236,12 +230,40 @@ export function labels(): LayerSpecification[] {
       paint: { "text-color": colors.label, ...halo },
     },
     {
+      // an active radar beacon is charted by name with its Morse group, magenta (INT 1 S3.6)
+      id: "racon-labels",
+      type: "symbol",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 11,
+      filter: ["all", ["has", "radar_transponder"], decoration("characteristic"), withinBudget],
+      layout: {
+        "text-field": [
+          "case",
+          ["has", "radar_transponder_group"],
+          ["concat", "Racon(", ["get", "radar_transponder_group"], ")"],
+          "Racon",
+        ],
+        "text-font": ["Noto Sans Italic"],
+        "text-size": 10,
+        "text-anchor": "top",
+        "text-offset": [0, 1.4],
+        "text-optional": true,
+      },
+      paint: { "text-color": colors.magenta, ...halo },
+    },
+    {
       id: "lights-label",
       type: "symbol",
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 11,
-      filter: ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
+      filter: [
+        "all",
+        ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
+        decoration("characteristic"),
+        withinBudget,
+      ],
       layout: {
         // the characteristic sets italic per paper-chart convention (hydrographic text);
         // a lit landmark's name stays roman — it is a fixed structure
@@ -262,6 +284,7 @@ export function labels(): LayerSpecification[] {
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14],
+        "text-padding": 8,
         // matches the gap `landmarks` leaves off the same symbol, in ems of this layer's text-size
         "text-variable-anchor-offset": [
           "interpolate",

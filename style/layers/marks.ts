@@ -1,4 +1,5 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
 
 /**
  * Body heights by shape, expressed as the y-offset (sprite px, scaled by icon-size) that puts a
@@ -77,10 +78,14 @@ export function marks(): LayerSpecification[] {
       "source-layer": "seamark",
       minzoom: 6,
       filter: [
-        "any",
-        ["in", "buoy", ["get", "type"]],
-        ["in", "beacon", ["get", "type"]],
-        ["in", ["get", "type"], ["literal", ["light_float", "light_vessel"]]],
+        "all",
+        [
+          "any",
+          ["in", "buoy", ["get", "type"]],
+          ["in", "beacon", ["get", "type"]],
+          ["in", ["get", "type"], ["literal", ["light_float", "light_vessel"]]],
+        ],
+        withinBudget,
       ],
       layout: {
         // colour combinations the sheet doesn't carry fall back to the body's generic icon, and
@@ -139,7 +144,7 @@ export function marks(): LayerSpecification[] {
         "icon-anchor": "bottom",
         "icon-offset": [0, 4],
         "icon-overlap": "always",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],
+        "icon-size": sizeRamp(TOKEN.hull, 12),
       },
     },
     {
@@ -148,7 +153,7 @@ export function marks(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 6,
-      filter: ["has", "topmark_shape"],
+      filter: ["all", ["has", "topmark_shape"], decoration("topmark"), withinBudget],
       layout: {
         // colour combinations the sheet doesn't carry fall back to the shape's generic icon, then
         // to the bare shape name (besom topmarks ship uncoloured)
@@ -181,7 +186,7 @@ export function marks(): LayerSpecification[] {
           ["image", ["concat", "freenauticalchart:", ["get", "topmark_shape"]]],
         ],
         "icon-anchor": "bottom",
-        "icon-overlap": "always",
+        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
         "icon-offset": topmarkOffset,
         "icon-rotate": [
           "case",
@@ -193,14 +198,14 @@ export function marks(): LayerSpecification[] {
           "interpolate",
           ["linear"],
           ["zoom"],
-          8,
+          12,
           [
             "case",
             ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
-            0.3,
-            0.4,
+            0.7,
+            0.8,
           ],
-          12,
+          14,
           [
             "case",
             ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
@@ -216,14 +221,14 @@ export function marks(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 10,
-      filter: ["has", "radar_reflector"],
+      filter: ["all", ["has", "radar_reflector"], decoration("reflector"), withinBudget],
       layout: {
         "icon-image": "freenauticalchart:radar-reflector",
         "icon-rotate": -60,
         "icon-anchor": "bottom",
-        "icon-overlap": "always",
+        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
         "icon-offset": reflectorOffset,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
       },
     },
   ];

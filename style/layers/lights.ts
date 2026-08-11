@@ -1,5 +1,6 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
+import { TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
 
 /** A sector where the light shows; obscured/faint sectors draw uncoloured (S-52 LIGHTS06). */
 const visible: ExpressionSpecification = [
@@ -36,7 +37,12 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 10,
-      filter: ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
+      filter: [
+        "all",
+        ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
+        decoration("flare"),
+        withinBudget,
+      ],
       layout: {
         // light_color is the S-52 LIGHTS06 precedence resolved in the tiles; older tiles
         // without it fall back to the raw colour value, then to the generic flare
@@ -57,9 +63,9 @@ export function lights(): LayerSpecification[] {
         "icon-anchor": "top",
         "icon-offset": [0, 2],
         "icon-rotate": -45,
-        "icon-overlap": "always",
+        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
         "icon-rotation-alignment": "viewport",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
       },
     },
     {
@@ -70,7 +76,7 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "light",
       minzoom: 11,
-      filter: ["==", ["get", "subtype"], "ray"],
+      filter: ["all", ["==", ["get", "subtype"], "ray"], decoration("sector"), withinBudget],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": colors.sectorLeg,
@@ -87,7 +93,13 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "light",
       minzoom: 11,
-      filter: ["all", ["==", ["get", "subtype"], "arc"], visible],
+      filter: [
+        "all",
+        ["==", ["get", "subtype"], "arc"],
+        visible,
+        decoration("sector"),
+        withinBudget,
+      ],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": colors.label,
@@ -100,7 +112,13 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "light",
       minzoom: 11,
-      filter: ["all", ["==", ["get", "subtype"], "arc"], visible],
+      filter: [
+        "all",
+        ["==", ["get", "subtype"], "arc"],
+        visible,
+        decoration("sector"),
+        withinBudget,
+      ],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         // same hexes as the flare sprites, so a light's arc and its own flare agree; orange
@@ -129,7 +147,13 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "light",
       minzoom: 11,
-      filter: ["all", ["==", ["get", "subtype"], "arc"], ["!", visible]],
+      filter: [
+        "all",
+        ["==", ["get", "subtype"], "arc"],
+        ["!", visible],
+        decoration("sector"),
+        withinBudget,
+      ],
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": colors.sectorLeg,
@@ -143,11 +167,11 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 8,
-      filter: ["==", ["get", "type"], "light_minor"],
+      filter: ["all", ["==", ["get", "type"], "light_minor"], withinBudget],
       layout: {
         "icon-image": "freenauticalchart:light-minor",
         "icon-overlap": "always",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.2],
+        "icon-size": sizeRamp(TOKEN.star, 12, 1.2),
       },
     },
     {
@@ -156,11 +180,11 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 6,
-      filter: ["==", ["get", "type"], "light_major"],
+      filter: ["all", ["==", ["get", "type"], "light_major"], withinBudget],
       layout: {
         "icon-image": "freenauticalchart:light-major",
         "icon-overlap": "always",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1.2],
+        "icon-size": sizeRamp(TOKEN.star, 11, 1.2),
       },
     },
     {
@@ -169,12 +193,17 @@ export function lights(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 10,
-      filter: ["has", "seamark:fog_signal:category"],
+      filter: [
+        "all",
+        ["has", "seamark:fog_signal:category"],
+        decoration("fogSignal"),
+        withinBudget,
+      ],
       layout: {
         "icon-image": "freenauticalchart:fogsignal",
-        "icon-overlap": "always",
+        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
         "icon-rotate": 90,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 12, 1],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
       },
     },
   ];

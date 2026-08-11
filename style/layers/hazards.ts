@@ -1,5 +1,6 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
+import { TOKEN, sizeRamp, withinBudget } from "./visibility.js";
 
 const HAZARD_TYPES = ["rock", "wreck", "obstruction"];
 
@@ -48,6 +49,10 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
     unit === "m"
       ? ["to-string", ["get", "depth"]]
       : ["to-string", ["floor", ["*", ["get", "depth"], unit === "ft" ? 3.28084 : 0.546807]]];
+  // A hazard shallower than the mariner's safety depth is never thinned. Rank is static and
+  // cannot know that — it depends on a setting only the style holds — so the budget is the
+  // ordinary path and this is the exemption (rule 1 of drafts/decide-what-to-show-when-symbols-overlap.md).
+  const survivesThinning: ExpressionSpecification = ["any", withinBudget, isKnownShallow(safety)];
   return [
     {
       // a hazard with area extent tints like very shallow water (S-52 fills no-VALSOU hazard
@@ -127,6 +132,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       filter: [
         "all",
         ["==", ["get", "type"], "rock"],
+        survivesThinning,
         [
           "!",
           [
@@ -145,7 +151,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       layout: {
         "icon-overlap": "always",
         "icon-image": "freenauticalchart:obstruction",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.4, 12, 0.8],
+        "icon-size": sizeRamp(TOKEN.mark, 11, 0.8),
       },
     },
     {
@@ -154,7 +160,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 8,
-      filter: ["==", ["get", "type"], "rock"],
+      filter: ["all", ["==", ["get", "type"], "rock"], survivesThinning],
       layout: {
         "icon-overlap": "always",
         // most OSM rocks carry no water_level, and `dry` has no icon: default to submerged, the
@@ -176,7 +182,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
           "freenauticalchart:rock-dry",
           "freenauticalchart:rock-submerged",
         ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1],
+        "icon-size": sizeRamp(TOKEN.mark, 11),
       },
     },
     {
@@ -236,6 +242,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       filter: [
         "all",
         ["in", ["get", "type"], ["literal", ["wreck", "obstruction"]]],
+        survivesThinning,
         // a barrier mapped as a way is its own line; one icon at the centre misstates where it is
         ["any", ["==", ["geometry-type"], "Point"], notFloatingBarrier],
       ],
@@ -256,7 +263,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
           "freenauticalchart:wreck-dangerous",
         ],
         "icon-overlap": "always",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],
+        "icon-size": sizeRamp(TOKEN.mark, 11),
       },
     },
     {

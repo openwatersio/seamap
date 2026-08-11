@@ -3,6 +3,7 @@ import com.onthegomap.planetiler.Planetiler;
 import com.onthegomap.planetiler.Profile;
 import com.onthegomap.planetiler.VectorTile;
 import com.onthegomap.planetiler.config.Arguments;
+import com.onthegomap.planetiler.geo.GeometryType;
 import com.onthegomap.planetiler.geo.TileCoord;
 import com.onthegomap.planetiler.reader.SourceFeature;
 import com.onthegomap.planetiler.reader.osm.OsmElement;
@@ -35,6 +36,21 @@ public class Seamap implements Profile {
           "separation_lane",
           "separation_line");
 
+  /** Cell size for the per-family numbering, in tile pixels — a tile is 256 across. */
+  private static final int CELL_PIXELS = 32;
+
+  /**
+   * Storage backstop: the most of one family kept in a cell, whatever the tile holds. This is not
+   * the selection mechanism — the style's per-family budgets in `style/layers/visibility.ts` decide
+   * what draws, and this only has to stay comfortably above the largest of them so retuning them
+   * never needs a planet build. Raising it costs tile bytes; lowering it below a style budget
+   * silently caps that budget.
+   */
+  private static int cellCap(int zoom) {
+    if (zoom >= 13) return Integer.MAX_VALUE;
+    return zoom >= 11 ? 16 : 8;
+  }
+
   /**
    * Nodes, ways and relations share one id space, so tag the element type into the high bits.
    * Without it node 123 and way 123 are the same feature to anything reading feature ids.
@@ -48,15 +64,6 @@ public class Seamap implements Profile {
       return (elementType << 44) | element.id();
     }
     return sf.id();
-  }
-
-  /**
-   * Depth for label-grid sorting (shallower first): the surveyed value when tagged, else the
-   * sampled seabed around the hazard. Never charted, only sorted on.
-   */
-  private static int sortDepth(java.util.Map<String, Object> attrs) {
-    Object depth = attrs.get("depth") != null ? attrs.get("depth") : attrs.get("surrounding_depth");
-    return depth instanceof Number n ? Math.round(n.floatValue()) : 0;
   }
 
   public static void main(String[] args) throws Exception {
@@ -200,41 +207,12 @@ public class Seamap implements Profile {
       feature.setId(featureId(sf));
       feature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
 
-      // create label-grid for rocks, sorted by danger level; sampled depth
-      // (--depth) breaks ties within a tier, shallower first
-      if (type.equals("rock")) {
-        String waterLevel =
-            (String)
-                coalesceAttr(
-                    attrs, "seamark:rock:water_level", "seamark:water_level", "water_level");
-        int depth = sortDepth(attrs);
-        int rank;
-        if ("submerged".equals(waterLevel))
-          rank = 0; // Most dangerous: always underwater, invisible
-        else if ("awash".equals(waterLevel))
-          rank = 10000; // Very dangerous: at wave height, barely visible
-        else if ("covers".equals(waterLevel)) rank = 20000; // Dangerous: periodically submerged
-        else if ("dry".equals(waterLevel) || "always_dry".equals(waterLevel))
-          rank = 40000; // always visible
-        else rank = 30000; // Unknown: might be any of the above, so it outranks provably-dry
-        feature.setSortKey(rank + depth).setPointLabelGridSizeAndLimit(12, 32, 4);
-      }
-
-      // create label-grid for wrecks, sorted by danger level
-      if (type.equals("wreck")) {
-        String wreckCategory = (String) attrs.get("category");
-        int depth = sortDepth(attrs);
-        int rank;
-        if ("dangerous".equals(wreckCategory))
-          rank = 0; // Most dangerous: dangerous to surface navigation
-        else if ("mast_showing".equals(wreckCategory)) rank = 10000; // Very dangerous: mast visible
-        else if ("hull_showing".equals(wreckCategory))
-          rank = 20000; // Dangerous: hull or superstructure visible
-        else if ("distributed_remains".equals(wreckCategory))
-          rank = 30000; // Moderately dangerous: foul ground
-        else rank = 40000; // Least dangerous: non-dangerous or unspecified
-        feature.setSortKey(rank + depth).setPointLabelGridSizeAndLimit(12, 16, 1);
-      }
+      // Which budget the feature draws from. Rank itself stays in the pipeline —
+      // postProcessTileFeatures recomputes it from these same attributes and emits only the
+      // per-cell position the style thresholds on.
+      int rank = SeamarkPriority.rank(attrs);
+      feature.setAttr("family", SeamarkPriority.family(attrs));
+      feature.setSortKey(rank);
 
       // add labels for small polygons in low zoomlevels; point sources are already
       // points — a second centroid would duplicate them
@@ -247,7 +225,9 @@ public class Seamap implements Profile {
             sf.canBePolygon() ? features.pointOnSurface("seamark") : features.centroid("seamark");
         attrs.forEach((k, v) -> labelFeature.setAttr(k, v));
         labelFeature.setAttr("osm_id", sf.id());
+        labelFeature.setAttr("family", SeamarkPriority.family(attrs));
         labelFeature.setId(featureId(sf));
+        labelFeature.setSortKey(rank);
         labelFeature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
       }
 
@@ -272,6 +252,16 @@ public class Seamap implements Profile {
   @Override
   public Map<String, List<VectorTile.Feature>> postProcessTileFeatures(
       TileCoord tileCoord, Map<String, List<VectorTile.Feature>> layers) {
+    List<VectorTile.Feature> seamarks = layers.get("seamark");
+    if (seamarks != null && !seamarks.isEmpty()) {
+      List<VectorTile.Feature> numbered = numberPerCell(seamarks, tileCoord.z());
+      layers.put("seamark", numbered);
+      List<VectorTile.Feature> lights = layers.get("light");
+      if (lights != null && !lights.isEmpty()) {
+        layers.put("light", followHost(lights, numbered));
+      }
+    }
+
     List<VectorTile.Feature> landFeatures = layers.get("land");
     List<VectorTile.Feature> waterFeatures = layers.get("water");
 
@@ -307,13 +297,75 @@ public class Seamap implements Profile {
     return layers;
   }
 
-  /** First non-null of the given attribute keys — resolves a value across its tagging variants. */
-  private static Object coalesceAttr(Map<String, Object> attrs, String... keys) {
-    for (String key : keys) {
-      Object value = attrs.get(key);
-      if (value != null) return value;
+  /**
+   * Numbers each point by its position among its own presentation family within a grid cell, most
+   * important first, and writes that back as {@code cell_rank}. The style decides how many of a
+   * family survive at a given zoom by thresholding this, so retuning that number costs a page
+   * reload rather than a planet build.
+   *
+   * <p>This runs once per output tile and therefore once per zoom, which is what makes the
+   * numbering scale-aware: the same 32-pixel cell holds one buoy at z14 and forty at z8. A cell
+   * straddling a tile boundary is split, so a feature can number differently on either side of a
+   * seam — the same artefact the label grids already have, and tolerable at this cell size.
+   */
+  private static List<VectorTile.Feature> numberPerCell(
+      List<VectorTile.Feature> features, int zoom) {
+    Map<String, List<VectorTile.Feature>> cells = new LinkedHashMap<>();
+    List<VectorTile.Feature> out = new ArrayList<>(features.size());
+    for (VectorTile.Feature feature : features) {
+      if (feature.geometry().geomType() != GeometryType.POINT) {
+        out.add(feature);
+        continue;
+      }
+      CoordinateXY at = feature.geometry().firstCoordinate();
+      String cell =
+          feature.tags().get("family")
+              + "/"
+              + Math.floorDiv((int) at.x, CELL_PIXELS)
+              + "/"
+              + Math.floorDiv((int) at.y, CELL_PIXELS);
+      cells.computeIfAbsent(cell, key -> new ArrayList<>()).add(feature);
     }
-    return null;
+    int cap = cellCap(zoom);
+    for (List<VectorTile.Feature> cell : cells.values()) {
+      cell.sort(Comparator.comparingInt(feature -> SeamarkPriority.rank(feature.tags())));
+      for (int i = 0; i < cell.size(); i++) {
+        VectorTile.Feature feature = cell.get(i);
+        // The cap is a storage backstop, and it must not decide a safety question the style owns:
+        // a hazard the mariner could set a safety depth around keeps its true cell_rank and rides
+        // past the cap, for the style's exemption to find.
+        if (i >= cap && !SeamarkPriority.neverCapped(feature.tags())) continue;
+        out.add(feature.copyWithExtraAttrs(Map.of("cell_rank", i)));
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Sector arcs and rays are generated geometry in their own layer, so they carry no position in a
+   * cell of their own and would otherwise outlive the light that casts them — a thinned buoy
+   * leaving its sectors drawn over empty water. Join each on `osm_id` to the mark it belongs to,
+   * inherit that mark's budget, and drop the geometry when its host did not survive.
+   */
+  private static List<VectorTile.Feature> followHost(
+      List<VectorTile.Feature> lights, List<VectorTile.Feature> hosts) {
+    Map<Object, VectorTile.Feature> byId = new HashMap<>();
+    for (VectorTile.Feature host : hosts) {
+      Object id = host.tags().get("osm_id");
+      // a polygon host carries no cell_rank; its label point does, and shares the id
+      if (id != null && host.tags().get("cell_rank") != null) byId.putIfAbsent(id, host);
+    }
+    List<VectorTile.Feature> out = new ArrayList<>(lights.size());
+    for (VectorTile.Feature light : lights) {
+      VectorTile.Feature host = byId.get(light.tags().get("osm_id"));
+      if (host == null) continue;
+      Map<String, Object> inherited = new HashMap<>();
+      inherited.put("cell_rank", host.tags().get("cell_rank"));
+      Object family = host.tags().get("family");
+      if (family != null) inherited.put("family", family);
+      out.add(light.copyWithExtraAttrs(inherited));
+    }
+    return out;
   }
 
   private static Geometry unionGeometries(List<VectorTile.Feature> features)
