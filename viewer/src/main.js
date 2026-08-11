@@ -2,7 +2,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
 import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
-import { style, attribution } from "@openwaters/seamap";
+import { style } from "@openwaters/seamap";
 
 // ?tiles=<url> points the chart at another TileJSON — a local `wrangler dev`
 // worker, say — instead of the published tiles.
@@ -22,8 +22,6 @@ const map = new maplibregl.Map({
   style: await style({ tiles }),
   attributionControl: {
     compact: true, // collapsed to the ⓘ toggle by default
-    // sprites aren't a source, so their credit can't ride along on one
-    customAttribution: attribution,
   },
 });
 

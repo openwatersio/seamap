@@ -5,12 +5,9 @@
  *
  * Whole-style path — style() assembles everything:
  *
- *   import { style, attribution } from "@openwaters/seamap";
+ *   import { style } from "@openwaters/seamap";
  *
- *   const map = new maplibregl.Map({
- *     style: style({ spriteBase }),
- *     attributionControl: { customAttribution: attribution },
- *   });
+ *   const map = new maplibregl.Map({ style: style({ spriteBase }) });
  *
  * Composed path — sources() + layers() hand over just the chart symbology for
  * a style you assemble yourself:
@@ -40,10 +37,6 @@ import {
 } from "@openwaters/seascape";
 import { chartLayers } from "./layers/index.js";
 import { colors } from "./layers/palette.js";
-
-/** Sprite artwork credit; sprites aren't a MapLibre source, so this can't ride along on one. */
-export const attribution =
-  'Chart symbols <a href="https://github.com/quantenschaum/mapping" target="_blank">© Adam Lucke</a> (GPL-3.0)';
 
 const DEFAULT_TILEJSON = "https://tiles.openwaters.io/seamap/tiles.json";
 

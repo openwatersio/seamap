@@ -7,12 +7,11 @@ The [Open Waters](https://github.com/openwatersio/seamap) nautical chart as a Ma
 `style()` assembles everything:
 
 ```js
-import { style, attribution } from "@openwaters/seamap";
+import { style } from "@openwaters/seamap";
 
 const map = new maplibregl.Map({
   container: "map",
   style: await style({ spriteBase: new URL("sprites", document.baseURI).href }),
-  attributionControl: { customAttribution: attribution },
 });
 ```
 
@@ -23,7 +22,7 @@ const map = new maplibregl.Map({
 `sources()` + `layers()` hand over just the chart symbology for a style you assemble yourself, following the same split as seascape:
 
 ```js
-import { sources, layers, sprite, attribution } from "@openwaters/seamap";
+import { sources, layers, sprite } from "@openwaters/seamap";
 
 const { areas, symbols } = layers();
 const style = {
@@ -40,13 +39,12 @@ const map = new maplibregl.Map({ style /* ... */ });
 - `sources({ url? })` — the `seamap` vector source (defaults to `https://tiles.openwaters.io/seamap/tiles.json`).
 - `layers({ font? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames glyph fontstacks (`"Noto Sans Regular"`) to match your glyph server.
 - `sprite(base)` — the `style.sprite` entry pointing at wherever you serve the sheet.
-- `attribution` — the sprite artwork credit; sprites aren't a MapLibre source, so pass it as `customAttribution`.
 
 When tags compose a colour combination the sheet doesn't carry, the layers fall back to the shape's `generic` icon in the style itself (a `coalesce` of `image` expressions), so unusual marks never render as nothing.
 
 ## Sprites
 
-The built sheet ships in the package at `sprites/dist/` (`freenauticalchart.{json,png}`, `@2x` variants, `LICENSE`, `PROVENANCE.md`). MapLibre loads sprites from a URL _prefix_ — it appends `.json`/`.png`/`@2x` itself — so the files must be served together under a stable path rather than imported through a bundler's asset pipeline. With Vite:
+The built sheet ships in the package at `sprites/dist/` (`freenauticalchart.{json,png}`, `@2x` variants, the glyph licence, `PROVENANCE.md`). MapLibre loads sprites from a URL _prefix_ — it appends `.json`/`.png`/`@2x` itself — so the files must be served together under a stable path rather than imported through a bundler's asset pipeline. With Vite:
 
 ```js
 import { viteStaticCopy } from "vite-plugin-static-copy";
@@ -60,7 +58,7 @@ Icon names are composed from tag values at render time, so the style layers and 
 
 In this repo the sheet is generated, not committed: `bin/sprites` (here in `style/`) expands the vendored SVG sources in [sprites/](sprites/) into `sprites/dist/`. Needs `spreet` (pinned in the repo's `mise.toml`) and Python 3. `npm publish` runs it via `prepublishOnly`; consumers of the published package never need the toolchain.
 
-The same run composes the `poi-*` badges via `bin/poi-badges`, pulling glyphs from the CC0 Maki and Temaki sets (the `@iconify-json/*` dev dependencies) and wrapping each in a halo and disc. Those packages have to be installed first, so `npm install` comes before `bin/sprites`, not after. To add an amenity symbol, map a sprite name to a glyph in [sprites/poi-icons.json](sprites/poi-icons.json) — there is nothing to draw. Both scripts write into `sprites/icons/gen/`, which is gitignored, so no generated artwork is ever committed.
+The same run composes the `poi-*` badges via `bin/poi-badges`, pulling glyphs from the `@iconify-json/*` dev dependencies (which sets, and their licences, are in [sprites/PROVENANCE.md](sprites/PROVENANCE.md)) and wrapping each in a halo and disc. Those packages have to be installed first, so `npm install` comes before `bin/sprites`, not after. To add an amenity symbol, map a sprite name to a glyph inside one of the groups in [sprites/poi-icons.json](sprites/poi-icons.json) — there is nothing to draw. The group decides the disc colour: colour says which question the badge answers (berthing, consumables, haul-out, ashore) and the glyph says which facility, because at 16 units the glyph alone does not resolve until you are already looking at it. Both scripts write into `sprites/icons/gen/`, which is gitignored, so no generated artwork is ever committed.
 
 ## Chart layers
 
@@ -90,4 +88,4 @@ Semver tracks the consumer-facing contract: renaming or reordering layer ids, ch
 
 ## License
 
-GPL-3.0. The sprite artwork is GPL-3.0 from [quantenschaum/mapping](https://github.com/quantenschaum/mapping) (see [sprites/PROVENANCE.md](sprites/PROVENANCE.md)), which carries the package as a whole; the symbology it derives from is CC0.
+GPL-3.0. The chart symbols are adapted from [quantenschaum/mapping](https://github.com/quantenschaum/mapping) with permission, and the POI badges are built from permissively licensed glyph sets — see [sprites/PROVENANCE.md](sprites/PROVENANCE.md).

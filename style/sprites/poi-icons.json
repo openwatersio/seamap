@@ -1,25 +1,50 @@
 {
-  "_comment": "POI badge glyphs, pulled from the CC0 Maki and Temaki sets at build time by bin/poi-badges. Keys are sprite names the style references as freenauticalchart:<key>; values are <iconify-set>:<icon>. Add a category here rather than drawing one.",
-  "poi-generic": null,
-  "poi-slipway": "maki:slipway",
-  "poi-fuel": "maki:fuel",
-  "poi-water": "temaki:water-tap",
-  "poi-pumpout": "temaki:powered-pump",
-  "poi-toilets": "maki:toilet",
-  "poi-showers": "temaki:shower",
-  "poi-laundry": "maki:laundry",
-  "poi-provisions": "maki:grocery",
-  "poi-restaurant": "maki:restaurant",
-  "poi-chandler": "maki:hardware",
-  "poi-electricity": "temaki:power",
-  "poi-ev-charger": "maki:charging-station",
-  "poi-club": "temaki:sailing",
-  "poi-berth": "temaki:boat-floating",
-  "poi-boat-storage": "temaki:boat-dry-dock",
-  "poi-boatyard": "temaki:boat-repair",
-  "poi-hoist": "temaki:crane",
-  "poi-beach": "maki:beach",
-  "poi-kayak": "temaki:canoe",
-  "poi-fishing": "temaki:fishing-pier",
-  "poi-fish-cleaning": "temaki:fish-cleaning"
+  "_comment": "POI badge glyphs, pulled at build time from the glyph sets listed in sprites/PROVENANCE.md by bin/poi-badges. Keys inside `icons` are sprite names the style references as freenauticalchart:<key>; values are <iconify-set>:<icon>, or null for a bare disc. Groups carry the disc colour: colour says which question the badge answers, the glyph says which facility. Add a category to a group here rather than drawing one.",
+  "berthing": {
+    "_comment": "Do I stop here? Chart magenta, per S-4 B-142.2(5) — SMCFAC02 is drawn in CHMGD and the marina is SMCFAC02. This is INT 1's F10-F11.3 family entire: fishing harbour, marina, yacht berths, yacht club.",
+    "colour": "#ec008c",
+    "icons": {
+      "poi-marina": "temaki:sail",
+      "poi-fishing-harbour": "pinhead:fish",
+      "poi-berth": "tabler:anchor",
+      "poi-club": "pinhead:flagstick-with-pennant"
+    }
+  },
+  "consumables": {
+    "_comment": "Can I take something on or get rid of it?",
+    "colour": "#00767e",
+    "icons": {
+      "poi-fuel": "maki:fuel",
+      "poi-water": "temaki:water-tap",
+      "poi-pumpout": "temaki:camper-trailer-dump",
+      "poi-electricity": "temaki:power"
+    }
+  },
+  "haul-out": {
+    "_comment": "Can I get the boat between land and water? Everything that puts a hull ashore, and the yard and rack it ends up in.",
+    "colour": "#b25000",
+    "icons": {
+      "poi-slipway": "maki:slipway",
+      "poi-hoist": "temaki:crane",
+      "poi-boatyard": "maki:hardware",
+      "poi-boat-storage": "temaki:storage",
+      "poi-kayak": "pinhead:kayak-paddle-crossing-kayak",
+      "poi-beach": "maki:beach"
+    }
+  },
+  "ashore": {
+    "_comment": "Everything else, once tied up. CHGRD chart grey, which already means linework that recedes — these must not out-shout a navaid.",
+    "colour": "#4c5b63",
+    "icons": {
+      "poi-generic": "maki:information",
+      "poi-chandler": "pinhead:ships-wheel",
+      "poi-toilets": "pinhead:sitting-tank-toilet",
+      "poi-showers": "temaki:shower",
+      "poi-laundry": "temaki:clothes-hanger",
+      "poi-provisions": "maki:grocery",
+      "poi-restaurant": "maki:restaurant",
+      "poi-fish-cleaning": "pinhead:fish-under-fillet-knife",
+      "poi-fishing": "pinhead:barbed-hook"
+    }
+  }
 }

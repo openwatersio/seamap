@@ -69,7 +69,7 @@ perl -pi -e 's/"pixelRatio":\s*\d+/"pixelRatio":1/g' "$out/freenauticalchart.jso
 spreet --recursive --unique --minify-index-file --ratio 4 "$src/icons/gen" "$out/freenauticalchart@2x"
 perl -pi -e 's/"pixelRatio":\s*\d+/"pixelRatio":2/g' "$out/freenauticalchart@2x.json"
 
-# GPL-3.0 artwork: the license and its origin travel with the built sheet.
-cp "$src/LICENSE" "$src/PROVENANCE.md" "$out/"
+# The one badge glyph whose licence has conditions, plus the sheet's origin.
+cp "$src/LICENSE-MIT-tabler" "$src/PROVENANCE.md" "$out/"
 
 echo "built $(python3 -c 'import json;print(len(json.load(open("'"$out"'/freenauticalchart.json"))))') icons into $out"

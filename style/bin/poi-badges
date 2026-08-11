@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
-"""Compose POI badge sprites from the CC0 Maki and Temaki glyph sets.
+"""Compose POI badge sprites from the Iconify glyph sets listed in sprites/PROVENANCE.md.
 
 Amenities ashore are not seamarks, and drawing them as chart line art makes
 them compete with the symbols a mariner navigates by. They get a badge instead
 — the convention every map app uses — which reads at a glance and says plainly
 "this is not a charted aid to navigation".
 
+The disc colour is the group's, not the badge's: at 16 units the glyph does not
+resolve until you are already looking at it, so colour carries the category and
+the glyph carries the facility. S-4 B-142.4 is the licence for spending a colour
+on this — other colours may be used to de-clutter the magenta layer.
+
 Writes into icons/gen/, i.e. after genicons.py has expanded the chart symbols
 and before spreet packs the sheet, so nothing generated is ever committed.
 """
 
 import json
+import math
+import re
 import sys
 from pathlib import Path
 
@@ -19,10 +26,128 @@ SIZE = 16
 CENTRE = SIZE / 2
 HALO_R = 8  # white ring, so a badge stays legible over contours and soundings
 DISC_R = 7
-GLYPH_BOX = 11  # the diagonal of this square is just inside the disc
+GLYPH_BOX = 9  # the diagonal of this square is just inside the disc
 
-DISC_COLOUR = "#ec008c"  # magenta: the chart's colour for man-made and informational
 GLYPH_COLOUR = "#fff"
+GLYPH_WEIGHT = 0.2
+
+
+# Number of parameters per path command; only the last two of an arc's seven are
+# a coordinate, and the rotation and flags in between must not be read as one.
+PATH_ARGC = {"M": 2, "L": 2, "H": 1, "V": 1, "C": 6, "S": 4, "Q": 4, "T": 2, "A": 7, "Z": 0}
+PATH_TOKEN = re.compile(r"([A-Za-z])|(-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)")
+
+
+def arc_points(x1, y1, rx, ry, phi_deg, large, sweep, x2, y2, steps=24):
+    """Points along an SVG elliptical arc, via the endpoint-to-centre conversion.
+
+    Sampled rather than solved for its extremes: an arc's bulge lies outside its
+    endpoints, so taking only those under-measures a glyph — the ring of
+    `tabler:anchor` is drawn as two half-arcs and its top would be missed
+    entirely. 24 steps puts the bbox error well under a tenth of a unit at the
+    sizes these glyphs are drawn (SVG 1.1 F.6.5).
+    """
+    rx, ry = abs(rx), abs(ry)
+    if rx == 0 or ry == 0:
+        return [(x2, y2)]
+    phi = math.radians(phi_deg)
+    cos_p, sin_p = math.cos(phi), math.sin(phi)
+
+    dx2, dy2 = (x1 - x2) / 2, (y1 - y2) / 2
+    x1p, y1p = cos_p * dx2 + sin_p * dy2, -sin_p * dx2 + cos_p * dy2
+
+    # Radii too small to span the endpoints are scaled up until they just reach.
+    lam = (x1p / rx) ** 2 + (y1p / ry) ** 2
+    if lam > 1:
+        rx, ry = rx * math.sqrt(lam), ry * math.sqrt(lam)
+
+    num = rx**2 * ry**2 - rx**2 * y1p**2 - ry**2 * x1p**2
+    den = rx**2 * y1p**2 + ry**2 * x1p**2
+    coef = (1 if large != sweep else -1) * math.sqrt(max(0.0, num / den)) if den else 0.0
+    cxp, cyp = coef * rx * y1p / ry, -coef * ry * x1p / rx
+    cx = cos_p * cxp - sin_p * cyp + (x1 + x2) / 2
+    cy = sin_p * cxp + cos_p * cyp + (y1 + y2) / 2
+
+    theta1 = math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx)
+    theta2 = math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx)
+    sweep_angle = theta2 - theta1
+    if not sweep and sweep_angle > 0:
+        sweep_angle -= 2 * math.pi
+    elif sweep and sweep_angle < 0:
+        sweep_angle += 2 * math.pi
+
+    points = []
+    for i in range(1, steps + 1):
+        t = theta1 + sweep_angle * i / steps
+        points.append(
+            (
+                cx + rx * cos_p * math.cos(t) - ry * sin_p * math.sin(t),
+                cy + rx * sin_p * math.cos(t) + ry * cos_p * math.sin(t),
+            )
+        )
+    return points
+
+
+def path_bbox(body):
+    """Bounds of the ink in `body`, or None if it holds anything but plain paths.
+
+    Iconify sets do not agree on where the ink sits in the viewBox — pinhead's
+    burgee is `m7 0l8 3.5…` in a 15-unit box, i.e. entirely in the right half —
+    so centring the viewBox hangs some glyphs off to one side of the disc.
+    Curve control points are counted, which bounds the true curve and can only
+    over-estimate; arcs are sampled, since they bulge outside their endpoints.
+    Stroke width is not counted, so a stroked glyph measures a little narrow.
+    """
+    if re.search(r"<(?!path[\s/>])", body) or "transform=" in body:
+        return None
+
+    xs, ys = [], []
+    for d in re.findall(r'\bd="([^"]*)"', body):
+        commands = []
+        for token in PATH_TOKEN.finditer(d):
+            if token.group(1):
+                commands.append([token.group(1), []])
+            elif commands:
+                commands[-1][1].append(float(token.group(2)))
+
+        x = y = start_x = start_y = 0.0
+        for cmd, nums in commands:
+            name, relative = cmd.upper(), cmd.islower()
+            if name not in PATH_ARGC:
+                return None
+            if name == "Z":
+                x, y = start_x, start_y
+                continue
+            argc = PATH_ARGC[name]
+            i = 0
+            while i + argc <= len(nums):
+                args, i = nums[i : i + argc], i + argc
+                if name == "H":
+                    x = x + args[0] if relative else args[0]
+                elif name == "V":
+                    y = y + args[0] if relative else args[0]
+                elif name == "A":
+                    ex = x + args[5] if relative else args[5]
+                    ey = y + args[6] if relative else args[6]
+                    for px, py in arc_points(x, y, *args[:5], ex, ey):
+                        xs.append(px)
+                        ys.append(py)
+                    x, y = ex, ey
+                else:
+                    # Every pair in one command is relative to its start point, not chained.
+                    ox, oy = (x, y) if relative else (0.0, 0.0)
+                    for j in range(0, argc, 2):
+                        xs.append(ox + args[j])
+                        ys.append(oy + args[j + 1])
+                    x, y = ox + args[argc - 2], oy + args[argc - 1]
+                xs.append(x)
+                ys.append(y)
+                if name == "M":
+                    # A moveto's first pair sets the subpath start; the rest are linetos.
+                    start_x, start_y = x, y
+                    name, argc = "L", PATH_ARGC["L"]
+
+    return (min(xs), min(ys), max(xs), max(ys)) if xs else None
 
 
 def glyph(sets, ref):
@@ -30,36 +155,52 @@ def glyph(sets, ref):
     prefix, name = ref.split(":", 1)
     icon_set = sets[prefix]
     icon = icon_set["icons"][name]
-    # Per-icon width/height override the set default; left/top shift the viewBox.
-    w = icon.get("width", icon_set.get("width", 16))
-    h = icon.get("height", icon_set.get("height", 16))
-    left, top = icon.get("left", 0), icon.get("top", 0)
+
+    box = path_bbox(icon["body"])
+    if box:
+        x0, y0, x1, y1 = box
+        w, h = x1 - x0, y1 - y0
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    else:
+        # Per-icon width/height override the set default; left/top shift the viewBox.
+        w = icon.get("width", icon_set.get("width", 16))
+        h = icon.get("height", icon_set.get("height", 16))
+        left, top = icon.get("left", 0), icon.get("top", 0)
+        cx, cy = left + w / 2, top + h / 2
 
     scale = GLYPH_BOX / max(w, h)
-    tx = CENTRE - (left + w / 2) * scale
-    ty = CENTRE - (top + h / 2) * scale
+    tx = CENTRE - cx * scale
+    ty = CENTRE - cy * scale
     # Bodies paint with currentColor; substitution is more reliable than relying
     # on inheritance, since some paths set fill and stroke explicitly.
     body = icon["body"].replace("currentColor", GLYPH_COLOUR)
-    return f'<g transform="translate({tx:.3f} {ty:.3f}) scale({scale:.4f})">{body}</g>'
+    # stroke-width is in the glyph's own units, so undo the scale to keep the
+    # weight constant across icon sets drawn at different sizes.
+    weight = GLYPH_WEIGHT / scale
+    return (
+        f'<g transform="translate({tx:.3f} {ty:.3f}) scale({scale:.4f})"'
+        f' stroke="{GLYPH_COLOUR}" stroke-width="{weight:.4f}"'
+        f' stroke-linejoin="round" stroke-linecap="round">{body}</g>'
+    )
 
 
-def badge(inner):
+def badge(colour, inner):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}">'
         f'<circle cx="{CENTRE}" cy="{CENTRE}" r="{HALO_R}" fill="#fff"/>'
-        f'<circle cx="{CENTRE}" cy="{CENTRE}" r="{DISC_R}" fill="{DISC_COLOUR}"/>'
+        f'<circle cx="{CENTRE}" cy="{CENTRE}" r="{DISC_R}" fill="{colour}"/>'
         f"{inner}</svg>\n"
     )
 
 
 def main(out_dir, mapping_path, modules):
     mapping = {
-        name: ref
-        for name, ref in json.loads(Path(mapping_path).read_text()).items()
-        if not name.startswith("_")
+        name: (group["colour"], ref)
+        for key, group in json.loads(Path(mapping_path).read_text()).items()
+        if not key.startswith("_")
+        for name, ref in group["icons"].items()
     }
-    needed = {ref.split(":", 1)[0] for ref in mapping.values() if ref}
+    needed = {ref.split(":", 1)[0] for _, ref in mapping.values() if ref}
     sets = {}
     for prefix in sorted(needed):
         path = Path(modules) / f"@iconify-json/{prefix}/icons.json"
@@ -69,13 +210,25 @@ def main(out_dir, mapping_path, modules):
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    for name, ref in mapping.items():
+    for name, (colour, ref) in mapping.items():
         # A null mapping is the bare badge — the fallback for a category with no
         # glyph of its own, which is better than an icon that fails to resolve.
-        Path(out / f"{name}.svg").write_text(badge(glyph(sets, ref) if ref else ""))
+        Path(out / f"{name}.svg").write_text(badge(colour, glyph(sets, ref) if ref else ""))
 
     print(f"composed {len(mapping)} POI badges")
 
 
+def selftest():
+    """`bin/poi-badges --selftest` — the path measurement, which has no other test."""
+    # A circle drawn as two half-arcs: the bulge is what taking endpoints alone misses.
+    assert path_bbox('<path d="M9 6a3 3 0 1 0 6 0a3 3 0 1 0-6 0"/>') == (9, 3, 15, 9)
+    # Relative moveto, implicit lineto, and H/V, all in one subpath.
+    assert path_bbox('<path d="m7 0l8 3.5l-7 3.06V15H7z"/>') == (7, 0, 15, 15)
+    # Anything that is not a plain path falls back to the declared viewBox.
+    assert path_bbox('<circle cx="1" cy="1" r="1"/>') is None
+    assert path_bbox('<path transform="scale(2)" d="M0 0L4 4"/>') is None
+    print("ok")
+
+
 if __name__ == "__main__":
-    main(*sys.argv[1:4])
+    selftest() if sys.argv[1:2] == ["--selftest"] else main(*sys.argv[1:4])
