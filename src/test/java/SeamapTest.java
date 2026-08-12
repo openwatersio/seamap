@@ -181,9 +181,9 @@ class SeamapTest {
         new VectorTile.Feature(
             "seamark", 1, VectorTile.encodeGeometry(GF.createPoint(new Coordinate(10, 10))), attrs);
 
-    var arc = arcFor(42L);
+    var arc = arcFor(42L, "buoy_lateral");
     // an arc wider than its tile leaves fragments in tiles that hold no trace of its light
-    var fragment = arcFor(99L);
+    var fragment = arcFor(99L, "buoy_lateral");
 
     Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
     layers.put("seamark", new ArrayList<>(List.of(host)));
@@ -223,7 +223,8 @@ class SeamapTest {
     }
     Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
     layers.put("seamark", crowd);
-    layers.put("light", new ArrayList<>(List.of(arcFor(8L), arcFor(99L))));
+    layers.put(
+        "light", new ArrayList<>(List.of(arcFor(8L, "light_minor"), arcFor(99L, "light_minor"))));
     // z8: the cap is 8 per cell, so the ninth light is dropped from the tile
     var out = new Seamap().postProcessTileFeatures(TileCoord.ofXYZ(0, 0, 8), layers);
 
@@ -232,9 +233,11 @@ class SeamapTest {
     assertEquals(99L, kept.get(0).tags().get("osm_id"), "the cross-tile fragment stays");
   }
 
-  private static VectorTile.Feature arcFor(long osmId) {
+  private static VectorTile.Feature arcFor(long osmId, String type) {
     Map<String, Object> attrs = new HashMap<>();
     attrs.put("osm_id", osmId);
+    // light geometry carries its host's seamark type verbatim, and the join key relies on it
+    attrs.put("type", type);
     attrs.put("subtype", "arc");
     var line = GF.createLineString(new Coordinate[] {new Coordinate(9, 9), new Coordinate(11, 11)});
     return new VectorTile.Feature("light", 1, VectorTile.encodeGeometry(line), attrs);

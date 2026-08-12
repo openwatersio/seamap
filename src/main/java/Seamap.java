@@ -354,27 +354,37 @@ public class Seamap implements Profile {
    * later when the re-tiled cell gave the host a rank again. A true cross-tile fragment is kept
    * as-is, because amputating every ring at a tile edge is worse.
    */
+  /**
+   * Raw OSM ids collide across the node/way/relation namespaces (see {@link #featureId}), so the
+   * join key qualifies the id with the seamark type, which light geometry carries verbatim from its
+   * host. An unrelated way sharing a node's number never shares its type too.
+   */
+  private static Object hostKey(Map<String, Object> tags) {
+    Object id = tags.get("osm_id");
+    return id == null ? null : id + "/" + tags.get("type");
+  }
+
   private static List<VectorTile.Feature> followHost(
       List<VectorTile.Feature> lights,
       List<VectorTile.Feature> hosts,
       List<VectorTile.Feature> beforeCap) {
     Map<Object, VectorTile.Feature> byId = new HashMap<>();
     for (VectorTile.Feature host : hosts) {
-      Object id = host.tags().get("osm_id");
+      Object key = hostKey(host.tags());
       // a polygon host carries no cell_rank; its label point does, and shares the id
-      if (id != null && host.tags().get("cell_rank") != null) byId.putIfAbsent(id, host);
+      if (key != null && host.tags().get("cell_rank") != null) byId.putIfAbsent(key, host);
     }
     Set<Object> inTile = new HashSet<>();
     for (VectorTile.Feature seamark : beforeCap) {
-      Object id = seamark.tags().get("osm_id");
-      if (id != null) inTile.add(id);
+      Object key = hostKey(seamark.tags());
+      if (key != null) inTile.add(key);
     }
     List<VectorTile.Feature> out = new ArrayList<>(lights.size());
     for (VectorTile.Feature light : lights) {
-      Object id = light.tags().get("osm_id");
-      VectorTile.Feature host = byId.get(id);
+      Object key = hostKey(light.tags());
+      VectorTile.Feature host = byId.get(key);
       if (host == null) {
-        if (!inTile.contains(id)) out.add(light);
+        if (!inTile.contains(key)) out.add(light);
         continue;
       }
       Map<String, Object> inherited = new HashMap<>();
