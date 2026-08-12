@@ -132,6 +132,19 @@ class LightsTest {
         "sectors meeting at a limit share no arc and must not extend");
   }
 
+  /** Sectors meeting at north tagged 360 on one side and 0 on the other share one leg. */
+  @Test
+  void northLegIsNotPaintedTwice() {
+    var all =
+        sectorsOf(
+            light(
+                "seamark:light:1:sector_start", "270",
+                "seamark:light:1:sector_end", "360",
+                "seamark:light:2:sector_start", "0",
+                "seamark:light:2:sector_end", "90"));
+    assertEquals(3, of(all, "leg").size(), "270, north and 90 — never north twice");
+  }
+
   /** An all-round light gets a flare, never an arc. */
   @Test
   void skipsLightsWithNoRealSector() {

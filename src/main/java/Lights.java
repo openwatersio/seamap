@@ -124,19 +124,23 @@ public class Lights {
               extended));
     }
 
-    // Adjacent sectors share a limit, and one leg per bearing is enough.
+    // Adjacent sectors share a limit, and one leg per bearing is enough. Bearings normalize
+    // into [0, 360) first: sectors commonly meet at north tagged as 360 on one side and 0 on
+    // the other, which would otherwise paint the north leg twice.
     Map<Double, String> legs = new HashMap<>();
     for (double[] limit : limits) {
-      for (double bearing : limit) legs.putIfAbsent(bearing, null);
+      for (double bearing : limit) legs.putIfAbsent(offset(bearing, 0), null);
     }
     for (Map<String, String> segment : segments.values()) {
       Double from = parseDoubleOrNull(segment.get("sector_start"));
       Double to = parseDoubleOrNull(segment.get("sector_end"));
       if (from == null || to == null) continue;
+      // the same real-sector test as above: an all-round segment has no limits to attach to
+      if (from.equals(to) || (from == 0 && to == 360)) continue;
       String range = segment.get("range");
       if (range == null) continue;
-      legs.put(from, range);
-      legs.put(to, range);
+      legs.put(offset(from, 0), range);
+      legs.put(offset(to, 0), range);
     }
     double legRadius = EXTENDED_SCALE * arcRadius / metersPerWorldUnit;
     for (Map.Entry<Double, String> leg : legs.entrySet()) {
