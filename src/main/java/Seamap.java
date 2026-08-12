@@ -342,10 +342,15 @@ public class Seamap implements Profile {
   }
 
   /**
-   * Sector arcs and rays are generated geometry in their own layer, so they carry no position in a
+   * Sector arcs and legs are generated geometry in their own layer, so they carry no position in a
    * cell of their own and would otherwise outlive the light that casts them — a thinned buoy
-   * leaving its sectors drawn over empty water. Join each on `osm_id` to the mark it belongs to,
-   * inherit that mark's budget, and drop the geometry when its host did not survive.
+   * leaving its sectors drawn over empty water. Join each on `osm_id` to the mark it belongs to and
+   * inherit that mark's budget.
+   *
+   * <p>An arc is wider than the tiles it is cut into, so most tiles hold fragments of rings whose
+   * light lies in a neighbouring tile: those have no host here and are kept as they are. Amputating
+   * every ring at a tile edge would be far worse than the rare fragment that outlives a
+   * destructively capped host — that needs nine lights of one family in a 32-pixel cell.
    */
   private static List<VectorTile.Feature> followHost(
       List<VectorTile.Feature> lights, List<VectorTile.Feature> hosts) {
@@ -358,7 +363,10 @@ public class Seamap implements Profile {
     List<VectorTile.Feature> out = new ArrayList<>(lights.size());
     for (VectorTile.Feature light : lights) {
       VectorTile.Feature host = byId.get(light.tags().get("osm_id"));
-      if (host == null) continue;
+      if (host == null) {
+        out.add(light);
+        continue;
+      }
       Map<String, Object> inherited = new HashMap<>();
       inherited.put("cell_rank", host.tags().get("cell_rank"));
       Object family = host.tags().get("family");

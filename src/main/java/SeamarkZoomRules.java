@@ -64,9 +64,8 @@ public class SeamarkZoomRules {
   }
 
   /**
-   * Floor for a light's sector and leg points. They are points now rather than tessellated arcs, so
-   * they cost almost nothing to carry, and the zoom a sector actually draws at is a style threshold
-   * — keep this below it so that threshold can move without a planet build.
+   * Floor for a light's sector arcs and legs. The zoom a sector actually draws at is a style
+   * threshold — keep this below it so that threshold can move without a planet build.
    */
   public static int getLightMinZoom(String type) {
     return 8;

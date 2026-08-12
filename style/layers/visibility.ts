@@ -36,8 +36,9 @@ const BUDGET: Record<string, [number, number, number, number]> = {
  * the body's size ramp carries it past readable — not from a blanket declutter zoom, which would
  * withhold the topmarks of two cardinal buoys alone in an empty view for no reason at all.
  *
- * Fit is collision, which {@link decoration} does not express: the layers themselves opt in, and
- * bodies keep guaranteed placement so a decoration can drop while its mark stays.
+ * Fit is the budget the decoration shares with its body — never collision: a decoration anchored
+ * a few pixels from its own body always intersects the mark it belongs to, so opting it into the
+ * collision index draws none of them, anywhere.
  */
 const LEGIBLE_FROM = {
   /** the cones of a cardinal separate around here, at ~0.7 of body size */
@@ -47,7 +48,7 @@ const LEGIBLE_FROM = {
   /** the flare is a bold stroke and survives small */
   flare: 10,
   fogSignal: 11,
-  /** sector geometry is wrong at every scale until rule 8 lands; hold it with the flare */
+  /** below this the arc radius is a smudge around its own light */
   sector: 10,
   /** text needs to be read, not merely seen */
   characteristic: 11,

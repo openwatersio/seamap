@@ -1,5 +1,4 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.onthegomap.planetiler.reader.SimpleFeature;
@@ -29,9 +28,9 @@ class LightsTest {
     return all.stream().filter(g -> subtype.equals(g.attrs.get("subtype"))).toList();
   }
 
-  /** A sector is a point at the light with the angles to rotate its symbols to. */
+  /** Each sector is an arc line on the ground, coloured like its light. */
   @Test
-  void emitsOnePointPerSector() {
+  void emitsOneArcPerSector() {
     var all =
         sectorsOf(
             light(
@@ -44,11 +43,10 @@ class LightsTest {
     var sectors = of(all, "sector");
     assertEquals(2, sectors.size());
     for (var sector : sectors) {
-      assertEquals("Point", sector.geometry.getGeometryType());
+      assertEquals("LineString", sector.geometry.getGeometryType());
     }
-    var first = sectors.stream().filter(g -> "red".equals(g.attrs.get("color"))).findFirst().get();
-    assertEquals(10.0, first.attrs.get("sector_start"));
-    assertEquals(60.0, first.attrs.get("sector_width"));
+    assertTrue(sectors.stream().anyMatch(g -> "red".equals(g.attrs.get("color"))));
+    assertTrue(sectors.stream().anyMatch(g -> "green".equals(g.attrs.get("color"))));
   }
 
   /** Adjacent sectors share a limit, and one leg per bearing is enough. */
@@ -64,28 +62,34 @@ class LightsTest {
     assertEquals(3, of(all, "leg").size(), "10, 70 and 180 — not 70 twice");
   }
 
-  /** Width wraps through north rather than going negative. */
+  /** The arc wraps through north rather than going the long way round backwards. */
   @Test
-  void widthWrapsThroughNorth() {
+  void arcWrapsThroughNorth() {
     var all =
         sectorsOf(light("seamark:light:1:sector_start", "350", "seamark:light:1:sector_end", "20"));
-    assertEquals(30.0, of(all, "sector").get(0).attrs.get("sector_width"));
+    // 1° steps over a 30° sector: anything near 330 points means it went the wrong way
+    assertEquals(31, of(all, "sector").get(0).geometry.getNumPoints());
   }
 
   /** The smaller of an overlapping pair reaches further out, so the wider cannot bury it. */
   @Test
-  void marksTheSmallerOfTwoOverlappingSectors() {
-    var all =
-        sectorsOf(
-            light(
-                "seamark:light:1:sector_start", "0",
-                "seamark:light:1:sector_end", "180",
-                "seamark:light:2:sector_start", "80",
-                "seamark:light:2:sector_end", "100"));
-    var wide = of(all, "sector").stream().filter(g -> g.attrs.get("sector_width").equals(180.0));
-    var narrow = of(all, "sector").stream().filter(g -> g.attrs.get("sector_width").equals(20.0));
-    assertFalse(wide.findFirst().get().attrs.containsKey("extended"));
-    assertTrue((Boolean) narrow.findFirst().get().attrs.get("extended"));
+  void marksTheSmallerOfTwoOverlappingSectors() throws Exception {
+    var tags =
+        light(
+            "seamark:light:1:sector_start", "0",
+            "seamark:light:1:sector_end", "180",
+            "seamark:light:2:sector_start", "80",
+            "seamark:light:2:sector_end", "100");
+    var sf = SimpleFeature.create(GF.createPoint(new Coordinate(11.0, 55.0)), tags, "osm", null, 1);
+    var center = sf.worldGeometry().getCentroid().getCoordinate();
+    var sectors = of(Lights.extractLightGeometries(sf, "light_major"), "sector");
+    var wide = sectors.stream().filter(g -> !g.attrs.containsKey("extended")).findFirst().get();
+    var narrow = sectors.stream().filter(g -> g.attrs.containsKey("extended")).findFirst().get();
+    assertEquals(181, wide.geometry.getNumPoints());
+    assertEquals(21, narrow.geometry.getNumPoints());
+    double wideRadius = wide.geometry.getCoordinates()[0].distance(center);
+    double narrowRadius = narrow.geometry.getCoordinates()[0].distance(center);
+    assertTrue(narrowRadius > wideRadius, "extended sector reaches past the one that overlaps it");
   }
 
   /** An all-round light gets a flare, never an arc. */

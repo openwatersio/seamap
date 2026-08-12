@@ -167,7 +167,7 @@ class SeamapTest {
     assertTrue(names.contains("shoal"), "1 m rock dropped by the cap: " + names);
   }
 
-  /** Generated sector geometry lives or dies with the mark that casts it. */
+  /** Generated sector geometry inherits its host's budget; fragments without a host survive. */
   @Test
   void sectorGeometryFollowsItsHost() {
     Map<String, Object> attrs = new HashMap<>();
@@ -180,17 +180,21 @@ class SeamapTest {
             "seamark", 1, VectorTile.encodeGeometry(GF.createPoint(new Coordinate(10, 10))), attrs);
 
     var arc = arcFor(42L);
-    var orphan = arcFor(99L);
+    // an arc wider than its tile leaves fragments in tiles that hold no trace of its light
+    var fragment = arcFor(99L);
 
     Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
     layers.put("seamark", new ArrayList<>(List.of(host)));
-    layers.put("light", new ArrayList<>(List.of(arc, orphan)));
+    layers.put("light", new ArrayList<>(List.of(arc, fragment)));
     var out = new Seamap().postProcessTileFeatures(TileCoord.ofXYZ(0, 0, 12), layers);
 
     var kept = out.get("light");
-    assertEquals(1, kept.size(), "the arc whose host was thinned away should be gone");
-    assertEquals(0, kept.get(0).tags().get("cell_rank"));
-    assertEquals("minor_aid", kept.get(0).tags().get("family"));
+    assertEquals(2, kept.size(), "a fragment from a neighbouring tile's light must not be dropped");
+    var joined = kept.stream().filter(f -> f.tags().get("osm_id").equals(42L)).findFirst().get();
+    assertEquals(0, joined.tags().get("cell_rank"));
+    assertEquals("minor_aid", joined.tags().get("family"));
+    var kept99 = kept.stream().filter(f -> f.tags().get("osm_id").equals(99L)).findFirst().get();
+    assertEquals(null, kept99.tags().get("cell_rank"), "a fragment carries no rank of its own");
   }
 
   private static VectorTile.Feature arcFor(long osmId) {

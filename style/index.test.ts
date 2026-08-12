@@ -121,14 +121,10 @@ it("keeps layer ids and order stable", () => {
     "light-minor",
     "light-major",
     "fogsignals",
-    // sectors — fixed to the display, so sprites rather than ground geometry
+    // sectors — ground geometry, casing under the colour
     "sector-legs",
-    "sector-arc-start-casing",
-    "sector-arc-middle-casing",
-    "sector-arc-end-casing",
-    "sector-arc-start",
-    "sector-arc-middle",
-    "sector-arc-end",
+    "sector-arc-casing",
+    "sector-arc",
     "sector-arc-obscured",
     // marks — bodies first, so a hull can never paint over its topmark or reflector
     "buoys",
@@ -237,8 +233,8 @@ describe("thinning and decoration", () => {
     for (const id of dependents) {
       expect(draws(id, 12, { ...thinned, name: "Nyhavn", radar_transponder: "yes" })).toBe(false);
     }
-    for (const id of ["sector-arc-start", "sector-legs"]) {
-      const sector = { ...thinned, subtype: "sector", sector_width: 40, bearing: 10 };
+    for (const id of ["sector-arc", "sector-legs"]) {
+      const sector = { ...thinned, subtype: "sector" };
       expect(draws(id, 12, sector)).toBe(false);
       expect(draws(id, 12, { ...sector, subtype: "leg" })).toBe(false);
     }

@@ -1,17 +1,33 @@
+import com.onthegomap.planetiler.geo.GeoUtils;
 import com.onthegomap.planetiler.reader.SourceFeature;
 import java.util.*;
 import org.locationtech.jts.geom.*;
 
 /**
- * Turns a light's OSM sector tags into one point per sector and one per sector limit.
+ * Turns a light's OSM sector tags into arc and leg lines on the ground.
  *
- * <p>A sector arc is a symbol, not a measurement: it says the red sector lies over there, and its
- * distance from the light means nothing. S-52 and S-101 accordingly fix it to the display — 20 mm
- * radius, 25 mm for the legs and for the smaller of two overlapping sectors (PresLib 4.0.4,
- * `LIGHTS06`). A line drawn on the ground cannot hold a constant screen size, so the arcs are drawn
- * from sprites and what the tiles carry is the light's position plus the angles to rotate them to.
+ * <p>S-52 fixes the arc to the display — 20 mm radius whatever the scale (PresLib 4.0.4,
+ * `LIGHTS06`) — but on a chart the reader zooms, a display-fixed figure is the one thing moving
+ * against everything else. So the arc is ordinary ground geometry at a nominal radius, scaling with
+ * the chart like its neighbours, and the style stops drawing it at the zoom where the radius
+ * outgrows the screen. The radius is a drawing size, not the light's range: nobody navigates by
+ * being inside the arc, and the range is stated in the characteristic.
  */
 public class Lights {
+
+  // In Planetiler normalized coordinates: 1.0 = entire world width
+  private static final double WORLD_WIDTH_METERS = 2.0 * Math.PI * 6378137.0; // ~40075017m
+  // Nominal radii in metres (nautical miles × 1852): drawing sizes, chosen so an arc reads as
+  // decoration on its light at the zooms sectors are used.
+  private static final double MINOR_ARC_RADIUS = 0.4 * 1852; // ~741m
+  private static final double MAJOR_ARC_RADIUS = 0.7 * 1852; // ~1296m
+  // Legs run past the arc, and the smaller of two overlapping sectors reaches the same distance
+  // so the wider cannot bury it — both in S-52's 25 mm to 20 mm proportion (`LIGHTS06`).
+  private static final double EXTENDED_SCALE = 1.25;
+  // 1° puts vertices ~13-23m apart at these radii — well under a pixel at the zooms arcs draw
+  private static final double ARC_STEP_DEGREES = 1.0;
+
+  private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
 
   public static class LightGeometry {
     public final Geometry geometry;
@@ -22,35 +38,24 @@ public class Lights {
       this.attrs = attrs;
     }
 
-    /** A coloured sector, drawn as arc sprites rotated to its limits. */
+    /** A coloured sector, drawn as an arc at the light's nominal radius. */
     static LightGeometry sector(
-        Point at,
-        String color,
-        String visibility,
-        String range,
-        double start,
-        double end,
-        boolean extended) {
+        Geometry arc, String color, String visibility, String range, boolean extended) {
       Map<String, Object> attrs = new HashMap<>();
       attrs.put("subtype", "sector");
-      attrs.put("sector_start", start);
-      attrs.put("sector_end", end);
-      attrs.put("sector_width", width(start, end));
-      // the smaller of two overlapping sectors reaches further out so the larger cannot bury it
       if (extended) attrs.put("extended", true);
       if (color != null) attrs.put("color", color);
       if (visibility != null) attrs.put("visibility", visibility);
       if (range != null) attrs.put("range", range);
-      return new LightGeometry(at, attrs);
+      return new LightGeometry(arc, attrs);
     }
 
     /** One radial leg, at a bearing where some sector begins or ends. */
-    static LightGeometry leg(Point at, double bearing, String range) {
+    static LightGeometry leg(Geometry line, String range) {
       Map<String, Object> attrs = new HashMap<>();
       attrs.put("subtype", "leg");
-      attrs.put("bearing", bearing);
       if (range != null) attrs.put("range", range);
-      return new LightGeometry(at, attrs);
+      return new LightGeometry(line, attrs);
     }
   }
 
@@ -78,6 +83,21 @@ public class Lights {
       return results;
     }
 
+    // The S-52 major-light test is a nominal range of 10 M (`LIGHTS06`), regardless of how the
+    // host feature happens to be typed.
+    double maxRange = 0;
+    for (Map<String, String> segment : segments.values()) {
+      maxRange = Math.max(maxRange, parseDoubleOrDefault(segment.get("range"), 0));
+    }
+    boolean isMajor = "light_major".equals(seamarkType) || maxRange >= 10;
+    double arcRadius = isMajor ? MAJOR_ARC_RADIUS : MINOR_ARC_RADIUS;
+
+    // One normalized world unit spans WORLD_WIDTH_METERS·cos(lat) ground meters, so an
+    // uncorrected radius shrinks toward the poles — half size at 60°N, where sector lights
+    // are densest.
+    double lat = GeoUtils.getWorldLat(center.getY());
+    double metersPerWorldUnit = WORLD_WIDTH_METERS * Math.cos(Math.toRadians(lat));
+
     List<double[]> limits = new ArrayList<>();
     for (Map<String, String> segment : segments.values()) {
       Double from = parseDoubleOrNull(segment.get("sector_start"));
@@ -93,29 +113,34 @@ public class Lights {
       Double to = parseDoubleOrNull(segment.get("sector_end"));
       if (from == null || to == null) continue;
       if (from.equals(to) || (from == 0 && to == 360)) continue;
+      boolean extended = overlappedByWider(from, to, limits);
+      double radius = (extended ? EXTENDED_SCALE : 1) * arcRadius / metersPerWorldUnit;
       results.add(
           LightGeometry.sector(
-              center,
+              createArc(center, from, to, radius),
               Seamark.resolveLightColor(segment.get("colour")),
               segment.get("visibility"),
               segment.get("range"),
-              from,
-              to,
-              overlappedByWider(from, to, limits)));
+              extended));
     }
 
     // Adjacent sectors share a limit, and one leg per bearing is enough.
     Map<Double, String> legs = new HashMap<>();
+    for (double[] limit : limits) {
+      for (double bearing : limit) legs.putIfAbsent(bearing, null);
+    }
     for (Map<String, String> segment : segments.values()) {
       Double from = parseDoubleOrNull(segment.get("sector_start"));
       Double to = parseDoubleOrNull(segment.get("sector_end"));
       if (from == null || to == null) continue;
-      if (from.equals(to) || (from == 0 && to == 360)) continue;
-      legs.put(from, segment.get("range"));
-      legs.put(to, segment.get("range"));
+      String range = segment.get("range");
+      if (range == null) continue;
+      legs.put(from, range);
+      legs.put(to, range);
     }
+    double legRadius = EXTENDED_SCALE * arcRadius / metersPerWorldUnit;
     for (Map.Entry<Double, String> leg : legs.entrySet()) {
-      results.add(LightGeometry.leg(center, leg.getKey(), leg.getValue()));
+      results.add(LightGeometry.leg(createLeg(center, leg.getKey(), legRadius), leg.getValue()));
     }
 
     return results;
@@ -142,6 +167,30 @@ public class Lights {
     double offset = bearing - from;
     while (offset < 0) offset += 360;
     return offset > 0 && offset < span;
+  }
+
+  // Sector bearings are seaward — from the vessel toward the light — hence the sign flip in both
+  // helpers; "fixing" the negative sin is the classic sector-rendering bug (S-52: "Do not forget
+  // to reverse the sector values (+/- 180 degrees) since the values are given from seaward").
+
+  private static LineString createArc(Point center, double from, double to, double radius) {
+    double end = from + width(from, to);
+    List<Coordinate> coords = new ArrayList<>();
+    for (double d = from; d < end + ARC_STEP_DEGREES; d += ARC_STEP_DEGREES) {
+      double rad = Math.toRadians(Math.min(d, end));
+      double x = center.getX() - radius * Math.sin(rad);
+      double y = center.getY() + radius * Math.cos(rad);
+      coords.add(new Coordinate(x, y));
+    }
+    return GEOMETRY_FACTORY.createLineString(coords.toArray(new Coordinate[0]));
+  }
+
+  private static LineString createLeg(Point center, double bearing, double radius) {
+    double rad = Math.toRadians(bearing);
+    double x = center.getX() - radius * Math.sin(rad);
+    double y = center.getY() + radius * Math.cos(rad);
+    return GEOMETRY_FACTORY.createLineString(
+        new Coordinate[] {center.getCoordinate(), new Coordinate(x, y)});
   }
 
   private static Map<Integer, Map<String, String>> parseLightSegments(Map<String, Object> tags) {
