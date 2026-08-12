@@ -1,13 +1,7 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { anchorOffsets } from "./placement.js";
-import {
-  RAMP_FROM,
-  TOKEN,
-  decoration,
-  topOfCell,
-  withinBudget,
-} from "./visibility.js";
+import { RAMP_FROM, TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
 
 const halo = {
   "text-halo-color": colors.halo,
@@ -51,10 +45,7 @@ export function labels(): LayerSpecification[] {
           [
             "in",
             ["get", "function"],
-            [
-              "literal",
-              ["radio", "radar", "television", "light_support", "leading"],
-            ],
+            ["literal", ["radio", "radar", "television", "light_support", "leading"]],
           ],
         ],
       ],
@@ -113,11 +104,7 @@ export function labels(): LayerSpecification[] {
           12,
           [
             "case",
-            [
-              "any",
-              ["has", "seamark:light:colour"],
-              ["has", "seamark:light:1:colour"],
-            ],
+            ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
             "",
             ["!", topOfCell],
             "",
@@ -151,12 +138,7 @@ export function labels(): LayerSpecification[] {
           RAMP_FROM,
           TOKEN.detail,
           12,
-          [
-            "case",
-            ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"],
-            1.6,
-            1.3,
-          ],
+          ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 1.6, 1.3],
         ],
       },
       paint: { "text-color": colors.label, ...halo },
@@ -167,11 +149,7 @@ export function labels(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 10,
-      filter: [
-        "all",
-        ["has", "name"],
-        ["in", ["get", "type"], ["literal", ["ferry_route"]]],
-      ],
+      filter: ["all", ["has", "name"], ["in", ["get", "type"], ["literal", ["ferry_route"]]]],
       layout: {
         "symbol-placement": "line",
         "text-field": ["get", "name"],
@@ -179,12 +157,7 @@ export function labels(): LayerSpecification[] {
         "text-font": ["Noto Sans Regular"],
       },
       paint: {
-        "text-color": [
-          "case",
-          ["==", ["get", "type"], "ferry_route"],
-          colors.ferry,
-          colors.label,
-        ],
+        "text-color": ["case", ["==", ["get", "type"], "ferry_route"], colors.ferry, colors.label],
         ...halo,
       },
     },
@@ -244,22 +217,14 @@ export function labels(): LayerSpecification[] {
           12,
           [
             "case",
-            [
-              "in",
-              ["get", "type"],
-              ["literal", ["rock", "wreck", "obstruction"]],
-            ],
+            ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
             anchorOffsets(1.7),
             anchorOffsets(1.85, 3.15, 1.15),
           ],
           16,
           [
             "case",
-            [
-              "in",
-              ["get", "type"],
-              ["literal", ["rock", "wreck", "obstruction"]],
-            ],
+            ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
             anchorOffsets(1.4),
             anchorOffsets(1.42, 2.42, 0.88),
           ],
@@ -274,12 +239,7 @@ export function labels(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 11,
-      filter: [
-        "all",
-        ["has", "radar_transponder"],
-        decoration("characteristic"),
-        withinBudget,
-      ],
+      filter: ["all", ["has", "radar_transponder"], decoration("characteristic"), withinBudget],
       layout: {
         "text-field": [
           "case",
@@ -312,11 +272,7 @@ export function labels(): LayerSpecification[] {
       minzoom: 11,
       filter: [
         "all",
-        [
-          "any",
-          ["has", "seamark:light:colour"],
-          ["has", "seamark:light:1:colour"],
-        ],
+        ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
         decoration("characteristic"),
         withinBudget,
       ],
@@ -335,11 +291,7 @@ export function labels(): LayerSpecification[] {
             ["get", "light"],
             { "text-font": ["literal", ["Noto Sans Italic"]] },
           ],
-          [
-            "format",
-            ["get", "light"],
-            { "text-font": ["literal", ["Noto Sans Italic"]] },
-          ],
+          ["format", ["get", "light"], { "text-font": ["literal", ["Noto Sans Italic"]] }],
         ],
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",

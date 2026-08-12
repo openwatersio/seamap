@@ -12,11 +12,7 @@ export function routes(): LayerSpecification[] {
       type: "symbol",
       source: "seamap",
       "source-layer": "seamark",
-      filter: [
-        "in",
-        ["get", "type"],
-        ["literal", ["cable_submarine", "pipeline_submarine"]],
-      ],
+      filter: ["in", ["get", "type"], ["literal", ["cable_submarine", "pipeline_submarine"]]],
       layout: {
         "icon-image": [
           "case",
