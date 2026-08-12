@@ -52,7 +52,9 @@ export function lights(): LayerSpecification[] {
         "icon-anchor": "top",
         "icon-offset": [0, 2],
         "icon-rotate": -45,
-        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
+        // a decoration anchored to its body always collides with that body, so it must keep
+        // guaranteed placement; the budget and legibility filters above do the thinning
+        "icon-overlap": "always",
         "icon-rotation-alignment": "viewport",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
       },
@@ -97,7 +99,7 @@ export function lights(): LayerSpecification[] {
       ],
       layout: {
         "icon-image": "freenauticalchart:fogsignal",
-        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
+        "icon-overlap": "always",
         "icon-rotate": 90,
         "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
       },

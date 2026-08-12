@@ -186,7 +186,8 @@ export function marks(): LayerSpecification[] {
           ["image", ["concat", "freenauticalchart:", ["get", "topmark_shape"]]],
         ],
         "icon-anchor": "bottom",
-        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
+        // anchored to its body, so collision would always drop it; the filters do the thinning
+        "icon-overlap": "always",
         "icon-offset": topmarkOffset,
         "icon-rotate": [
           "case",
@@ -226,7 +227,7 @@ export function marks(): LayerSpecification[] {
         "icon-image": "freenauticalchart:radar-reflector",
         "icon-rotate": -60,
         "icon-anchor": "bottom",
-        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
+        "icon-overlap": "always",
         "icon-offset": reflectorOffset,
         "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
       },
