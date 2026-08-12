@@ -50,6 +50,53 @@ class SeamarkPriorityTest {
     assertEquals(false, SeamarkPriority.neverCapped(attrs("name", "typeless")));
   }
 
+  /**
+   * Every ranking and zoom decision is total over tag soup: whatever combination of present, absent
+   * and odd values the planet supplies, deciding must never throw — a thrown decision is a silently
+   * dropped feature. The grid deliberately includes every value being null.
+   */
+  @Test
+  void decisionsAreTotalOverArbitraryTags() {
+    String[] types = {
+      null,
+      "rock",
+      "wreck",
+      "obstruction",
+      "harbour",
+      "light_minor",
+      "light_major",
+      "buoy_lateral",
+      "beacon_cardinal",
+      "landmark",
+      "mooring",
+      "small_craft_facility",
+      "fog_signal",
+      "anchorage",
+      "not_a_seamark"
+    };
+    Object[] categories = {null, "marina", "dangerous", "windmotor", "military"};
+    Object[] depths = {null, 0.5, 42};
+    Object[] ranges = {null, 4, 15};
+    for (String type : types) {
+      for (Object category : categories) {
+        for (Object depth : depths) {
+          for (Object range : ranges) {
+            var tags = new java.util.HashMap<String, Object>();
+            if (type != null) tags.put("type", type);
+            if (category != null) tags.put("category", category);
+            if (depth != null) tags.put("depth", depth);
+            if (range != null) tags.put("light_range", range);
+            tags.put("near_shore", true);
+            SeamarkPriority.rank(tags);
+            SeamarkPriority.neverCapped(tags);
+            SeamarkZoomRules.getMinZoom(tags);
+            SeamarkZoomRules.getLightMinZoom(tags);
+          }
+        }
+      }
+    }
+  }
+
   /** A light's reach outranks how its host happens to be typed, as SeamarkZoomRules also has it. */
   @Test
   void longRangeLightIsAMajorAid() {

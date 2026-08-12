@@ -28,6 +28,7 @@ case "$DEPTH_URL" in
   *) echo "DEPTH_URL is not a {z}/{x}/{y} template or a file path: $DEPTH_URL" >&2; exit 1;;
 esac
 
+mkdir -p "$TMP_DIR"
 bin/run \
   --download --osm-url="$OSM_URL" \
   --depth="$DEPTH_URL" \
@@ -35,6 +36,16 @@ bin/run \
   --tmp="$TMP_DIR" \
   --nodemap-type=array --storage=mmap \
   --threads="$THREADS" --download-threads=10 --http-retries=3 \
-  --force
+  --force 2>&1 | tee "$TMP_DIR/build.log"
+
+# Healthy planet builds log zero ERR lines (measured across five production
+# runs), so any at all means features were silently lost: planetiler swallows
+# per-feature exceptions, and without this gate a bug publishes a planet
+# quietly missing everything it touched.
+errors=$(grep -c ' ERR ' "$TMP_DIR/build.log" || true)
+if [ "$errors" -gt 0 ]; then
+  echo "$errors ERR lines in the build log — refusing to publish (see $TMP_DIR/build.log)" >&2
+  exit 1
+fi
 
 bin/publish

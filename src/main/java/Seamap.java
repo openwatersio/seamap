@@ -110,8 +110,25 @@ public class Seamap implements Profile {
         + "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
   }
 
+  /**
+   * Planetiler logs a per-feature exception and moves on, which turns a systematic bug into hours
+   * of silent data loss followed by an automatic publish — an uncategorized harbour once NPE'd its
+   * way out of an entire planet build feature by feature. The tolerance is zero on evidence, not
+   * principle: five consecutive production planet builds threw on nothing at all, so anything
+   * escaping here is a bug, and an Error — which planetiler's per-feature catch (Exception) does
+   * not swallow — fails the build at the first one instead of after the millionth.
+   */
   @Override
   public void processFeature(SourceFeature sf, FeatureCollector features) {
+    try {
+      doProcessFeature(sf, features);
+    } catch (RuntimeException e) {
+      throw new AssertionError(
+          "feature processing threw on " + sf.id() + " — failing the build", e);
+    }
+  }
+
+  private void doProcessFeature(SourceFeature sf, FeatureCollector features) {
     // Process land polygons from shapefile
     if (!sf.isPoint() && "land".equals(sf.getSource())) {
       LandPolygons.processLandFeature(sf, features);
