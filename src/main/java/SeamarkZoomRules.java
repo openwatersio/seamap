@@ -10,15 +10,28 @@ public class SeamarkZoomRules {
    * Floors that the three priority tiers get wrong in opposite directions.
    *
    * <p>A floor answers "may this ever appear here", which is a different question from "is there
-   * room for it" — that one is answered per cell by {@code cell_rank} and the style's budgets. Once
-   * density has its own answer a floor can be generous, so a wind farm reads as a few marks at z6
-   * instead of vanishing below z8. It also has to be honest in the other direction: a fish-cleaning
-   * table in a z8 tile is bytes nothing will ever draw.
+   * room for it" — that one is answered per cell by {@code cell_rank} and the style's budgets. It
+   * has to be honest in both directions: a fish-cleaning table in a z8 tile is bytes nothing will
+   * ever draw, and a channel buoy at z4 is Harbour-band furniture on an Overview chart.
+   *
+   * <p>The short-range aids sit deliberately ahead of the navigational-purpose derivation (z12–14
+   * from their band plus SCAMIN steps, see
+   * drafts/zoom-rules-ignore-the-navigational-purpose-bands.md): a channel's presence is worth
+   * reading at z10. Landmarks are the reverse split — a plain tower is Coastal detail, while
+   * conspicuity, a light, or being a wind turbine is what a mariner steers by and earns z6 through
+   * the promotions below.
    */
   private static final Map<String, Integer> FLOORS =
-      Map.of(
-          "landmark", 6,
-          "small_craft_facility", 14);
+      Map.ofEntries(
+          Map.entry("landmark", 10),
+          Map.entry("small_craft_facility", 14),
+          Map.entry("buoy_lateral", 10),
+          Map.entry("beacon_lateral", 10),
+          Map.entry("buoy_special_purpose", 10),
+          Map.entry("beacon_special_purpose", 10),
+          Map.entry("mooring", 13),
+          Map.entry("fog_signal", 10),
+          Map.entry("anchorage", 9));
 
   /**
    * Get the minimum zoom level for a given seamark based on its type and attributes.
@@ -48,9 +61,14 @@ public class SeamarkZoomRules {
     }
 
     // A conspicuous landmark is part of what a mariner steers by (CONVIS promotes to the
-    // STANDARD display category in S-52): visible from z6 like the other promoted marks.
+    // STANDARD display category in S-52), a lit one is an aid in its own right (LNDMRK carrying
+    // a light takes no SCAMIN), and wind turbines are conspicuous by what they are — the tag is
+    // rarely present, and without this a wind farm is empty sea below z10.
     if ("landmark".equals(type)
-        && "conspicuous".equals(attrs.get("seamark:landmark:conspicuity"))) {
+        && ("conspicuous".equals(attrs.get("seamark:landmark:conspicuity"))
+            || attrs.get("light") != null
+            || "windmotor".equals(category)
+            || "windmill".equals(category))) {
       base = Math.min(base, 6);
     }
 
@@ -103,13 +121,15 @@ public class SeamarkZoomRules {
     return 8;
   }
 
-  /** Check if a seamark type is high priority (visible from zoom 4). */
+  /**
+   * Check if a seamark type is high priority (visible from zoom 4). Not light_minor: an unranged
+   * minor light is Approach-band furniture, and the range promotion below already lifts the real
+   * lighthouses that hide behind that tag.
+   */
   private static boolean isHighPriorityType(String type) {
     return type.equals("light_major")
-        || type.equals("light_minor")
         || type.startsWith("separation_")
         || type.equals("platform")
-        || type.equals("fog_signal")
         || isRestrictedArea(type);
   }
 
@@ -123,7 +143,6 @@ public class SeamarkZoomRules {
   /** Check if a type represents a restricted area. */
   private static boolean isRestrictedArea(String type) {
     return Arrays.asList(
-            "anchorage",
             "cable_area",
             "fairway",
             "inshore_traffic_zone",

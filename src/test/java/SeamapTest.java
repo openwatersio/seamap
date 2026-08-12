@@ -121,13 +121,15 @@ class SeamapTest {
   }
 
   /**
-   * A floor answers whether a class may ever appear at a zoom, which density cannot. Landmarks
-   * reach z6 so a wind farm reads as a few marks rather than nothing; facilities wait for z14
-   * because no style layer draws them earlier.
+   * A floor answers whether a class may ever appear at a zoom, which density cannot. Wind turbines
+   * reach z6 so a wind farm reads as a few marks rather than nothing; a plain tower is Coastal
+   * detail; facilities wait for z14 because no style layer draws them earlier.
    */
   @Test
   void classFloorsBoundWhatReachesATile() {
-    assertEquals(6, SeamarkZoomRules.getMinZoom(Map.of("type", "landmark")));
+    assertEquals(
+        6, SeamarkZoomRules.getMinZoom(Map.of("type", "landmark", "category", "windmotor")));
+    assertEquals(10, SeamarkZoomRules.getMinZoom(Map.of("type", "landmark")));
     assertEquals(14, SeamarkZoomRules.getMinZoom(Map.of("type", "small_craft_facility")));
   }
 
@@ -195,6 +197,39 @@ class SeamapTest {
     assertEquals("minor_aid", joined.tags().get("family"));
     var kept99 = kept.stream().filter(f -> f.tags().get("osm_id").equals(99L)).findFirst().get();
     assertEquals(null, kept99.tags().get("cell_rank"), "a fragment carries no rank of its own");
+  }
+
+  /**
+   * A hostless join is ambiguous: light in a neighbouring tile, or capped out of this one? A capped
+   * host takes its geometry with it — otherwise the arc draws without its light at one zoom and
+   * flickers back at the next, when the re-tiled cell gives the host a rank again.
+   */
+  @Test
+  void aCappedHostTakesItsSectorGeometryWithIt() {
+    List<VectorTile.Feature> crowd = new ArrayList<>();
+    for (int i = 0; i < 9; i++) {
+      Map<String, Object> attrs = new HashMap<>();
+      attrs.put("name", "light " + i);
+      attrs.put("type", "light_minor");
+      attrs.put("osm_id", (long) i);
+      attrs.put("light_range", 9 - i); // ranks 0..8 in reach order, so id 8 is the one capped
+      attrs.put("family", SeamarkPriority.family(attrs));
+      crowd.add(
+          new VectorTile.Feature(
+              "seamark",
+              1,
+              VectorTile.encodeGeometry(GF.createPoint(new Coordinate(10, 10))),
+              attrs));
+    }
+    Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
+    layers.put("seamark", crowd);
+    layers.put("light", new ArrayList<>(List.of(arcFor(8L), arcFor(99L))));
+    // z8: the cap is 8 per cell, so the ninth light is dropped from the tile
+    var out = new Seamap().postProcessTileFeatures(TileCoord.ofXYZ(0, 0, 8), layers);
+
+    var kept = out.get("light");
+    assertEquals(1, kept.size(), "the capped light's arc must go with it: " + kept);
+    assertEquals(99L, kept.get(0).tags().get("osm_id"), "the cross-tile fragment stays");
   }
 
   private static VectorTile.Feature arcFor(long osmId) {

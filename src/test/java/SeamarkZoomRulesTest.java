@@ -44,4 +44,41 @@ class SeamarkZoomRulesTest {
         SeamarkZoomRules.getMinZoom(
             attrs("type", "wreck", "category", "dangerous", "near_shore", true)));
   }
+
+  /** Harbour-band furniture waits for the zooms where its channel reads. */
+  @Test
+  void shortRangeAidsWaitForTheirBand() {
+    assertEquals(10, SeamarkZoomRules.getMinZoom(attrs("type", "buoy_lateral")));
+    assertEquals(10, SeamarkZoomRules.getMinZoom(attrs("type", "beacon_special_purpose")));
+    assertEquals(13, SeamarkZoomRules.getMinZoom(attrs("type", "mooring")));
+    assertEquals(10, SeamarkZoomRules.getMinZoom(attrs("type", "fog_signal")));
+    assertEquals(9, SeamarkZoomRules.getMinZoom(attrs("type", "anchorage")));
+    // cardinals and the other danger-marking marks stay early
+    assertEquals(6, SeamarkZoomRules.getMinZoom(attrs("type", "buoy_cardinal")));
+  }
+
+  /** A light's reach decides its floor, not how its host happens to be typed. */
+  @Test
+  void minorLightsEarnEarlinessByRange() {
+    assertEquals(8, SeamarkZoomRules.getMinZoom(attrs("type", "light_minor")));
+    assertEquals(6, SeamarkZoomRules.getMinZoom(attrs("type", "light_minor", "light_range", 10)));
+    assertEquals(4, SeamarkZoomRules.getMinZoom(attrs("type", "light_minor", "light_range", 15)));
+    assertEquals(4, SeamarkZoomRules.getMinZoom(attrs("type", "light_major")));
+  }
+
+  /** A plain tower is Coastal detail; what a mariner steers by keeps the early floor. */
+  @Test
+  void landmarksSplitByConspicuity() {
+    assertEquals(10, SeamarkZoomRules.getMinZoom(attrs("type", "landmark", "category", "tower")));
+    assertEquals(
+        6,
+        SeamarkZoomRules.getMinZoom(
+            attrs("type", "landmark", "seamark:landmark:conspicuity", "conspicuous")));
+    assertEquals(
+        6, SeamarkZoomRules.getMinZoom(attrs("type", "landmark", "category", "windmotor")));
+    assertEquals(
+        6,
+        SeamarkZoomRules.getMinZoom(
+            attrs("type", "landmark", "category", "tower", "light", "Fl.5s")));
+  }
 }
