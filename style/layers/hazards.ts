@@ -18,19 +18,33 @@ const notFloatingBarrier: ExpressionSpecification = ["!", isFloatingBarrier];
 
 /**
  * What the chart knows about a hazard's depth: the surveyed least depth when tagged, else the
- * seabed sampled around it. The two defaults encode opposite burdens of proof: a hazard is
+ * seabed sampled at it. The two defaults encode opposite burdens of proof: a hazard is
  * only RUNG as an isolated danger when a known depth puts it at or above the safety depth
  * (9999 keeps unknowns out), but its area boundary only RELAXES to the safe style when a
  * known depth puts it below (-9999 keeps unknowns dangerous, per S-52's no-VALSOU rows).
  */
 const notKnownDeep = (safety: number): ExpressionSpecification => [
   "<=",
-  ["coalesce", ["get", "depth"], ["get", "surrounding_depth"], -9999],
+  ["coalesce", ["get", "depth"], ["get", "seabed_depth"], -9999],
   safety,
 ];
 const isKnownShallow = (safety: number): ExpressionSpecification => [
   "<=",
-  ["coalesce", ["get", "depth"], ["get", "surrounding_depth"], 9999],
+  ["coalesce", ["get", "depth"], ["get", "seabed_depth"], 9999],
+  safety,
+];
+
+/**
+ * The water around the hazard is itself navigable at the mariner's safety depth — the second
+ * half of the UDWHAZ test, and the half that keeps the shore fringe quiet: a rock in water
+ * already too shallow to enter contradicts nothing, so highlighting it says nothing. S-52 makes
+ * the same call when no surrounding depth is known (no depth area found → no promotion), which
+ * is what the -9999 default encodes. `surrounding_depth` is the shallowest water on a 250 m
+ * ring around the hazard (`Seamark.java`).
+ */
+const navigableSurround = (safety: number): ExpressionSpecification => [
+  ">=",
+  ["coalesce", ["get", "surrounding_depth"], -9999],
   safety,
 ];
 
@@ -96,11 +110,11 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       },
     },
     {
-      // a hazard at or above the mariner's safety depth wears a quiet magenta ring behind its
-      // own paper symbol. Paper charts have no equivalent (they cannot know the safety depth);
-      // the ECDIS answer is the loud ISODGR01 octagon, which replaces the symbol — this keeps
-      // the paper symbology and whispers what ECDIS shouts. S-64 5.1 permits deciding on depth
-      // alone, without the full surrounding-water test.
+      // A hazard at or above the mariner's safety depth, in water otherwise deep enough to
+      // enter, wears a quiet magenta ring behind its own paper symbol — the UDWHAZ test in
+      // both halves. Paper charts have no equivalent (they cannot know the safety depth); the
+      // ECDIS answer is the loud ISODGR01 octagon, which replaces the symbol — this keeps the
+      // paper symbology and whispers what ECDIS shouts.
       id: "isolated-dangers",
       type: "circle",
       source: "seamap",
@@ -112,6 +126,11 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
         ["==", ["geometry-type"], "Point"],
         ["in", ["get", "type"], ["literal", HAZARD_TYPES]],
         isKnownShallow(safety),
+        navigableSurround(safety),
+        // the shore fringe never promotes, whatever the ring margin says: near the coast the
+        // DEM's land-water smoothing can put the surround a few decimetres either side of the
+        // safety depth, and a rock there contradicts nothing the shore doesn't already say
+        ["!", ["==", ["coalesce", ["get", "near_shore"], false], true]],
       ],
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 6, 12, 10],

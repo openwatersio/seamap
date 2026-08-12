@@ -33,12 +33,14 @@ public class SeamarkZoomRules {
     int base;
     if (type == null) {
       base = 8; // default
+    } else if (isHazard(type)) {
+      base = hazardMinZoom(type, category, attrs);
     } else if (FLOORS.containsKey(type)) {
       base = FLOORS.get(type);
     } else if (isHighPriorityType(type)) {
       // High priority features visible from zoom 4
       base = 4;
-    } else if (isMediumHighPriorityType(type, category)) {
+    } else if (isMediumHighPriorityType(type)) {
       // Medium-high priority features visible from zoom 6
       base = 6;
     } else {
@@ -71,6 +73,36 @@ public class SeamarkZoomRules {
     return 8;
   }
 
+  private static boolean isHazard(String type) {
+    return type.equals("rock") || type.equals("wreck") || type.equals("obstruction");
+  }
+
+  /**
+   * A hazard's floor comes from its context, not its type. The standards decide this twice over:
+   * ECDIS promotes a hazard past every scale threshold only when it contradicts navigable water
+   * around it (S-52 UDWHAZ), and S-4 omits near-shore dangers from small-scale charts entirely,
+   * because inshore of the natural line the shore itself is the danger (B-404). A rock twenty
+   * metres off a coast at overview scale sits inside the coastline's own line weight.
+   *
+   * <p>Depths unknown are assumed dangerous — S-52 makes the same assumption — so an uncharted
+   * offshore hazard keeps the early floor. The style's safety-depth exemption and the cap retention
+   * ({@code SeamarkPriority.neverCapped}) still govern what happens above these floors.
+   */
+  private static int hazardMinZoom(String type, String category, Map<String, Object> attrs) {
+    // a wreck someone bothered to categorize as dangerous is chart-worthy at General scale
+    if ("wreck".equals(type) && isDangerousWreck(category)) return 6;
+    // the shore carries the warning until Approach scale (sampled in Seamark)
+    if (Boolean.TRUE.equals(attrs.get("near_shore"))) return 13;
+    // Charted below every safety depth the style supports: Coastal detail. A minzoom is a hard
+    // floor — no exemption can recover an excluded feature — so this threshold must clear the
+    // deepest supported setting, never a smaller "typical" one. The UOC draws the same line:
+    // UWTROC loses its all-scales default at VALSOU > 30.
+    if (attrs.get("depth") instanceof Number n
+        && n.doubleValue() > SeamarkPriority.MAX_SAFETY_DEPTH) return 11;
+    // dangerous (or uncharted, assumed so) and clear of the shore: selected for General
+    return 8;
+  }
+
   /** Check if a seamark type is high priority (visible from zoom 4). */
   private static boolean isHighPriorityType(String type) {
     return type.equals("light_major")
@@ -82,19 +114,10 @@ public class SeamarkZoomRules {
   }
 
   /** Check if a seamark type is medium-high priority (visible from zoom 6). */
-  private static boolean isMediumHighPriorityType(String type, String category) {
-    if (type.contains("_safe_water")
+  private static boolean isMediumHighPriorityType(String type) {
+    return type.contains("_safe_water")
         || type.contains("_isolated_danger")
-        || type.contains("_cardinal")) {
-      return true;
-    }
-
-    // Dangerous wrecks
-    if (type.equals("wreck") && isDangerousWreck(category)) {
-      return true;
-    }
-
-    return false;
+        || type.contains("_cardinal");
   }
 
   /** Check if a type represents a restricted area. */

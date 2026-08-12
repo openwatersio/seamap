@@ -144,7 +144,7 @@ public class SeamarkPriority {
    * be any of the bands over it.
    */
   private static int depthBand(Map<String, Object> attrs) {
-    if (coalesce(attrs, "depth", "surrounding_depth") == null) return DEPTH_BANDS.length;
+    if (coalesce(attrs, "depth", "seabed_depth") == null) return DEPTH_BANDS.length;
     int metres = depth(attrs);
     for (int i = 0; i < DEPTH_BANDS.length; i++) {
       if (metres <= DEPTH_BANDS[i]) return i;
@@ -173,7 +173,7 @@ public class SeamarkPriority {
    */
   public static boolean neverCapped(Map<String, Object> attrs) {
     if (!HAZARD_TYPES.contains(attrs.get("type"))) return false;
-    Object known = coalesce(attrs, "depth", "surrounding_depth");
+    Object known = coalesce(attrs, "depth", "seabed_depth");
     return !(known instanceof Number n) || n.doubleValue() <= MAX_SAFETY_DEPTH;
   }
 
@@ -209,7 +209,7 @@ public class SeamarkPriority {
 
   /** Surveyed depth when tagged, else the seabed sampled around the hazard. Never charted. */
   private static int depth(Map<String, Object> attrs) {
-    Object value = coalesce(attrs, "depth", "surrounding_depth");
+    Object value = coalesce(attrs, "depth", "seabed_depth");
     return value instanceof Number n ? Math.round(n.floatValue()) : 0;
   }
 

@@ -149,19 +149,31 @@ describe("isolated dangers", () => {
   const highlighted = (properties: Record<string, unknown>) =>
     featureFilter(layer.filter).filter({ zoom: 12 }, point(properties), undefined as never);
 
-  it("rings a hazard at or above the safety depth", () => {
-    expect(highlighted({ type: "wreck", depth: 1.5 })).toBe(true);
-    expect(highlighted({ type: "rock", surrounding_depth: 0.5 })).toBe(true);
+  it("rings a shoal hazard in navigable water", () => {
+    expect(highlighted({ type: "wreck", depth: 1.5, surrounding_depth: 15 })).toBe(true);
+    expect(highlighted({ type: "rock", seabed_depth: 0.5, surrounding_depth: 15 })).toBe(true);
+  });
+
+  it("stays quiet where the water is itself too shallow to enter", () => {
+    // the shore-fringe case: a rock in water the mariner cannot enter contradicts nothing
+    expect(highlighted({ type: "rock", seabed_depth: 0.5, surrounding_depth: 1 })).toBe(false);
+    expect(highlighted({ type: "rock", seabed_depth: 0.5 })).toBe(false);
+    // near the shore the ring margin is DEM noise; the flag overrules it
+    expect(
+      highlighted({ type: "rock", seabed_depth: 0.5, surrounding_depth: 15, near_shore: true }),
+    ).toBe(false);
   });
 
   it("prefers the surveyed depth over the sampled one", () => {
-    expect(highlighted({ type: "wreck", depth: 8, surrounding_depth: 1 })).toBe(false);
+    expect(highlighted({ type: "wreck", depth: 8, seabed_depth: 1, surrounding_depth: 15 })).toBe(
+      false,
+    );
   });
 
   it("leaves deep and depthless hazards alone", () => {
-    expect(highlighted({ type: "wreck", depth: 12 })).toBe(false);
-    expect(highlighted({ type: "wreck" })).toBe(false);
-    expect(highlighted({ type: "buoy_lateral", depth: 1 })).toBe(false);
+    expect(highlighted({ type: "wreck", depth: 12, surrounding_depth: 15 })).toBe(false);
+    expect(highlighted({ type: "wreck", surrounding_depth: 15 })).toBe(false);
+    expect(highlighted({ type: "buoy_lateral", depth: 1, surrounding_depth: 15 })).toBe(false);
   });
 });
 
