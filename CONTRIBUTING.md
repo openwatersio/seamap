@@ -8,7 +8,7 @@ This project is:
 - [./src](./src) - a [Planetiler](https://github.com/onthegomap/planetiler) profile that converts OpenStreetMap `seamark:*` data and other data relevant to marine navigation into PMTiles vector tiles.
 - [./style](./style) - a MapLibre style, VersaTiles base map + Seascape bathymetry + chart symbology + sprite sheet, published as [@openwaters/seamap](https://www.npmjs.com/package/@openwaters/seamap) npm module
 - [./viewer](./viewer/) - a MapLibre GL viewer for the style, deployed to [GitHub Pages](https://openwatersio.github.io/seamap/)
-- [./worker](./worker/) - the Cloudflare Worker serving `tiles.openwaters.io/seamap/*` — TileJSON, style.json, tiles, sprites, and versioned archive downloads.
+- [./worker](./worker/) - the Cloudflare Worker serving `tiles.openwaters.io/seamap/*` — TileJSON, style.json, tiles, sprites, the taginfo project file, and versioned archive downloads.
 
 Planned work is tracked in [issues](https://github.com/openwatersio/seamap/issues).
 
@@ -51,6 +51,14 @@ Key files (Java sources are in the default package, `src/main/java/`):
 - `SeamarkZoomRules.java` — per-type min-zoom rules; derivation and recorded departures in [docs/design/zoom.md](docs/design/zoom.md).
 
 Output layers: `seamark`, `land`, `water`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map, glyphs, and land elevation from third-party infra (VersaTiles).
+
+### Documenting the tags it reads
+
+The OSM tags the chart reads are published as a [taginfo project file](https://wiki.openstreetmap.org/wiki/Taginfo/Projects), so a mapper looking up `seamark:buoy_lateral:colour` or `leisure=slipway` sees that this chart renders it. The list is `worker/src/taginfo.ts`, served at `tiles.openwaters.io/seamap/taginfo.json` and registered in [taginfo/taginfo-projects](https://github.com/taginfo/taginfo-projects) — that URL lives in someone else's repo, so moving it costs an upstream PR.
+
+Teach the profile a new tag, or filter on a raw OSM key in the style, and `npm test --workspace style` fails until it's described there. The check reads the profile's Java and walks the built style, but it only compares keys and values: it can't tell you a description has stopped matching what the chart draws, and it won't notice a tag the chart no longer reads.
+
+It also can't see the keys composed at runtime — `seamark:<type>:colour` for a type known only from the data. Those show up in the published archive's metadata instead, which Planetiler fills with every attribute it wrote. `bin/audit-tags.ts` diffs that list against the documented one and ranks what's missing. It's a report rather than a check, and stays out of CI on purpose: the list moves when OSM data moves, so a mapper inventing a tag must never fail someone's PR.
 
 ## Local development
 
