@@ -163,6 +163,18 @@ describe("isolated dangers", () => {
     ).toBe(false);
   });
 
+  it("clamps the safety depth to what the tiles can honour", () => {
+    const deep = chartLayers({ safety: 40 }).symbols.find((l) => l.id === "isolated-dangers") as {
+      filter: never;
+    };
+    const ringed = (properties: Record<string, unknown>) =>
+      featureFilter(deep.filter).filter({ zoom: 12 }, point(properties), undefined as never);
+    // a 35 m hazard is "shallow" at safety 40, but the tiles stop retaining hazards past 30 —
+    // highlighting it would promise coverage the data does not have
+    expect(ringed({ type: "rock", depth: 35, surrounding_depth: 50 })).toBe(false);
+    expect(ringed({ type: "rock", depth: 25, surrounding_depth: 50 })).toBe(true);
+  });
+
   it("prefers the surveyed depth over the sampled one", () => {
     expect(highlighted({ type: "wreck", depth: 8, seabed_depth: 1, surrounding_depth: 15 })).toBe(
       false,

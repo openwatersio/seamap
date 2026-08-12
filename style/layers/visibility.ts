@@ -55,6 +55,13 @@ const LEGIBLE_FROM = {
   name: 12,
 } as const;
 
+/**
+ * The deepest safety depth the chart supports, mirroring `SeamarkPriority.MAX_SAFETY_DEPTH`: the
+ * tiles retain hazards against thinning and give them early zoom floors only down to this depth,
+ * so a deeper style setting would highlight from data that is not there. Keep the two in step.
+ */
+export const MAX_SAFETY_DEPTH = 30;
+
 /** The zoom can resolve this kind of decoration. */
 export function decoration(kind: keyof typeof LEGIBLE_FROM): ExpressionSpecification {
   return [">=", ["zoom"], LEGIBLE_FROM[kind]];

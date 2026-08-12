@@ -7,6 +7,7 @@ import { lights } from "./lights.js";
 import { sectors } from "./sectors.js";
 import { marks } from "./marks.js";
 import { labels } from "./labels.js";
+import { MAX_SAFETY_DEPTH } from "./visibility.js";
 
 /**
  * The chart symbology, split around the consumer's land fills: `areas` are sea areas that a
@@ -21,10 +22,14 @@ export function chartLayers({ safety, unit }: { safety?: number; unit?: "m" | "f
   areas: LayerSpecification[];
   symbols: LayerSpecification[];
 } {
+  // The tiles only retain hazard context down to MAX_SAFETY_DEPTH: past it the pipeline may
+  // have thinned or excluded the hazard entirely, so a deeper setting would silently miss
+  // hazards it appears to highlight. Clamp rather than honour a promise the data cannot keep.
+  const clamped = Math.min(safety ?? 2, MAX_SAFETY_DEPTH);
   return {
     areas: areas(),
     symbols: [
-      ...hazards(safety, unit),
+      ...hazards(clamped, unit),
       ...routes(),
       ...structures(),
       ...lights(),
