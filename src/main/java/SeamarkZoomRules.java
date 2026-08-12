@@ -15,8 +15,7 @@ public class SeamarkZoomRules {
    * ever draw, and a channel buoy at z4 is Harbour-band furniture on an Overview chart.
    *
    * <p>The short-range aids sit deliberately ahead of the navigational-purpose derivation (z12–14
-   * from their band plus SCAMIN steps, see
-   * drafts/zoom-rules-ignore-the-navigational-purpose-bands.md): a channel's presence is worth
+   * from their band plus SCAMIN steps, see docs/design/zoom.md): a channel's presence is worth
    * reading at z10. Landmarks are the reverse split — a plain tower is Coastal detail, while
    * conspicuity, a light, or being a wind turbine is what a mariner steers by and earns z6 through
    * the promotions below.
