@@ -12,6 +12,8 @@ This project is:
 
 Planned work is tracked in [issues](https://github.com/openwatersio/seamap/issues).
 
+How the chart looks is governed by the [design guidelines](docs/design/README.md). Any change to the style, zoom rules, symbol visibility, or portrayal must consult and adhere to them — the invariants settle symbol arguments, and every deliberate departure from the chart standards is recorded there so it doesn't get "fixed" back.
+
 ## Getting Started
 
 Tool versions are pinned in `mise.toml`: Java 21 (Planetiler targets 21 and Gradle 8 won't run on newer JDKs), Gradle, Node, and `spreet` for sprite packing. Install [mise](https://mise.jdx.dev) and run:
@@ -46,7 +48,7 @@ Key files (Java sources are in the default package, `src/main/java/`):
 - `Lights.java` — light-sector arc/ray geometry generation.
 - `LandPolygons.java` — downloads + reads the global land shapefile.
 - `DepthCalculator.java` — looks up depth for rocks/wrecks from a Terrarium DEM (`--depth=`); needs the `imageio-webp` runtime dep.
-- `SeamarkZoomRules.java` — per-type min-zoom rules.
+- `SeamarkZoomRules.java` — per-type min-zoom rules; derivation and recorded departures in [docs/design/zoom.md](docs/design/zoom.md).
 
 Output layers: `seamark`, `land`, `water`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map, glyphs, and land elevation from third-party infra (VersaTiles).
 

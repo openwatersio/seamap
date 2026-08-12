@@ -1,26 +1,28 @@
 # What draws when symbols overlap
 
-A chart that draws every feature whose class cleared a zoom threshold, at whatever size the ramp says, on top of everything else, has no opinion about what matters. This chart has one, and it is decided in three separate questions:
+A chart that draws every feature above its zoom threshold, at whatever size its ramp specifies, has no hierarchy. This chart answers three separate questions:
 
 1. **May this feature appear at this zoom at all?** A class floor, absolute and per type — a fish-cleaning table has no business existing at z10 at any density.
 2. **Is there room for it here?** A density budget, per presentation family, per grid cell — rank within the cell decides who spends it.
 3. **How much of it draws?** A surviving mark is dressed or bare — body with its decorations, or body alone — and its size reads as its prominence.
 
-The questions are deliberately independent. Conflating them is how a chart ends up with a wind farm that is a solid black mat at z8 and empty water at z7: one class threshold trying to answer a density question, with no state between "none" and "all".
+These questions are independent. Conflating them produces a wind farm that is a black mat at z8 and empty water at z7: one class threshold is being asked to control density, with no state between "none" and "all."
 
 ## Three axes, each with one home
 
-| Axis       | Answers                              | Lives in                                                    | Derives                                                               |
+| Axis       | Question                             | Lives in                                                    | Controls                                                              |
 | ---------- | ------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------------- |
 | **Family** | whose budget do you spend            | tiles (`family`)                                            | the per-family budgets that stop a harbour competing with forty buoys |
 | **Rank**   | who wins within a family             | tiles (`cell_rank`)                                         | presence order, decoration fit, label eligibility                     |
 | **Token**  | how far the artwork survives scaling | style ([`visibility.ts`](../../style/layers/visibility.ts)) | the size floor                                                        |
 
-**Rank and token are orthogonal, and must not be merged.** A magenta harbour disc shrinks brilliantly and is mid-importance; a cardinal buoy shrinks badly and is top-importance. One scale setting both would give the harbour a floor larger than it needs and the cardinal one smaller. Shrinkability is a property of the artwork; importance is a property of the feature.
+**Rank and token are independent.** A magenta harbour disc remains legible when very small but has middling importance; a cardinal buoy needs more pixels but has high importance. One value cannot serve both: shrinkability belongs to the artwork, while importance belongs to the feature.
 
 ### Family and rank
 
-[`SeamarkPriority.java`](../../src/main/java/SeamarkPriority.java) assigns every point one of six presentation families — `hazard`, `major_aid`, `minor_aid`, `harbour`, `structure`, `facility` — a deliberately small taxonomy, not the ~200 raw `seamark:type` values. The first five are budgets: the chart spends its symbols family by family, so the harbour badge is never displaced by the buoys around it, because they never compete for the same allowance. `facility` is the floor of the hierarchy and is exempt from density budgeting — an amenity badge is thinned by collision instead (see below), though the destructive cap still bounds what its tiles carry.
+[`SeamarkPriority.java`](../../src/main/java/SeamarkPriority.java) assigns every point to one of six presentation families: `hazard`, `major_aid`, `minor_aid`, `harbour`, `structure`, or `facility`. This deliberately small taxonomy replaces roughly 200 raw `seamark:type` values for decluttering purposes.
+
+The first five families have density budgets. A harbour badge and the buoys around it therefore spend different allowances and cannot displace one another. `facility` sits at the bottom of the hierarchy and has no density budget; collision thins its amenity badges instead. The destructive tile cap still bounds the number carried in the tiles.
 
 Within a family, `rank` orders by tier and then by instance: a beacon above a buoy (a beacon holds its charted position, a buoy can drag off station — S-4 §B-455.3), a conspicuous landmark above a plain one (CONVIS is what a mariner steers by), longer light reach above shorter (with S-52's 10 M major-light test promoting a long-range light into `major_aid` however its host is typed), a shallower hazard above a deeper one within severity bands (what you cannot see is worse), and a named marina above an anonymous basin.
 
@@ -28,11 +30,11 @@ Rank is static. Whether a hazard is critical depends on the mariner's safety dep
 
 ### `cell_rank`
 
-`postProcessTileFeatures` ([`Seamap.java`](../../src/main/java/Seamap.java)) runs once per output tile and therefore once per zoom, which is what makes the numbering scale-aware: it sorts each family's points within a 32-pixel grid cell by rank and writes each one's position back as `cell_rank`, counting from zero. The same cell holds one buoy at z14 and forty at z8, and each build of the cell numbers its own population.
+`postProcessTileFeatures` ([`Seamap.java`](../../src/main/java/Seamap.java)) runs once per output tile at each zoom. Within every 32-pixel grid cell, it sorts the points in each family and writes their zero-based position as `cell_rank`. The geographic area covered by a cell changes with zoom, so it might contain one buoy at z14 and forty at z8; each tile build ranks the population visible at that zoom.
 
 `cell_rank` is a local ordinal, not global prominence: the best feature in every cell is rank 0. That is exactly what a budget threshold needs and all it should be used for; it is also a serviceable local tiebreak on the bottom-tier collision layers, where an arbitrary loser is acceptable anyway.
 
-Behind the numbering sits a destructive cap (`cellCap`) that actually drops features from the tile — 8 per family per cell below z11, 16 to z13, unlimited past. It is a storage backstop, not the selection mechanism: it only has to stay comfortably above the largest budget the style might ask for, so retuning what draws never needs a planet build. Cells that straddle a tile boundary get split, so a feature can rank differently on either side of a seam — the same artefact label grids have, tolerable at this cell size.
+Behind the numbering is a destructive storage cap (`cellCap`): 8 features per family and cell below z11, 16 below z13, and unlimited from z13. Safety-retained hazards may exceed it. The cap is a storage backstop, not the ordinary selection mechanism; it stays above every style budget so those budgets can be retuned without rebuilding the planet. A cell is split at tile boundaries, so a feature can rank differently on either side of a seam. This is the same artifact produced by label grids and is acceptable at this cell size.
 
 ## Existence: the class floor
 
@@ -40,13 +42,13 @@ Behind the numbering sits a destructive cap (`cellCap`) that actually drops feat
 
 Hazards get a contextual floor, not a typological one, because the standards decide danger contextually twice over — ECDIS promotes a hazard past every scale threshold only when it contradicts navigable water around it (S-52's isolated-danger test), and S-4 §B-404 omits near-shore dangers from small-scale charts entirely, because inshore of the natural line the shore itself is the danger. So: a wreck categorized dangerous appears from z6; a hazard near the shore (`near_shore`, sampled from the DEM at build time) waits for z13, since a rock twenty metres off a coast at overview scale sits inside the coastline's own line weight; a hazard charted deeper than every supported safety depth waits for z11; everything else — dangerous, or uncharted and assumed so — appears from z8.
 
-Floors decide _may_; budgets decide _does_. Above its floor, presence is a rank-within-cell decision, never a class decision.
+Floors decide _may_; budgets decide _does_. Once a feature clears its floor, its presence is decided by rank within the cell, not by another class threshold.
 
 ## Presence: the budget
 
 The style thresholds `cell_rank` per family and zoom band ([`visibility.ts`](../../style/layers/visibility.ts), `withinBudget`): how many hazards, major aids, minor aids, harbours and structures a cell keeps below z9, from z9, from z11, and from z13 (where the answer becomes "all the tile has"). Because the thresholds are style expressions, the most-tuned numbers on the chart cost a page reload rather than a planet build — this is Mapbox's `filterrank` model.
 
-The consequences fall out of the shape of the mechanism:
+This mechanism has four useful consequences:
 
 - **One of each kind beats all of one kind.** Budgets are per family, so a place with a marina and forty buoys shows the marina and some buoys, not forty-one buoys.
 - **The lowest band is much tighter than a linear reading suggests.** A cell covers a huge amount of ground at z7 and every family draws a real symbol there, so a handful fills the space. A size floor and a budget must move together: raising a family's floor without tightening its low-zoom budget just draws the same crowd larger.
@@ -57,7 +59,7 @@ The consequences fall out of the shape of the mechanism:
 
 ## Collision is for the bottom of the hierarchy; thinning keeps a composed symbol whole
 
-MapLibre collides per layer, and a composed paper symbol spans several: a lit cardinal buoy is a body, a topmark, a reflector and a flare drawn by four layers over one feature. Collision on those layers places the body and drops the topmark, or leaves a flare hanging over nothing. Thinning cannot do that — the layers share one `cell_rank` filter, so a symbol's parts survive or vanish together.
+MapLibre resolves collisions per layer, while a composed paper symbol spans several layers. A lit cardinal buoy, for example, has a body, topmark, reflector, and flare. Independent collision can place the body but drop the topmark, or leave a flare without its body. Shared `cell_rank` filters avoid that failure: all parts pass or fail the same density test.
 
 So collision is only for the bottom of the hierarchy, where losing a contest is acceptable. Cranes, rescue stations and radar stations (`structure` family) get both treatments: the budget thins the crowd, and collision arbitrates whoever remains, with `symbol-sort-key` on `cell_rank` so the loser is the lowest-ranked rather than an arbitrary one. Small-craft facilities (`facility` family) skip the budget entirely and are thinned by collision alone — a harbour with 146 slipways declutters instead of becoming a wall of discs, and any surviving badge is as good as any other. Everything above keeps `icon-overlap: "always"` and is governed by its budget. That also settles the cross-class hierarchy without touching paint order: guaranteed placement means a hazard or a cardinal can never lose a contest to a marina badge, which is the only thing reordering the draw stack would have bought.
 
@@ -68,7 +70,7 @@ Two traps worth naming:
 
 ## A mark is dressed or bare — never substituted
 
-A mark has two states: body with its decorations — topmark, radar reflector, light flare, and the text that names or describes it — or body alone. There is no third state where the symbol is replaced by something else. A dot says nothing: it cannot be told from any other dot. A body at a third of its size still says "cardinal buoy" — shape and colour survive shrinking — and a reader who knows a cardinal is there and must zoom to read which one is better off than one looking at a mark that carries no meaning, and better off by far more than one looking at empty water. The base seamark without its topmark communicates more than its complete absence; that is the philosophy the whole gate rests on (invariant 4 in the [charter](README.md)).
+A mark has two states: its body with decorations, or its body alone. Decorations include the topmark, radar reflector, light flare, name, and descriptive text. There is no third state in which another symbol replaces it. A generic dot carries no class meaning; a reduced body still says "cardinal buoy" through shape and color, even if the reader must zoom to identify which cardinal. This is invariant 4 in the [design charter](README.md).
 
 **A decoration draws when it is legible and it fits. Both, and nothing else.**
 
@@ -107,7 +109,7 @@ Sector geometry joins to its mark on `osm_id` and inherits its budget. Fragments
 
 ## A symbol outranks a label, and behaviour outranks identity
 
-Three levels, in order: the presence of a symbol, then a label that tells you what to _do_, then a label that tells you what something is _called_.
+The hierarchy has three levels: the symbol itself, a label that changes what the reader should _do_, and a label that says what the feature is _called_.
 
 - **A label never displaces a symbol.** Bodies hold guaranteed placement, so this holds by construction — stated here so it is not traded away later.
 - **A behaviour label outranks an identity label.** A light characteristic, a Racon group, a depth over a hazard all change the decision; a name does not. A lighthouse's name must never take the space a buoy's light description needs. The label layers in [`labels.ts`](../../style/layers/labels.ts) are ordered so that behaviour places first (reverse draw order, again).
@@ -121,7 +123,7 @@ At z8 the useful statement about a wind farm is that a wind farm is there, not t
 
 ## Where each decision lives
 
-Split so iteration is cheap where it can be:
+Each decision lives at the cheapest layer that can express it correctly:
 
 | Decision                                                     | Lives in                                                                                       | Costs        |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------ |
