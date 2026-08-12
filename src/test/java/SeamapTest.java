@@ -110,6 +110,19 @@ class SeamapTest {
     assertEquals(1, cellRank(layers, "other buoy"));
   }
 
+  /** A lit aid standing on a turbine lends it its reach, so lit corners win the budget. */
+  @Test
+  void colocatedLightPromotesItsStructure() {
+    // two turbines in one cell; a light node stands a pixel from the higher-id one
+    var litTurbine = seamark("lit corner", 20, 20, "type", "landmark", "category", "windmotor");
+    var plainTurbine = seamark("mid field", 10, 10, "type", "landmark", "category", "windmotor");
+    var light =
+        seamark("corner light", 21, 20, "type", "light_minor", "light_range", 5, "osm_id", 7L);
+    var layers = numbered(plainTurbine, litTurbine, light);
+    assertEquals(0, cellRank(layers, "lit corner"));
+    assertEquals(1, cellRank(layers, "mid field"));
+  }
+
   /** Equal ranks break ties on the stable feature id, not planetiler's input order. */
   @Test
   void equalRanksTieBreakOnFeatureId() {

@@ -256,7 +256,8 @@ public class Seamap implements Profile {
       TileCoord tileCoord, Map<String, List<VectorTile.Feature>> layers) {
     List<VectorTile.Feature> seamarks = layers.get("seamark");
     if (seamarks != null && !seamarks.isEmpty()) {
-      List<VectorTile.Feature> numbered = numberPerCell(seamarks, tileCoord.z());
+      List<VectorTile.Feature> numbered =
+          numberPerCell(adoptColocatedLights(seamarks), tileCoord.z());
       layers.put("seamark", numbered);
       List<VectorTile.Feature> lights = layers.get("light");
       if (lights != null && !lights.isEmpty()) {
@@ -310,6 +311,46 @@ public class Seamap implements Profile {
    * straddling a tile boundary is split, so a feature can number differently on either side of a
    * seam — the same artefact the label grids already have, and tolerable at this cell size.
    */
+  /**
+   * A lit aid standing on a structure lends the structure its reach. Mappers chart a lit corner
+   * turbine as two co-located nodes — the turbine landmark and a light — which land in different
+   * families and thin independently: the light survived while its turbine lost the structure budget
+   * to unlit mid-field peers, exactly inverting the selection a farm needs. Within two pixels is
+   * "standing on" through the zooms where budgets bite; beyond z13 everything draws.
+   */
+  private static List<VectorTile.Feature> adoptColocatedLights(List<VectorTile.Feature> features) {
+    List<CoordinateXY> lights = new ArrayList<>();
+    List<Object> reaches = new ArrayList<>();
+    for (VectorTile.Feature feature : features) {
+      if (feature.geometry().geomType() != GeometryType.POINT) continue;
+      Object family = feature.tags().get("family");
+      if (!SeamarkPriority.MINOR_AID.equals(family) && !SeamarkPriority.MAJOR_AID.equals(family))
+        continue;
+      Object range = feature.tags().get("light_range");
+      if (range == null) continue;
+      lights.add(feature.geometry().firstCoordinate());
+      reaches.add(range);
+    }
+    if (lights.isEmpty()) return features;
+    List<VectorTile.Feature> out = new ArrayList<>(features.size());
+    for (VectorTile.Feature feature : features) {
+      if (feature.geometry().geomType() == GeometryType.POINT
+          && SeamarkPriority.STRUCTURE.equals(feature.tags().get("family"))
+          && feature.tags().get("light_range") == null) {
+        CoordinateXY at = feature.geometry().firstCoordinate();
+        for (int i = 0; i < lights.size(); i++) {
+          CoordinateXY light = lights.get(i);
+          if (Math.hypot(at.x - light.x, at.y - light.y) <= 2.0) {
+            feature = feature.copyWithExtraAttrs(Map.of("light_range", reaches.get(i)));
+            break;
+          }
+        }
+      }
+      out.add(feature);
+    }
+    return out;
+  }
+
   private static List<VectorTile.Feature> numberPerCell(
       List<VectorTile.Feature> features, int zoom) {
     Map<String, List<VectorTile.Feature>> cells = new LinkedHashMap<>();
