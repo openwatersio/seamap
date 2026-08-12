@@ -56,7 +56,9 @@ const LEGIBLE_FROM = {
 } as const;
 
 /** The zoom can resolve this kind of decoration. */
-export function decoration(kind: keyof typeof LEGIBLE_FROM): ExpressionSpecification {
+export function decoration(
+  kind: keyof typeof LEGIBLE_FROM,
+): ExpressionSpecification {
   return [">=", ["zoom"], LEGIBLE_FROM[kind]];
 }
 
@@ -71,28 +73,48 @@ export function decoration(kind: keyof typeof LEGIBLE_FROM): ExpressionSpecifica
  */
 export const TOKEN = {
   /** an enclosing circle with a knockout glyph: the circle is the whole message */
-  disc: 0.25,
+  disc: 0.1,
   /** buoy and beacon bodies, carried by colour and a squat silhouette */
-  hull: 0.35,
+  hull: 0.25,
   /** light stars: bold, simple, nothing inside to lose */
-  star: 0.4,
+  star: 0.33,
   /** hazard glyphs — the asterisk, the cross — which are already near-minimal */
-  mark: 0.45,
+  mark: 0.33,
   /** lattice masts and landmark art, whose meaning is in their internal structure */
-  detail: 0.55,
+  detail: 0.4,
 } as const;
 
 /**
- * Floor from the token, full size at the zoom the feature's prominence earns. A body never
- * vanishes at the bottom of this ramp; only a budget removes one.
+ * Bodies hold their token floor through the overview zooms and start growing here. Below this a
+ * symbol is a locator — it says what and where, and the reader zooms for the rest — so it stays
+ * at the smallest size that still means something rather than spending overview room on detail
+ * nobody can use yet.
  */
-export function sizeRamp(floor: number, fullAt: number, full = 1): ExpressionSpecification {
-  return ["interpolate", ["linear"], ["zoom"], 6, floor, fullAt, full];
+export const RAMP_FROM = 9;
+
+/**
+ * Floor from the token until {@link RAMP_FROM}, full size at the zoom the feature's prominence
+ * earns. A body never vanishes at the bottom of this ramp; only a budget removes one.
+ */
+export function sizeRamp(
+  floor: number,
+  fullAt: number,
+  full = 1,
+): ExpressionSpecification {
+  return ["interpolate", ["linear"], ["zoom"], RAMP_FROM, floor, fullAt, full];
 }
 
 function budgetAt(step: 0 | 1 | 2 | 3): ExpressionSpecification {
-  const arms = Object.entries(BUDGET).flatMap(([family, steps]) => [family, steps[step]]);
-  return ["match", ["get", "family"], ...arms, 999] as unknown as ExpressionSpecification;
+  const arms = Object.entries(BUDGET).flatMap(([family, steps]) => [
+    family,
+    steps[step],
+  ]);
+  return [
+    "match",
+    ["get", "family"],
+    ...arms,
+    999,
+  ] as unknown as ExpressionSpecification;
 }
 
 /** This feature is inside its family's allowance for the cell it sits in. */
@@ -101,7 +123,17 @@ export const withinBudget: ExpressionSpecification = [
   "<",
   // lines and areas hold no position in a cell, so they are never thinned
   ["coalesce", ["get", "cell_rank"], 0],
-  ["step", ["zoom"], budgetAt(0), 9, budgetAt(1), 11, budgetAt(2), 13, budgetAt(3)],
+  [
+    "step",
+    ["zoom"],
+    budgetAt(0),
+    9,
+    budgetAt(1),
+    11,
+    budgetAt(2),
+    13,
+    budgetAt(3),
+  ],
 ];
 
 /**
@@ -113,4 +145,8 @@ export const withinBudget: ExpressionSpecification = [
  * every mark is first and every mark is named; where it is crowded only the mark its neighbours
  * are ranked against gets one. That needs no data the tiles do not already carry.
  */
-export const topOfCell: ExpressionSpecification = ["==", ["coalesce", ["get", "cell_rank"], 0], 0];
+export const topOfCell: ExpressionSpecification = [
+  "==",
+  ["coalesce", ["get", "cell_rank"], 0],
+  0,
+];

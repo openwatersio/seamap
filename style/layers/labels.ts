@@ -1,7 +1,7 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { anchorOffsets } from "./placement.js";
-import { TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
+import { RAMP_FROM, TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
 
 const halo = {
   "text-halo-color": colors.halo,
@@ -119,8 +119,8 @@ export function labels(): LayerSpecification[] {
           "interpolate",
           ["linear"],
           ["zoom"],
-          6,
-          anchorOffsets(0.99, 1.13),
+          RAMP_FROM,
+          anchorOffsets(0.85, 0.94),
           12,
           anchorOffsets(1.82, 2.25),
         ],
@@ -133,7 +133,7 @@ export function labels(): LayerSpecification[] {
           "interpolate",
           ["linear"],
           ["zoom"],
-          6,
+          RAMP_FROM,
           TOKEN.detail,
           12,
           ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 1.6, 1.3],
