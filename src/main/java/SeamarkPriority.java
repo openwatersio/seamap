@@ -79,8 +79,9 @@ public class SeamarkPriority {
   /**
    * The deepest safety depth this chart supports. A hazard that could sit at or above a mariner's
    * safety depth is never dropped from a tile, because only the style knows what that depth is and
-   * it cannot exempt a feature it was never sent. Raising this keeps more hazards in every tile; a
-   * safety depth set beyond it is not supported and would silently lose hazards.
+   * it cannot exempt a feature it was never sent. Raising this keeps more hazards in every tile.
+   * The style clamps its safety option to the mirrored constant in `style/layers/visibility.ts`;
+   * keep the two in step.
    */
   public static final int MAX_SAFETY_DEPTH = 30;
 
@@ -125,7 +126,9 @@ public class SeamarkPriority {
   private static int modifier(String family, Map<String, Object> attrs) {
     return switch (family) {
       case HAZARD -> hazardSeverity(attrs);
-      case MAJOR_AID, MINOR_AID -> lightReach(attrs);
+      // structures rank by reach too: a lit mast outranks an unlit one, and the unlit
+      // (no range) case already falls back to MIDDLE
+      case MAJOR_AID, MINOR_AID, STRUCTURE -> lightReach(attrs);
       case HARBOUR -> harbourDraw(attrs);
       default -> MIDDLE;
     };
