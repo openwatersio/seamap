@@ -20,10 +20,15 @@ const map = new maplibregl.Map({
   zoom: 13.4,
   container: "map",
   style: await style({ tiles }),
+  dragRotate: false,
+  touchPitch: false,
+  maxPitch: 0,
   attributionControl: {
     compact: true, // collapsed to the ⓘ toggle by default
   },
 });
+
+map.touchZoomRotate.disableRotation(); // pinch still zooms, just never rotates
 
 // Toggles a debug view of the vector tiles: every layer recoloured, with the
 // feature's tags on hover. The tiles carry the OSM tags verbatim, so this is
