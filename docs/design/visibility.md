@@ -10,11 +10,11 @@ The questions are deliberately independent. Conflating them is how a chart ends 
 
 ## Three axes, each with one home
 
-| Axis | Answers | Lives in | Derives |
-| --- | --- | --- | --- |
-| **Family** | whose budget do you spend | tiles (`family`) | the per-family budgets that stop a harbour competing with forty buoys |
-| **Rank** | who wins within a family | tiles (`cell_rank`) | presence order, decoration fit, label eligibility |
-| **Token** | how far the artwork survives scaling | style ([`visibility.ts`](../../style/layers/visibility.ts)) | the size floor |
+| Axis       | Answers                              | Lives in                                                    | Derives                                                               |
+| ---------- | ------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Family** | whose budget do you spend            | tiles (`family`)                                            | the per-family budgets that stop a harbour competing with forty buoys |
+| **Rank**   | who wins within a family             | tiles (`cell_rank`)                                         | presence order, decoration fit, label eligibility                     |
+| **Token**  | how far the artwork survives scaling | style ([`visibility.ts`](../../style/layers/visibility.ts)) | the size floor                                                        |
 
 **Rank and token are orthogonal, and must not be merged.** A magenta harbour disc shrinks brilliantly and is mid-importance; a cardinal buoy shrinks badly and is top-importance. One scale setting both would give the harbour a floor larger than it needs and the cardinal one smaller. Shrinkability is a property of the artwork; importance is a property of the feature.
 
@@ -40,7 +40,7 @@ Behind the numbering sits a destructive cap (`cellCap`) that actually drops feat
 
 Hazards get a contextual floor, not a typological one, because the standards decide danger contextually twice over — ECDIS promotes a hazard past every scale threshold only when it contradicts navigable water around it (S-52's isolated-danger test), and S-4 §B-404 omits near-shore dangers from small-scale charts entirely, because inshore of the natural line the shore itself is the danger. So: a wreck categorized dangerous appears from z6; a hazard near the shore (`near_shore`, sampled from the DEM at build time) waits for z13, since a rock twenty metres off a coast at overview scale sits inside the coastline's own line weight; a hazard charted deeper than every supported safety depth waits for z11; everything else — dangerous, or uncharted and assumed so — appears from z8.
 
-Floors decide *may*; budgets decide *does*. Above its floor, presence is a rank-within-cell decision, never a class decision.
+Floors decide _may_; budgets decide _does_. Above its floor, presence is a rank-within-cell decision, never a class decision.
 
 ## Presence: the budget
 
@@ -72,9 +72,9 @@ A mark has two states: body with its decorations — topmark, radar reflector, l
 
 **A decoration draws when it is legible and it fits. Both, and nothing else.**
 
-*Legible* is a real floor, not a declutter knob: below the size where a topmark's cones separate, it is a smudge that says something false about the mark. Each decoration kind has its own floor (`LEGIBLE_FROM` in [`visibility.ts`](../../style/layers/visibility.ts)), following from where the body's size ramp carries it past readable — not from a blanket declutter zoom, which would withhold the topmarks of two cardinals alone in an empty view for no reason at all.
+_Legible_ is a real floor, not a declutter knob: below the size where a topmark's cones separate, it is a smudge that says something false about the mark. Each decoration kind has its own floor (`LEGIBLE_FROM` in [`visibility.ts`](../../style/layers/visibility.ts)), following from where the body's size ramp carries it past readable — not from a blanket declutter zoom, which would withhold the topmarks of two cardinals alone in an empty view for no reason at all.
 
-*Fits* cannot be collision, structurally: a decoration is anchored a few pixels from its own body, so to the collision grid it always intersects the mark it belongs to — opting a topmark into collision draws none of them, anywhere, ever. So every part keeps guaranteed placement, and fit rides the same per-cell budget as the body: where a cell keeps few marks, each keeps its dress; where the crowd was thinned, the decorations went with it. Crowding, not scale, is what takes a topmark away — measured by the budget, which knows whose parts are whose, rather than by the collision grid, which does not.
+_Fits_ cannot be collision, structurally: a decoration is anchored a few pixels from its own body, so to the collision grid it always intersects the mark it belongs to — opting a topmark into collision draws none of them, anywhere, ever. So every part keeps guaranteed placement, and fit rides the same per-cell budget as the body: where a cell keeps few marks, each keeps its dress; where the crowd was thinned, the decorations went with it. Crowding, not scale, is what takes a topmark away — measured by the budget, which knows whose parts are whose, rather than by the collision grid, which does not.
 
 Nothing else, because fit alone brings back the soup: a cell's budget can keep several marks whose topmarks are all too small to read. Legibility is the condition crowding cannot express.
 
@@ -107,13 +107,13 @@ Sector geometry joins to its mark on `osm_id` and inherits its budget. Fragments
 
 ## A symbol outranks a label, and behaviour outranks identity
 
-Three levels, in order: the presence of a symbol, then a label that tells you what to *do*, then a label that tells you what something is *called*.
+Three levels, in order: the presence of a symbol, then a label that tells you what to _do_, then a label that tells you what something is _called_.
 
 - **A label never displaces a symbol.** Bodies hold guaranteed placement, so this holds by construction — stated here so it is not traded away later.
 - **A behaviour label outranks an identity label.** A light characteristic, a Racon group, a depth over a hazard all change the decision; a name does not. A lighthouse's name must never take the space a buoy's light description needs. The label layers in [`labels.ts`](../../style/layers/labels.ts) are ordered so that behaviour places first (reverse draw order, again).
 - **An identity label is a luxury.** Affordable only where the symbols around it already fit — the `topOfCell` gate, a tighter condition than a mere lower collision priority.
 
-A label must be unambiguously attached to its symbol, and is better dropped than placed ambiguously: two marks close together with free variable anchors can each take a label on the side nearest the *other* mark, and the pair reads as swapped. Anchor preferences follow the S-4 §B-560.3 order with padding to hold a label against its own mark.
+A label must be unambiguously attached to its symbol, and is better dropped than placed ambiguously: two marks close together with free variable anchors can each take a label on the side nearest the _other_ mark, and the pair reads as swapped. Anchor preferences follow the S-4 §B-560.3 order with padding to hold a label against its own mark.
 
 ## Aggregate where the group is the fact
 
@@ -123,16 +123,16 @@ At z8 the useful statement about a wind farm is that a wind farm is there, not t
 
 Split so iteration is cheap where it can be:
 
-| Decision | Lives in | Costs |
-| --- | --- | --- |
-| Family taxonomy, static rank | [`SeamarkPriority.java`](../../src/main/java/SeamarkPriority.java) | planet build |
-| `cell_rank` numbering, grid cell size, destructive cap | [`Seamap.java`](../../src/main/java/Seamap.java) | planet build |
-| Class floors, hazard context floors | [`SeamarkZoomRules.java`](../../src/main/java/SeamarkZoomRules.java) | planet build |
-| Sector geometry and radii | [`Lights.java`](../../src/main/java/Lights.java) | planet build |
-| Per-family budgets, decoration floors, size tokens and ramps | [`visibility.ts`](../../style/layers/visibility.ts) | page reload |
-| Safety-depth test, isolated-danger test | [`hazards.ts`](../../style/layers/hazards.ts) | page reload |
-| Collision membership (`icon-overlap`, per layer) | [`structures.ts`](../../style/layers/structures.ts) and friends | page reload |
-| Label anchors, order and gates | [`placement.ts`](../../style/layers/placement.ts), [`labels.ts`](../../style/layers/labels.ts) | page reload |
+| Decision                                                     | Lives in                                                                                       | Costs        |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------ |
+| Family taxonomy, static rank                                 | [`SeamarkPriority.java`](../../src/main/java/SeamarkPriority.java)                             | planet build |
+| `cell_rank` numbering, grid cell size, destructive cap       | [`Seamap.java`](../../src/main/java/Seamap.java)                                               | planet build |
+| Class floors, hazard context floors                          | [`SeamarkZoomRules.java`](../../src/main/java/SeamarkZoomRules.java)                           | planet build |
+| Sector geometry and radii                                    | [`Lights.java`](../../src/main/java/Lights.java)                                               | planet build |
+| Per-family budgets, decoration floors, size tokens and ramps | [`visibility.ts`](../../style/layers/visibility.ts)                                            | page reload  |
+| Safety-depth test, isolated-danger test                      | [`hazards.ts`](../../style/layers/hazards.ts)                                                  | page reload  |
+| Collision membership (`icon-overlap`, per layer)             | [`structures.ts`](../../style/layers/structures.ts) and friends                                | page reload  |
+| Label anchors, order and gates                               | [`placement.ts`](../../style/layers/placement.ts), [`labels.ts`](../../style/layers/labels.ts) | page reload  |
 
 The tile-build numbers are set generously (the cap well above any budget, floors below any style threshold that might move) precisely so the style side can be retuned without touching them.
 
@@ -148,11 +148,11 @@ The tile-build numbers are set generously (the cap well above any budget, floors
 
 Each of these has caught a wrong rule; they are the regression set, not a sample. Build test tiles with depth sampling on, or every hazard rule runs in the unknown-depth band and proves nothing.
 
-| Where | Checks |
-| --- | --- |
-| A German Bight or Horns Rev wind farm, z7–z9 | A group reads as a few marks and its envelope, never a mat and never empty sea |
-| Copenhagen, z10 | A harbour front stays legible, and named marinas survive rather than arbitrary basins |
-| `#11.77/54.9708/11.6406` | Two cardinals alone in an empty view keep their topmarks — the case a flat decoration zoom fails |
-| `#13.29/54.96405/11.85357` | Two marks on the shore whose labels must not read as each other's |
-| The Kornati archipelago, z9–z12 | A thousand hazards in one view: thinning at real density, and the shoalest member always retained |
-| Any hazard scene, several safety depths | The safety-depth exemption is evaluated in the style, not baked into rank |
+| Where                                        | Checks                                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| A German Bight or Horns Rev wind farm, z7–z9 | A group reads as a few marks and its envelope, never a mat and never empty sea                    |
+| Copenhagen, z10                              | A harbour front stays legible, and named marinas survive rather than arbitrary basins             |
+| `#11.77/54.9708/11.6406`                     | Two cardinals alone in an empty view keep their topmarks — the case a flat decoration zoom fails  |
+| `#13.29/54.96405/11.85357`                   | Two marks on the shore whose labels must not read as each other's                                 |
+| The Kornati archipelago, z9–z12              | A thousand hazards in one view: thinning at real density, and the shoalest member always retained |
+| Any hazard scene, several safety depths      | The safety-depth exemption is evaluated in the style, not baked into rank                         |
