@@ -167,6 +167,21 @@ export const taginfo = {
       description: "Drawn as a rescue station.",
     },
     {
+      key: "barrier",
+      value: "floating_boom",
+      description: "Drawn as a floating barrier: a dashed line with a legend naming it.",
+    },
+    {
+      key: "barrier",
+      value: "shark_net",
+      description: "Drawn as a floating barrier: a dashed line with a legend naming it.",
+    },
+    {
+      key: "man_made",
+      value: "dolphin",
+      description: "Drawn as a mooring dolphin.",
+    },
+    {
       key: "route",
       value: "ferry",
       description: "Ways are drawn as a ferry route.",
