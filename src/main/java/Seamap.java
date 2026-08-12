@@ -330,7 +330,13 @@ public class Seamap implements Profile {
     }
     int cap = cellCap(zoom);
     for (List<VectorTile.Feature> cell : cells.values()) {
-      cell.sort(Comparator.comparingInt(feature -> SeamarkPriority.rank(feature.tags())));
+      // the id tiebreak makes equal ranks deterministic — a wind farm's turbines all tie, and
+      // without it the survivors follow whatever input order planetiler happened to supply,
+      // reshuffling the representative set between builds
+      cell.sort(
+          Comparator.<VectorTile.Feature>comparingInt(
+                  feature -> SeamarkPriority.rank(feature.tags()))
+              .thenComparingLong(VectorTile.Feature::id));
       for (int i = 0; i < cell.size(); i++) {
         VectorTile.Feature feature = cell.get(i);
         // The cap is a storage backstop, and it must not decide a safety question the style owns:

@@ -110,6 +110,26 @@ class SeamapTest {
     assertEquals(1, cellRank(layers, "other buoy"));
   }
 
+  /** Equal ranks break ties on the stable feature id, not planetiler's input order. */
+  @Test
+  void equalRanksTieBreakOnFeatureId() {
+    Map<String, Object> attrs = new HashMap<>();
+    attrs.put("type", "landmark");
+    attrs.put("category", "windmotor");
+    attrs.put("family", SeamarkPriority.family(attrs));
+    var later =
+        new VectorTile.Feature(
+            "seamark", 7, VectorTile.encodeGeometry(GF.createPoint(new Coordinate(10, 10))), attrs);
+    var earlier =
+        new VectorTile.Feature(
+            "seamark", 3, VectorTile.encodeGeometry(GF.createPoint(new Coordinate(12, 12))), attrs);
+    // insertion order says `later` first; the id says otherwise
+    var layers = numbered(later, earlier);
+    for (VectorTile.Feature f : layers.get("seamark")) {
+      assertEquals(f.id() == 3 ? 0 : 1, f.tags().get("cell_rank"));
+    }
+  }
+
   /** Numbering is per cell: a neighbour two cells away competes for nothing. */
   @Test
   void cellsAreNumberedIndependently() {
