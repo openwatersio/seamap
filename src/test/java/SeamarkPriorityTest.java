@@ -44,6 +44,10 @@ class SeamarkPriorityTest {
     assertEquals(SeamarkPriority.STRUCTURE, SeamarkPriority.family(attrs("type", "landmark")));
     // an unrecognised type competes with piles, not with aids to navigation
     assertEquals(SeamarkPriority.STRUCTURE, SeamarkPriority.family(attrs("type", "not_a_seamark")));
+    // an uncategorized harbour is common on the planet, and Set.of lookups reject null:
+    // this threw and dropped every such feature from the first full build
+    assertEquals(SeamarkPriority.STRUCTURE, SeamarkPriority.family(attrs("type", "harbour")));
+    assertEquals(false, SeamarkPriority.neverCapped(attrs("name", "typeless")));
   }
 
   /** A light's reach outranks how its host happens to be typed, as SeamarkZoomRules also has it. */

@@ -95,8 +95,11 @@ public class SeamarkPriority {
       return MINOR_AID;
     // Only a marina or a fishing harbour gets a badge. Ranking the ferry berths and naval basins
     // alongside them spends a budget on features nothing draws, and pushes the marinas out of it.
-    if (type.equals("harbour"))
-      return BADGED_HARBOURS.contains(attrs.get("category")) ? HARBOUR : STRUCTURE;
+    // Set.of rejects null lookups, and an uncategorized harbour is common — guard before asking.
+    if (type.equals("harbour")) {
+      Object category = attrs.get("category");
+      return category != null && BADGED_HARBOURS.contains(category) ? HARBOUR : STRUCTURE;
+    }
     if (type.equals("small_craft_facility")) return FACILITY;
     // An unrecognised type competes with piles and cranes rather than with aids to navigation.
     // Safe because every hazard class is named above; revisit if a hazard type is ever added
@@ -175,7 +178,8 @@ public class SeamarkPriority {
    * safety depth; {@code hazards()} in the style exempts exactly these from its budget.
    */
   public static boolean neverCapped(Map<String, Object> attrs) {
-    if (!HAZARD_TYPES.contains(attrs.get("type"))) return false;
+    Object type = attrs.get("type");
+    if (type == null || !HAZARD_TYPES.contains(type)) return false;
     Object known = coalesce(attrs, "depth", "seabed_depth");
     return !(known instanceof Number n) || n.doubleValue() <= MAX_SAFETY_DEPTH;
   }
