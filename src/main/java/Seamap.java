@@ -258,7 +258,7 @@ public class Seamap implements Profile {
       layers.put("seamark", numbered);
       List<VectorTile.Feature> lights = layers.get("light");
       if (lights != null && !lights.isEmpty()) {
-        layers.put("light", followHost(lights, numbered));
+        layers.put("light", followHost(lights, numbered, seamarks));
       }
     }
 
@@ -347,24 +347,34 @@ public class Seamap implements Profile {
    * leaving its sectors drawn over empty water. Join each on `osm_id` to the mark it belongs to and
    * inherit that mark's budget.
    *
-   * <p>An arc is wider than the tiles it is cut into, so most tiles hold fragments of rings whose
-   * light lies in a neighbouring tile: those have no host here and are kept as they are. Amputating
-   * every ring at a tile edge would be far worse than the rare fragment that outlives a
-   * destructively capped host — that needs nine lights of one family in a 32-pixel cell.
+   * <p>An arc is wider than the tiles it is cut into, so a tile can hold a fragment of a ring whose
+   * light it does not: a hostless join is ambiguous between "the light lies in a neighbouring tile"
+   * and "the light was capped out of this one". The original seamark list disambiguates. A capped
+   * host takes its geometry with it — an arc without its light drew, then flickered back in a zoom
+   * later when the re-tiled cell gave the host a rank again. A true cross-tile fragment is kept
+   * as-is, because amputating every ring at a tile edge is worse.
    */
   private static List<VectorTile.Feature> followHost(
-      List<VectorTile.Feature> lights, List<VectorTile.Feature> hosts) {
+      List<VectorTile.Feature> lights,
+      List<VectorTile.Feature> hosts,
+      List<VectorTile.Feature> beforeCap) {
     Map<Object, VectorTile.Feature> byId = new HashMap<>();
     for (VectorTile.Feature host : hosts) {
       Object id = host.tags().get("osm_id");
       // a polygon host carries no cell_rank; its label point does, and shares the id
       if (id != null && host.tags().get("cell_rank") != null) byId.putIfAbsent(id, host);
     }
+    Set<Object> inTile = new HashSet<>();
+    for (VectorTile.Feature seamark : beforeCap) {
+      Object id = seamark.tags().get("osm_id");
+      if (id != null) inTile.add(id);
+    }
     List<VectorTile.Feature> out = new ArrayList<>(lights.size());
     for (VectorTile.Feature light : lights) {
-      VectorTile.Feature host = byId.get(light.tags().get("osm_id"));
+      Object id = light.tags().get("osm_id");
+      VectorTile.Feature host = byId.get(id);
       if (host == null) {
-        out.add(light);
+        if (!inTile.contains(id)) out.add(light);
         continue;
       }
       Map<String, Object> inherited = new HashMap<>();
