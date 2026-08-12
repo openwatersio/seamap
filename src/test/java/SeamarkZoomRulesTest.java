@@ -66,6 +66,14 @@ class SeamarkZoomRulesTest {
     assertEquals(4, SeamarkZoomRules.getMinZoom(attrs("type", "light_major")));
   }
 
+  /** Sector geometry never precedes its mark: an early arc would render as an orphan. */
+  @Test
+  void lightGeometryWaitsForItsHost() {
+    assertEquals(8, SeamarkZoomRules.getLightMinZoom(attrs("type", "light_minor")));
+    assertEquals(13, SeamarkZoomRules.getLightMinZoom(attrs("type", "mooring")));
+    assertEquals(13, SeamarkZoomRules.getLightMinZoom(attrs("type", "rock", "near_shore", true)));
+  }
+
   /** A plain tower is Coastal detail; what a mariner steers by keeps the early floor. */
   @Test
   void landmarksSplitByConspicuity() {

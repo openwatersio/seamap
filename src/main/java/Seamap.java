@@ -237,10 +237,12 @@ public class Seamap implements Profile {
           List<Lights.LightGeometry> lightGeometries = Lights.extractLightGeometries(sf, type);
           for (Lights.LightGeometry lightGeom : lightGeometries) {
             FeatureCollector.Feature lightFeature = features.geometry("light", lightGeom.geometry);
+            // the namespaced id is what followHost joins on; osm_id stays for inspection
+            lightFeature.setId(featureId(sf));
             lightFeature.setAttr("osm_id", sf.id());
             lightFeature.setAttr("type", type);
             lightGeom.attrs.forEach((k, v) -> lightFeature.setAttr(k, v));
-            lightFeature.setMinZoom(SeamarkZoomRules.getLightMinZoom(type));
+            lightFeature.setMinZoom(SeamarkZoomRules.getLightMinZoom(attrs));
           }
         } catch (Exception e) {
           System.err.println("Error generating light geometries for OSM ID " + sf.id() + ": " + e);
@@ -354,37 +356,27 @@ public class Seamap implements Profile {
    * later when the re-tiled cell gave the host a rank again. A true cross-tile fragment is kept
    * as-is, because amputating every ring at a tile edge is worse.
    */
-  /**
-   * Raw OSM ids collide across the node/way/relation namespaces (see {@link #featureId}), so the
-   * join key qualifies the id with the seamark type, which light geometry carries verbatim from its
-   * host. An unrelated way sharing a node's number never shares its type too.
-   */
-  private static Object hostKey(Map<String, Object> tags) {
-    Object id = tags.get("osm_id");
-    return id == null ? null : id + "/" + tags.get("type");
-  }
-
   private static List<VectorTile.Feature> followHost(
       List<VectorTile.Feature> lights,
       List<VectorTile.Feature> hosts,
       List<VectorTile.Feature> beforeCap) {
-    Map<Object, VectorTile.Feature> byId = new HashMap<>();
+    // The join key is the mvt feature id, which processFeature sets to the namespaced
+    // featureId() on hosts and light geometry alike — raw OSM ids collide across the
+    // node/way/relation namespaces and must not be joined on.
+    Map<Long, VectorTile.Feature> byId = new HashMap<>();
     for (VectorTile.Feature host : hosts) {
-      Object key = hostKey(host.tags());
       // a polygon host carries no cell_rank; its label point does, and shares the id
-      if (key != null && host.tags().get("cell_rank") != null) byId.putIfAbsent(key, host);
+      if (host.id() > 0 && host.tags().get("cell_rank") != null) byId.putIfAbsent(host.id(), host);
     }
-    Set<Object> inTile = new HashSet<>();
+    Set<Long> inTile = new HashSet<>();
     for (VectorTile.Feature seamark : beforeCap) {
-      Object key = hostKey(seamark.tags());
-      if (key != null) inTile.add(key);
+      if (seamark.id() > 0) inTile.add(seamark.id());
     }
     List<VectorTile.Feature> out = new ArrayList<>(lights.size());
     for (VectorTile.Feature light : lights) {
-      Object key = hostKey(light.tags());
-      VectorTile.Feature host = byId.get(key);
+      VectorTile.Feature host = byId.get(light.id());
       if (host == null) {
-        if (!inTile.contains(key)) out.add(light);
+        if (!inTile.contains(light.id())) out.add(light);
         continue;
       }
       Map<String, Object> inherited = new HashMap<>();

@@ -83,11 +83,13 @@ public class SeamarkZoomRules {
   }
 
   /**
-   * Floor for a light's sector arcs and legs. The zoom a sector actually draws at is a style
-   * threshold — keep this below it so that threshold can move without a planet build.
+   * Floor for a light's sector arcs and legs: z8 for style headroom (the zoom a sector actually
+   * draws at is a style threshold, kept above this so it can move without a planet build), but
+   * never before the host mark itself — geometry arriving ahead of its mark reads to the tile join
+   * as a cross-tile fragment and draws as an orphan arc.
    */
-  public static int getLightMinZoom(String type) {
-    return 8;
+  public static int getLightMinZoom(Map<String, Object> attrs) {
+    return Math.max(8, getMinZoom(attrs));
   }
 
   private static boolean isHazard(String type) {

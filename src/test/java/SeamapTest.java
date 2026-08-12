@@ -156,12 +156,13 @@ class SeamapTest {
   @Test
   void theCapNeverRemovesAHazardTheStyleCouldExempt() {
     List<VectorTile.Feature> crowd = new ArrayList<>();
-    // deep rocks that are invisible, so they outrank on water level alone
+    // the same depth band and a more severe water level, so the shoal genuinely ranks ninth
+    // and only the retention rule can carry it past the cap of eight
     for (int i = 0; i < 8; i++) {
       crowd.add(
-          seamark("deep " + i, 10, 10, "type", "rock", "water_level", "submerged", "depth", 20));
+          seamark("peer " + i, 10, 10, "type", "rock", "water_level", "submerged", "depth", 1));
     }
-    crowd.add(seamark("shoal", 10, 10, "type", "rock", "water_level", "covers", "depth", 1));
+    crowd.add(seamark("shoal", 10, 10, "type", "rock", "water_level", "covers", "depth", 1.5));
     Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
     layers.put("seamark", crowd);
     var kept = new Seamap().postProcessTileFeatures(TileCoord.ofXYZ(0, 0, 8), layers);
@@ -179,11 +180,14 @@ class SeamapTest {
     attrs.put("family", SeamarkPriority.family(attrs));
     var host =
         new VectorTile.Feature(
-            "seamark", 1, VectorTile.encodeGeometry(GF.createPoint(new Coordinate(10, 10))), attrs);
+            "seamark",
+            42,
+            VectorTile.encodeGeometry(GF.createPoint(new Coordinate(10, 10))),
+            attrs);
 
-    var arc = arcFor(42L, "buoy_lateral");
+    var arc = arcFor(42L);
     // an arc wider than its tile leaves fragments in tiles that hold no trace of its light
-    var fragment = arcFor(99L, "buoy_lateral");
+    var fragment = arcFor(99L);
 
     Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
     layers.put("seamark", new ArrayList<>(List.of(host)));
@@ -207,40 +211,38 @@ class SeamapTest {
   @Test
   void aCappedHostTakesItsSectorGeometryWithIt() {
     List<VectorTile.Feature> crowd = new ArrayList<>();
-    for (int i = 0; i < 9; i++) {
+    for (int id = 1; id <= 9; id++) {
       Map<String, Object> attrs = new HashMap<>();
-      attrs.put("name", "light " + i);
+      attrs.put("name", "light " + id);
       attrs.put("type", "light_minor");
-      attrs.put("osm_id", (long) i);
-      attrs.put("light_range", 9 - i); // ranks 0..8 in reach order, so id 8 is the one capped
+      attrs.put("osm_id", (long) id);
+      attrs.put("light_range", 10 - id); // ranks in reach order, so id 9 is the one capped
       attrs.put("family", SeamarkPriority.family(attrs));
       crowd.add(
           new VectorTile.Feature(
               "seamark",
-              1,
+              id,
               VectorTile.encodeGeometry(GF.createPoint(new Coordinate(10, 10))),
               attrs));
     }
     Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
     layers.put("seamark", crowd);
-    layers.put(
-        "light", new ArrayList<>(List.of(arcFor(8L, "light_minor"), arcFor(99L, "light_minor"))));
+    layers.put("light", new ArrayList<>(List.of(arcFor(9L), arcFor(99L))));
     // z8: the cap is 8 per cell, so the ninth light is dropped from the tile
     var out = new Seamap().postProcessTileFeatures(TileCoord.ofXYZ(0, 0, 8), layers);
 
     var kept = out.get("light");
     assertEquals(1, kept.size(), "the capped light's arc must go with it: " + kept);
-    assertEquals(99L, kept.get(0).tags().get("osm_id"), "the cross-tile fragment stays");
+    assertEquals(99L, kept.get(0).id(), "the cross-tile fragment stays");
   }
 
-  private static VectorTile.Feature arcFor(long osmId, String type) {
+  private static VectorTile.Feature arcFor(long id) {
     Map<String, Object> attrs = new HashMap<>();
-    attrs.put("osm_id", osmId);
-    // light geometry carries its host's seamark type verbatim, and the join key relies on it
-    attrs.put("type", type);
+    attrs.put("osm_id", id);
     attrs.put("subtype", "arc");
     var line = GF.createLineString(new Coordinate[] {new Coordinate(9, 9), new Coordinate(11, 11)});
-    return new VectorTile.Feature("light", 1, VectorTile.encodeGeometry(line), attrs);
+    // the join key is the mvt feature id, matching processFeature's featureId()
+    return new VectorTile.Feature("light", id, VectorTile.encodeGeometry(line), attrs);
   }
 
   /** Lines and polygons carry no position in a cell, and keep the attributes they arrived with. */
