@@ -55,7 +55,8 @@ export function routes(): LayerSpecification[] {
         "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.1, 14, 0.6],
         "symbol-placement": "line",
         "icon-padding": 0,
-        "symbol-spacing": 1,
+        // grows with icon-size so the gap between arrows stays open as they scale up
+        "symbol-spacing": ["interpolate", ["linear"], ["zoom"], 6, 40, 14, 180],
         "icon-rotate": 90,
         "icon-overlap": "always",
       },
