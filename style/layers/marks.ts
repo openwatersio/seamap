@@ -1,39 +1,54 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
-import { TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
+import { RAMP_FROM, TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
 
 /**
- * Body heights by shape, expressed as the y-offset (sprite px, scaled by icon-size) that puts a
- * bottom-anchored icon's base just clear of the hull. The bodies are bottom-anchored at +4, so a
- * shape of height h has its top at 4 − h; −2 more leaves the clear gap IALA R1001 asks for
- * between a topmark and the mark below it.
+ * Y-offsets (sprite px, scaled by icon-size) that seat a bottom-anchored topmark on each body
+ * shape. Bodies are bottom-anchored at +4; the topmark's base overlaps the body's top by a few
+ * px and the body paints over it, so the topmark reads as mounted on the mark. Values tuned by
+ * the sprite author (openwatersio/seamap#19).
  */
-const BODY_TOP: [string[], number][] = [
-  [["pillar", "spar", "stake", "pole", "perch", "post"], -26],
+const TOPMARK_Y: [string[], number][] = [
+  [["pillar", "spar", "stake", "pole", "perch", "post"], -22],
   [["buoyant", "lattice", "pile", "tower"], -24],
   [["cairn"], -22],
-  [["conical"], -16],
-  [["can"], -14],
-  [["spherical", "barrel", "super-buoy"], -12],
+  [["conical"], -12],
+  [["can"], -8],
+  [["spherical", "barrel", "super-buoy"], -9],
 ];
 
-/** Offset that floats an icon `lift` px above the body's top edge (0 = resting just clear). */
-function aboveBody(lift: number): ExpressionSpecification {
+/**
+ * Reflectors clear a typical 12 px topmark on squat bodies; on tall thin bodies the reflector is
+ * charted partway up the body itself, below the topmark.
+ */
+const REFLECTOR_Y: [string[], number][] = [
+  [["pillar", "spar", "stake", "pole", "perch", "post"], -10],
+  [["buoyant", "lattice", "pile", "tower"], -10],
+  [["cairn"], -36],
+  [["conical"], -30],
+  [["can"], -28],
+  [["spherical", "barrel", "super-buoy"], -26],
+];
+
+function shapeOffset(
+  floatY: number,
+  table: [string[], number][],
+  fallbackY: number,
+): ExpressionSpecification {
   const cases: unknown[] = [
     "case",
     // light floats/vessels rarely carry a shape tag; their hulls are squat
     ["in", ["get", "type"], ["literal", ["light_float", "light_vessel"]]],
-    ["literal", [0, -16 + lift]],
+    ["literal", [0, floatY]],
   ];
-  for (const [shapes, y] of BODY_TOP) {
-    cases.push(["in", ["get", "shape"], ["literal", shapes]], ["literal", [0, y + lift]]);
+  for (const [shapes, y] of table) {
+    cases.push(["in", ["get", "shape"], ["literal", shapes]], ["literal", [0, y]]);
   }
-  cases.push(["literal", [0, -26 + lift]]); // unknown shapes draw the tall generic body
+  cases.push(["literal", [0, fallbackY]]); // unknown shapes draw the tall generic body
   return cases as ExpressionSpecification;
 }
 
-const topmarkOffset = aboveBody(0);
-// clears a typical 12 px topmark; without one the reflector floats a little, which reads fine
-const reflectorOffset = aboveBody(-14);
+const topmarkOffset = shapeOffset(-16, TOPMARK_Y, -26);
+const reflectorOffset = shapeOffset(-30, REFLECTOR_Y, -40);
 
 /** The sheet names buoyant bodies "pile" and pole/perch/post bodies "stake". */
 const bodyShape: ExpressionSpecification = [
@@ -64,13 +79,85 @@ const patternBodyShape: ExpressionSpecification = [
 ];
 
 /**
- * Floating and fixed marks: buoys and beacons, their topmarks and radar reflectors. Topmarks and
- * reflectors draw after the bodies so a hull can never paint over them. minzoom 6 defers to the
- * tile pipeline, which only carries cardinal/isolated-danger/safe-water marks below zoom 8
- * (SeamarkZoomRules).
+ * Floating and fixed marks: buoys and beacons, their topmarks and radar reflectors. Topmarks draw
+ * before the bodies so the hull hides their overlapping base and they read as mounted on the
+ * mark; reflectors draw last, charted over the mark. minzoom 6 defers to the tile pipeline,
+ * which only carries cardinal/isolated-danger/safe-water marks below zoom 8 (SeamarkZoomRules).
  */
 export function marks(): LayerSpecification[] {
   return [
+    {
+      id: "topmarks",
+      type: "symbol",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 6,
+      filter: ["all", ["has", "topmark_shape"], decoration("topmark"), withinBudget],
+      layout: {
+        // colour combinations the sheet doesn't carry fall back to the shape's generic icon, then
+        // to the bare shape name (besom topmarks ship uncoloured)
+        "icon-image": [
+          "coalesce",
+          [
+            "image",
+            [
+              "case",
+              ["has", "topmark_color_pattern"],
+              [
+                "concat",
+                "freenauticalchart:",
+                ["get", "topmark_shape"],
+                "/",
+                ["get", "topmark_color_pattern"],
+                "/",
+                ["get", "topmark_color"],
+              ],
+              [
+                "concat",
+                "freenauticalchart:",
+                ["get", "topmark_shape"],
+                "/",
+                ["get", "topmark_color"],
+              ],
+            ],
+          ],
+          ["image", ["concat", "freenauticalchart:", ["get", "topmark_shape"], "/generic"]],
+          ["image", ["concat", "freenauticalchart:", ["get", "topmark_shape"]]],
+        ],
+        "icon-anchor": "bottom",
+        // anchored to its body, so collision would always drop it; the filters do the thinning
+        "icon-overlap": "always",
+        "icon-offset": topmarkOffset,
+        "icon-rotate": [
+          "case",
+          ["in", ["get", "shape"], ["literal", ["pillar", "barrel", "conical", "spar", "can"]]],
+          15,
+          0,
+        ],
+        // icon-offset is scaled by the icon's own icon-size, while the seat it aims for scales
+        // with the hull ramp — this must stay a constant multiple of the body's ramp, or the
+        // topmark rams into the body where the ratio shrinks and floats off where it grows
+        "icon-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          RAMP_FROM,
+          [
+            "case",
+            ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
+            TOKEN.hull,
+            1.2 * TOKEN.hull,
+          ],
+          12,
+          [
+            "case",
+            ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
+            1,
+            1.2,
+          ],
+        ],
+      },
+    },
     {
       id: "buoys",
       type: "symbol",
@@ -148,75 +235,6 @@ export function marks(): LayerSpecification[] {
       },
     },
     {
-      id: "topmarks",
-      type: "symbol",
-      source: "seamap",
-      "source-layer": "seamark",
-      minzoom: 6,
-      filter: ["all", ["has", "topmark_shape"], decoration("topmark"), withinBudget],
-      layout: {
-        // colour combinations the sheet doesn't carry fall back to the shape's generic icon, then
-        // to the bare shape name (besom topmarks ship uncoloured)
-        "icon-image": [
-          "coalesce",
-          [
-            "image",
-            [
-              "case",
-              ["has", "topmark_color_pattern"],
-              [
-                "concat",
-                "freenauticalchart:",
-                ["get", "topmark_shape"],
-                "/",
-                ["get", "topmark_color_pattern"],
-                "/",
-                ["get", "topmark_color"],
-              ],
-              [
-                "concat",
-                "freenauticalchart:",
-                ["get", "topmark_shape"],
-                "/",
-                ["get", "topmark_color"],
-              ],
-            ],
-          ],
-          ["image", ["concat", "freenauticalchart:", ["get", "topmark_shape"], "/generic"]],
-          ["image", ["concat", "freenauticalchart:", ["get", "topmark_shape"]]],
-        ],
-        "icon-anchor": "bottom",
-        // anchored to its body, so collision would always drop it; the filters do the thinning
-        "icon-overlap": "always",
-        "icon-offset": topmarkOffset,
-        "icon-rotate": [
-          "case",
-          ["in", ["get", "shape"], ["literal", ["pillar", "barrel", "conical", "spar", "can"]]],
-          15,
-          0,
-        ],
-        "icon-size": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          12,
-          [
-            "case",
-            ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
-            0.7,
-            0.8,
-          ],
-          14,
-          [
-            "case",
-            ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
-            1,
-            1.2,
-          ],
-        ],
-      },
-    },
-    {
       id: "radar-reflectors",
       type: "symbol",
       source: "seamap",
@@ -229,7 +247,8 @@ export function marks(): LayerSpecification[] {
         "icon-anchor": "bottom",
         "icon-overlap": "always",
         "icon-offset": reflectorOffset,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
+        // constant multiple of the hull ramp, for the same reason as the topmark's icon-size
+        "icon-size": sizeRamp(TOKEN.hull, 12),
       },
     },
   ];

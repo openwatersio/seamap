@@ -125,9 +125,9 @@ it("keeps layer ids and order stable", () => {
     "sector-arc-casing",
     "sector-arc",
     "sector-arc-obscured",
-    // marks — bodies first, so a hull can never paint over its topmark or reflector
-    "buoys",
+    // marks — topmarks under the bodies (the hull hides their overlapping base), reflectors on top
     "topmarks",
+    "buoys",
     "radar-reflectors",
     // labels last, so they win against the icons below — and among themselves the ones that
     // change a decision place after the ones that only name something
