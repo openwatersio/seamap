@@ -102,7 +102,6 @@ it("keeps layer ids and order stable", () => {
     "TSS-separation-boundary",
     "TSS-separation-line",
     "ferry",
-    "ferry-symbols",
     "navigation-lines",
     "navigation-tracks",
     // structures

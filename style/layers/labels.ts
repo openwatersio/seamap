@@ -1,7 +1,13 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { anchorOffsets } from "./placement.js";
-import { RAMP_FROM, TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
+import {
+  RAMP_FROM,
+  TOKEN,
+  decoration,
+  topOfCell,
+  withinBudget,
+} from "./visibility.js";
 
 const halo = {
   "text-halo-color": colors.halo,
@@ -29,7 +35,8 @@ export function labels(): LayerSpecification[] {
       type: "symbol",
       source: "seamap",
       "source-layer": "seamark",
-      // the tiles carry only conspicuous landmarks below z8 (SeamarkZoomRules)
+      // below z10 the tiles carry only the landmarks a mariner steers by — conspicuous, lit,
+      // or wind turbines (SeamarkZoomRules)
       minzoom: 6,
       filter: [
         "all",
@@ -44,7 +51,10 @@ export function labels(): LayerSpecification[] {
           [
             "in",
             ["get", "function"],
-            ["literal", ["radio", "radar", "television", "light_support", "leading"]],
+            [
+              "literal",
+              ["radio", "radar", "television", "light_support", "leading"],
+            ],
           ],
         ],
       ],
@@ -103,7 +113,11 @@ export function labels(): LayerSpecification[] {
           12,
           [
             "case",
-            ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
+            [
+              "any",
+              ["has", "seamark:light:colour"],
+              ["has", "seamark:light:1:colour"],
+            ],
             "",
             ["!", topOfCell],
             "",
@@ -113,15 +127,16 @@ export function labels(): LayerSpecification[] {
         "text-size": 12,
         "text-padding": 8,
         "text-font": ["Noto Sans Regular"],
-        // tracks icon-size to hold ~7.5px from icon edge to glyph, leaving ~5px clear of the halo.
-        // Sprites are 22 x 30 display px at icon-size 1, hence the taller vertical offsets.
+        // One monotone ramp from snug to full clearance, like lights-label: intermediate stops
+        // read as the label jumping around its mark. Sprites are 22 x 30 display px at
+        // icon-size 1, hence the taller vertical offsets.
         "text-variable-anchor-offset": [
           "interpolate",
           ["linear"],
           ["zoom"],
           RAMP_FROM,
           anchorOffsets(0.85, 0.94),
-          12,
+          16,
           anchorOffsets(1.82, 2.25),
         ],
         "text-justify": "auto",
@@ -136,7 +151,12 @@ export function labels(): LayerSpecification[] {
           RAMP_FROM,
           TOKEN.detail,
           12,
-          ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 1.6, 1.3],
+          [
+            "case",
+            ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"],
+            1.6,
+            1.3,
+          ],
         ],
       },
       paint: { "text-color": colors.label, ...halo },
@@ -147,7 +167,11 @@ export function labels(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 10,
-      filter: ["all", ["has", "name"], ["in", ["get", "type"], ["literal", ["ferry_route"]]]],
+      filter: [
+        "all",
+        ["has", "name"],
+        ["in", ["get", "type"], ["literal", ["ferry_route"]]],
+      ],
       layout: {
         "symbol-placement": "line",
         "text-field": ["get", "name"],
@@ -155,7 +179,12 @@ export function labels(): LayerSpecification[] {
         "text-font": ["Noto Sans Regular"],
       },
       paint: {
-        "text-color": ["case", ["==", ["get", "type"], "ferry_route"], colors.ferry, colors.label],
+        "text-color": [
+          "case",
+          ["==", ["get", "type"], "ferry_route"],
+          colors.ferry,
+          colors.label,
+        ],
         ...halo,
       },
     },
@@ -169,7 +198,8 @@ export function labels(): LayerSpecification[] {
         "all",
         ["==", ["geometry-type"], "LineString"],
         ["has", "name"],
-        ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour"]]]],
+        // ferry routes are named by line_symbols, in ferry colour and repeating along the line
+        ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour", "ferry_route"]]]],
       ],
       layout: {
         "symbol-placement": "line-center",
@@ -214,14 +244,22 @@ export function labels(): LayerSpecification[] {
           12,
           [
             "case",
-            ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
+            [
+              "in",
+              ["get", "type"],
+              ["literal", ["rock", "wreck", "obstruction"]],
+            ],
             anchorOffsets(1.7),
             anchorOffsets(1.85, 3.15, 1.15),
           ],
           16,
           [
             "case",
-            ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
+            [
+              "in",
+              ["get", "type"],
+              ["literal", ["rock", "wreck", "obstruction"]],
+            ],
             anchorOffsets(1.4),
             anchorOffsets(1.42, 2.42, 0.88),
           ],
@@ -236,7 +274,12 @@ export function labels(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 11,
-      filter: ["all", ["has", "radar_transponder"], decoration("characteristic"), withinBudget],
+      filter: [
+        "all",
+        ["has", "radar_transponder"],
+        decoration("characteristic"),
+        withinBudget,
+      ],
       layout: {
         "text-field": [
           "case",
@@ -247,7 +290,16 @@ export function labels(): LayerSpecification[] {
         "text-font": ["Noto Sans Italic"],
         "text-size": 10,
         "text-anchor": "top",
-        "text-offset": [0, 1.4],
+        // below its host like a subtitle, tracking the body ramp in from a snug start
+        "text-offset": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          RAMP_FROM,
+          ["literal", [0, 0.85]],
+          16,
+          ["literal", [0, 1.4]],
+        ],
         "text-optional": true,
       },
       paint: { "text-color": colors.magenta, ...halo },
@@ -260,7 +312,11 @@ export function labels(): LayerSpecification[] {
       minzoom: 11,
       filter: [
         "all",
-        ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
+        [
+          "any",
+          ["has", "seamark:light:colour"],
+          ["has", "seamark:light:1:colour"],
+        ],
         decoration("characteristic"),
         withinBudget,
       ],
@@ -279,21 +335,26 @@ export function labels(): LayerSpecification[] {
             ["get", "light"],
             { "text-font": ["literal", ["Noto Sans Italic"]] },
           ],
-          ["format", ["get", "light"], { "text-font": ["literal", ["Noto Sans Italic"]] }],
+          [
+            "format",
+            ["get", "light"],
+            { "text-font": ["literal", ["Noto Sans Italic"]] },
+          ],
         ],
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14],
         "text-padding": 8,
-        // matches the gap `landmarks` leaves off the same symbol, in ems of this layer's text-size
+        // Matches the gap `landmarks` leaves off the same symbol, in ems of this layer's
+        // text-size. The low stops track the body's size ramp (RAMP_FROM → full at 12): an
+        // offset held at its full-size value while the star is still near its floor reads as a
+        // label adrift between marks, not attached to one.
         "text-variable-anchor-offset": [
           "interpolate",
           ["linear"],
           ["zoom"],
-          11,
-          anchorOffsets(1.96, 2.4),
-          12,
-          anchorOffsets(2.18, 2.7),
+          RAMP_FROM,
+          anchorOffsets(0.3, 1.15),
           16,
           anchorOffsets(1.56, 1.93),
         ],
