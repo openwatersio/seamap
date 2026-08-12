@@ -92,6 +92,46 @@ class LightsTest {
     assertTrue(narrowRadius > wideRadius, "extended sector reaches past the one that overlaps it");
   }
 
+  /** A nested sector sharing a limit with the wider one still earns the extended radius. */
+  @Test
+  void nestedSectorsSharingALimitStillExtend() {
+    var sharedStart =
+        sectorsOf(
+            light(
+                "seamark:light:1:sector_start", "0",
+                "seamark:light:1:sector_end", "180",
+                "seamark:light:2:sector_start", "0",
+                "seamark:light:2:sector_end", "90"));
+    assertEquals(
+        1,
+        of(sharedStart, "sector").stream().filter(g -> g.attrs.containsKey("extended")).count(),
+        "the 0-90 sector nests inside 0-180 and must extend");
+
+    var sharedEnd =
+        sectorsOf(
+            light(
+                "seamark:light:1:sector_start", "0",
+                "seamark:light:1:sector_end", "180",
+                "seamark:light:2:sector_start", "90",
+                "seamark:light:2:sector_end", "180"));
+    assertEquals(
+        1,
+        of(sharedEnd, "sector").stream().filter(g -> g.attrs.containsKey("extended")).count(),
+        "the 90-180 sector nests inside 0-180 and must extend");
+
+    var adjacent =
+        sectorsOf(
+            light(
+                "seamark:light:1:sector_start", "0",
+                "seamark:light:1:sector_end", "90",
+                "seamark:light:2:sector_start", "90",
+                "seamark:light:2:sector_end", "270"));
+    assertEquals(
+        0,
+        of(adjacent, "sector").stream().filter(g -> g.attrs.containsKey("extended")).count(),
+        "sectors meeting at a limit share no arc and must not extend");
+  }
+
   /** An all-round light gets a flare, never an arc. */
   @Test
   void skipsLightsWithNoRealSector() {

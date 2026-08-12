@@ -156,17 +156,26 @@ public class Lights {
     for (double[] other : limits) {
       if (other[0] == from && other[1] == to) continue;
       if (width(other[0], other[1]) <= own) continue;
-      if (contains(other[0], other[1], from) || contains(from, to, other[0])) return true;
+      if (overlaps(from, to, other[0], other[1])) return true;
     }
     return false;
   }
 
-  /** Whether a bearing falls inside a sector, going clockwise from its start. */
-  private static boolean contains(double from, double to, double bearing) {
-    double span = width(from, to);
-    double offset = bearing - from;
-    while (offset < 0) offset += 360;
-    return offset > 0 && offset < span;
+  /**
+   * Whether two sectors' interiors intersect on the circle. A nested pair sharing a start or end
+   * bearing overlaps — testing only for a limit strictly inside the other sector misses exactly
+   * that case — while merely adjacent sectors, meeting at a limit with no shared arc, do not.
+   */
+  private static boolean overlaps(double aFrom, double aTo, double bFrom, double bTo) {
+    return offset(bFrom, aFrom) < width(aFrom, aTo) || offset(aFrom, bFrom) < width(bFrom, bTo);
+  }
+
+  /** Degrees from one bearing clockwise to another, in [0, 360). */
+  private static double offset(double bearing, double origin) {
+    double d = bearing - origin;
+    while (d < 0) d += 360;
+    while (d >= 360) d -= 360;
+    return d;
   }
 
   // Sector bearings are seaward — from the vessel toward the light — hence the sign flip in both
