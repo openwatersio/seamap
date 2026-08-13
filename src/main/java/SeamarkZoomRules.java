@@ -49,6 +49,11 @@ public class SeamarkZoomRules {
       base = hazardMinZoom(type, category, attrs);
     } else if (FLOORS.containsKey(type)) {
       base = FLOORS.get(type);
+    } else if (isTrafficLinework(type)) {
+      // TSS linework carries SCAMIN NOT SET (all scales): the lanes show where the shipping is
+      // while a whole passage is still on screen. The zone and crossing fills stay at 4 below —
+      // low-opacity magenta over an ocean of z2–3 sea reads as haze, not a scheme.
+      base = 2;
     } else if (isHighPriorityType(type)) {
       // High priority features visible from zoom 4
       base = 4;
@@ -120,6 +125,13 @@ public class SeamarkZoomRules {
         && n.doubleValue() > SeamarkPriority.MAX_SAFETY_DEPTH) return 11;
     // dangerous (or uncharted, assumed so) and clear of the shore: selected for General
     return 8;
+  }
+
+  /** The informative part of a TSS: the lanes and the lines that bound them. */
+  private static boolean isTrafficLinework(String type) {
+    return type.equals("separation_lane")
+        || type.equals("separation_line")
+        || type.equals("separation_boundary");
   }
 
   /**

@@ -57,6 +57,17 @@ class SeamarkZoomRulesTest {
     assertEquals(6, SeamarkZoomRules.getMinZoom(attrs("type", "buoy_cardinal")));
   }
 
+  /** TSS linework guides passage planning; its fills wait until they read as a scheme. */
+  @Test
+  void trafficLineworkPrecedesItsFills() {
+    assertEquals(2, SeamarkZoomRules.getMinZoom(attrs("type", "separation_lane")));
+    assertEquals(2, SeamarkZoomRules.getMinZoom(attrs("type", "separation_line")));
+    assertEquals(2, SeamarkZoomRules.getMinZoom(attrs("type", "separation_boundary")));
+    assertEquals(4, SeamarkZoomRules.getMinZoom(attrs("type", "separation_zone")));
+    assertEquals(4, SeamarkZoomRules.getMinZoom(attrs("type", "separation_crossing")));
+    assertEquals(4, SeamarkZoomRules.getMinZoom(attrs("type", "separation_roundabout")));
+  }
+
   /** A light's reach decides its floor, not how its host happens to be typed. */
   @Test
   void minorLightsEarnEarlinessByRange() {

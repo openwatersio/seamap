@@ -52,7 +52,9 @@ export function routes(): LayerSpecification[] {
       filter: ["==", ["get", "type"], "separation_lane"],
       layout: {
         "icon-image": "freenauticalchart:TSS-arrow",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.1, 14, 0.6],
+        // held at 0.15 (~8px on the 54px sprite) down to the z2 data floor: the arrow chain is
+        // the lane's only portrayal, so it has to stay legible at passage-planning zooms
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.15, 6, 0.15, 14, 0.6],
         "symbol-placement": "line",
         "icon-padding": 0,
         "symbol-spacing": 1,
@@ -70,7 +72,7 @@ export function routes(): LayerSpecification[] {
       paint: {
         // the boundary is the dominant TSS line (TRFCD); the separation line stays faint (TRFCF)
         "line-color": colors.magenta,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 6, 1, 10, 2],
         "line-dasharray": [4, 4],
         "line-opacity": 0.8,
       },
@@ -83,7 +85,7 @@ export function routes(): LayerSpecification[] {
       filter: ["==", ["get", "type"], "separation_line"],
       paint: {
         "line-color": colors.magenta,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 6, 1, 10, 2],
         "line-opacity": 0.4,
       },
     },
