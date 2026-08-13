@@ -295,15 +295,34 @@ public class Seamark {
     if (attrs.get("color") != null && attrs.get("color").toString().contains("_"))
       attrs.put("color_pattern", coalesceObj(attrs.get("color_pattern"), "horizontal"));
 
-    // rocks/wrecks: sample the seabed around an uncharted hazard. This is not the hazard's
-    // surveyed least depth (VALSOU, the `depth` attr, charted as a numeral) — it only informs
-    // the danger decision, like S-101's surroundingDepth, and is never printed.
-    if (("wreck".equals(type) || "rock".equals(type)) && attrs.get("depth") == null) {
+    // Hazard context, sampled from the DEM, in S-52's own vocabulary (DEPVAL02/UDWHAZ):
+    // `seabed_depth` is the seabed at an uncharted hazard, standing in for the surveyed least
+    // depth (VALSOU, the `depth` attr) in danger decisions and never printed. `surrounding_depth`
+    // is the shallowest *water* on a 250 m ring — the navigability of the water the hazard sits
+    // in, which the style's isolated-danger test needs and which the point sample cannot give
+    // (that pixel may be reading the hazard itself). `near_shore` marks a ring substantially
+    // land: there the shore itself is the danger, and the zoom rules hold the symbol back until
+    // Approach scale (S-4 B-404 minimal depiction).
+    if ("wreck".equals(type) || "rock".equals(type) || "obstruction".equals(type)) {
       try {
-        org.locationtech.jts.geom.Point centroid = (org.locationtech.jts.geom.Point) sf.centroid();
+        org.locationtech.jts.geom.Point centroid =
+            sf.isPoint() ? (org.locationtech.jts.geom.Point) sf.centroid() : null;
         if (depthCalculator != null && centroid != null) {
           Coordinate coord = centroid.getCoordinate();
-          attrs.put("surrounding_depth", depthCalculator.getDepthAtLocation(coord));
+          if (attrs.get("depth") == null) {
+            attrs.put("seabed_depth", depthCalculator.getDepthAtLocation(coord));
+          }
+          DepthCalculator.RingStats ring = depthCalculator.ringStats(coord, 250, 16);
+          if (ring.minWaterDepth() != null) {
+            attrs.put("surrounding_depth", ring.minWaterDepth());
+          }
+          // 3 of 16: a coastline within the radius subtends at least that arc, an isolated
+          // drying rock or islet under ~100 m across never does. A rock ~100-200 m off a
+          // straight coast sits near the boundary, which is what the 16-sample resolution is
+          // for — 8 samples put exactly that population on a coin flip.
+          if (ring.landFraction() >= 3 / 16.0) {
+            attrs.put("near_shore", true);
+          }
         }
       } catch (Exception e) {
         System.err.println("Failed to sample seabed depth for " + sf.id() + ": " + e);

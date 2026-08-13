@@ -7,6 +7,32 @@ import java.util.*;
 public class SeamarkZoomRules {
 
   /**
+   * Floors that the three priority tiers get wrong in opposite directions.
+   *
+   * <p>A floor answers "may this ever appear here", which is a different question from "is there
+   * room for it" — that one is answered per cell by {@code cell_rank} and the style's budgets. It
+   * has to be honest in both directions: a fish-cleaning table in a z8 tile is bytes nothing will
+   * ever draw, and a channel buoy at z4 is Harbour-band furniture on an Overview chart.
+   *
+   * <p>The short-range aids sit deliberately ahead of the navigational-purpose derivation (z12–14
+   * from their band plus SCAMIN steps, see docs/design/zoom.md): a channel's presence is worth
+   * reading at z10. Landmarks are the reverse split — a plain tower is Coastal detail, while
+   * conspicuity, a light, or being a wind turbine is what a mariner steers by and earns z6 through
+   * the promotions below.
+   */
+  private static final Map<String, Integer> FLOORS =
+      Map.ofEntries(
+          Map.entry("landmark", 10),
+          Map.entry("small_craft_facility", 14),
+          Map.entry("buoy_lateral", 10),
+          Map.entry("beacon_lateral", 10),
+          Map.entry("buoy_special_purpose", 10),
+          Map.entry("beacon_special_purpose", 10),
+          Map.entry("mooring", 13),
+          Map.entry("fog_signal", 10),
+          Map.entry("anchorage", 9));
+
+  /**
    * Get the minimum zoom level for a given seamark based on its type and attributes.
    *
    * @param attrs Map containing seamark attributes (type, category, etc.)
@@ -19,10 +45,14 @@ public class SeamarkZoomRules {
     int base;
     if (type == null) {
       base = 8; // default
+    } else if (isHazard(type)) {
+      base = hazardMinZoom(type, category, attrs);
+    } else if (FLOORS.containsKey(type)) {
+      base = FLOORS.get(type);
     } else if (isHighPriorityType(type)) {
       // High priority features visible from zoom 4
       base = 4;
-    } else if (isMediumHighPriorityType(type, category)) {
+    } else if (isMediumHighPriorityType(type)) {
       // Medium-high priority features visible from zoom 6
       base = 6;
     } else {
@@ -30,9 +60,14 @@ public class SeamarkZoomRules {
     }
 
     // A conspicuous landmark is part of what a mariner steers by (CONVIS promotes to the
-    // STANDARD display category in S-52): visible from z6 like the other promoted marks.
+    // STANDARD display category in S-52), a lit one is an aid in its own right (LNDMRK carrying
+    // a light takes no SCAMIN), and wind turbines are conspicuous by what they are — the tag is
+    // rarely present, and without this a wind farm is empty sea below z10.
     if ("landmark".equals(type)
-        && "conspicuous".equals(attrs.get("seamark:landmark:conspicuity"))) {
+        && ("conspicuous".equals(attrs.get("seamark:landmark:conspicuity"))
+            || attrs.get("light") != null
+            || "windmotor".equals(category)
+            || "windmill".equals(category))) {
       base = Math.min(base, 6);
     }
 
@@ -48,44 +83,67 @@ public class SeamarkZoomRules {
   }
 
   /**
-   * Get the minimum zoom level for light sectors/geometries. Sector arcs draw at a fixed ground
-   * radius (0.4-0.7 NM), which is sub-pixel below ~z10 — carrying the geometry in lower-zoom tiles
-   * is dead weight the style never draws.
+   * Floor for a light's sector arcs and legs: z8 for style headroom (the zoom a sector actually
+   * draws at is a style threshold, kept above this so it can move without a planet build), but
+   * never before the host mark itself — geometry arriving ahead of its mark reads to the tile join
+   * as a cross-tile fragment and draws as an orphan arc.
    */
-  public static int getLightMinZoom(String type) {
-    return 10;
+  public static int getLightMinZoom(Map<String, Object> attrs) {
+    return Math.max(8, getMinZoom(attrs));
   }
 
-  /** Check if a seamark type is high priority (visible from zoom 4). */
+  private static boolean isHazard(String type) {
+    return type.equals("rock") || type.equals("wreck") || type.equals("obstruction");
+  }
+
+  /**
+   * A hazard's floor comes from its context, not its type. The standards decide this twice over:
+   * ECDIS promotes a hazard past every scale threshold only when it contradicts navigable water
+   * around it (S-52 UDWHAZ), and S-4 omits near-shore dangers from small-scale charts entirely,
+   * because inshore of the natural line the shore itself is the danger (B-404). A rock twenty
+   * metres off a coast at overview scale sits inside the coastline's own line weight.
+   *
+   * <p>Depths unknown are assumed dangerous — S-52 makes the same assumption — so an uncharted
+   * offshore hazard keeps the early floor. The style's safety-depth exemption and the cap retention
+   * ({@code SeamarkPriority.neverCapped}) still govern what happens above these floors.
+   */
+  private static int hazardMinZoom(String type, String category, Map<String, Object> attrs) {
+    // a wreck someone bothered to categorize as dangerous is chart-worthy at General scale
+    if ("wreck".equals(type) && isDangerousWreck(category)) return 6;
+    // the shore carries the warning until Approach scale (sampled in Seamark)
+    if (Boolean.TRUE.equals(attrs.get("near_shore"))) return 13;
+    // Charted below every safety depth the style supports: Coastal detail. A minzoom is a hard
+    // floor — no exemption can recover an excluded feature — so this threshold must clear the
+    // deepest supported setting, never a smaller "typical" one. The UOC draws the same line:
+    // UWTROC loses its all-scales default at VALSOU > 30.
+    if (attrs.get("depth") instanceof Number n
+        && n.doubleValue() > SeamarkPriority.MAX_SAFETY_DEPTH) return 11;
+    // dangerous (or uncharted, assumed so) and clear of the shore: selected for General
+    return 8;
+  }
+
+  /**
+   * Check if a seamark type is high priority (visible from zoom 4). Not light_minor: an unranged
+   * minor light is Approach-band furniture, and the range promotion below already lifts the real
+   * lighthouses that hide behind that tag.
+   */
   private static boolean isHighPriorityType(String type) {
     return type.equals("light_major")
-        || type.equals("light_minor")
         || type.startsWith("separation_")
         || type.equals("platform")
-        || type.equals("fog_signal")
         || isRestrictedArea(type);
   }
 
   /** Check if a seamark type is medium-high priority (visible from zoom 6). */
-  private static boolean isMediumHighPriorityType(String type, String category) {
-    if (type.contains("_safe_water")
+  private static boolean isMediumHighPriorityType(String type) {
+    return type.contains("_safe_water")
         || type.contains("_isolated_danger")
-        || type.contains("_cardinal")) {
-      return true;
-    }
-
-    // Dangerous wrecks
-    if (type.equals("wreck") && isDangerousWreck(category)) {
-      return true;
-    }
-
-    return false;
+        || type.contains("_cardinal");
   }
 
   /** Check if a type represents a restricted area. */
   private static boolean isRestrictedArea(String type) {
     return Arrays.asList(
-            "anchorage",
             "cable_area",
             "fairway",
             "inshore_traffic_zone",

@@ -102,30 +102,16 @@ export function routes(): LayerSpecification[] {
       },
     },
     {
-      // FERYRT carries a repeating boat symbol (Chart No. 1 M50), same pattern as cables-pipes
-      id: "ferry-symbols",
-      type: "symbol",
-      source: "seamap",
-      "source-layer": "seamark",
-      minzoom: 10,
-      filter: ["==", ["get", "type"], "ferry_route"],
-      layout: {
-        "icon-image": "freenauticalchart:ferry",
-        // the collision grid otherwise drops every line-placed boat in favour of route labels
-        "icon-overlap": "always",
-        "symbol-placement": "line",
-        "symbol-spacing": 180,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.7, 14, 1.3],
-      },
-      paint: { "icon-opacity": 0.8 },
-    },
-    {
       id: "navigation-lines",
       type: "line",
       source: "seamap",
       "source-layer": "seamark",
       filter: ["==", ["get", "type"], "navigation_line"],
-      paint: { "line-color": colors.navigationLine, "line-width": 0.8, "line-dasharray": [4, 2] },
+      paint: {
+        "line-color": colors.navigationLine,
+        "line-width": 0.8,
+        "line-dasharray": [4, 2],
+      },
     },
     {
       id: "navigation-tracks",

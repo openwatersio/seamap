@@ -27,6 +27,7 @@ export const day = {
   lightGreen: "#00a650",
   lightRed: "#ed1c24",
   lightYellow: "#fab20b",
+  /** grey, not CHBLK black: a busy sector light should not read as a hazard boundary (S-4 B-475.1) */
   sectorLeg: "#666",
 } as const;
 

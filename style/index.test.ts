@@ -102,7 +102,6 @@ it("keeps layer ids and order stable", () => {
     "TSS-separation-boundary",
     "TSS-separation-line",
     "ferry",
-    "ferry-symbols",
     "navigation-lines",
     "navigation-tracks",
     // structures
@@ -118,23 +117,25 @@ it("keeps layer ids and order stable", () => {
     "harhours",
     // lights
     "lights",
-    "light_ray",
-    "light_arc_casing",
-    "light_arc",
-    "light_arc_obscured",
     "light-minor",
     "light-major",
     "fogsignals",
-    // marks — bodies first, so a hull can never paint over its topmark or reflector
-    "buoys",
+    // sectors — ground geometry, casing under the colour
+    "sector-legs",
+    "sector-arc-casing",
+    "sector-arc",
+    "sector-arc-obscured",
+    // marks — topmarks under the bodies (the hull hides their overlapping base), reflectors on top
     "topmarks",
+    "buoys",
     "radar-reflectors",
-    // labels — last, so they win symbol collisions against the icons below
+    // labels last, so they win against the icons below — and among themselves the ones that
+    // change a decision place after the ones that only name something
     "landmarks",
-    "racon-labels",
     "line_symbols",
     "seamark-line-label",
     "seamark-label",
+    "racon-labels",
     "lights-label",
   ]);
 });
@@ -147,19 +148,131 @@ describe("isolated dangers", () => {
   const highlighted = (properties: Record<string, unknown>) =>
     featureFilter(layer.filter).filter({ zoom: 12 }, point(properties), undefined as never);
 
-  it("rings a hazard at or above the safety depth", () => {
-    expect(highlighted({ type: "wreck", depth: 1.5 })).toBe(true);
-    expect(highlighted({ type: "rock", surrounding_depth: 0.5 })).toBe(true);
+  it("rings a shoal hazard in navigable water", () => {
+    expect(highlighted({ type: "wreck", depth: 1.5, surrounding_depth: 15 })).toBe(true);
+    expect(highlighted({ type: "rock", seabed_depth: 0.5, surrounding_depth: 15 })).toBe(true);
+  });
+
+  it("stays quiet where the water is itself too shallow to enter", () => {
+    // the shore-fringe case: a rock in water the mariner cannot enter contradicts nothing
+    expect(highlighted({ type: "rock", seabed_depth: 0.5, surrounding_depth: 1 })).toBe(false);
+    expect(highlighted({ type: "rock", seabed_depth: 0.5 })).toBe(false);
+    // near the shore the ring margin is DEM noise; the flag overrules it
+    expect(
+      highlighted({ type: "rock", seabed_depth: 0.5, surrounding_depth: 15, near_shore: true }),
+    ).toBe(false);
+  });
+
+  it("clamps the safety depth to what the tiles can honour", () => {
+    const deep = chartLayers({ safety: 40 }).symbols.find((l) => l.id === "isolated-dangers") as {
+      filter: never;
+    };
+    const ringed = (properties: Record<string, unknown>) =>
+      featureFilter(deep.filter).filter({ zoom: 12 }, point(properties), undefined as never);
+    // a 35 m hazard is "shallow" at safety 40, but the tiles stop retaining hazards past 30 —
+    // highlighting it would promise coverage the data does not have
+    expect(ringed({ type: "rock", depth: 35, surrounding_depth: 50 })).toBe(false);
+    expect(ringed({ type: "rock", depth: 25, surrounding_depth: 50 })).toBe(true);
   });
 
   it("prefers the surveyed depth over the sampled one", () => {
-    expect(highlighted({ type: "wreck", depth: 8, surrounding_depth: 1 })).toBe(false);
+    expect(highlighted({ type: "wreck", depth: 8, seabed_depth: 1, surrounding_depth: 15 })).toBe(
+      false,
+    );
   });
 
   it("leaves deep and depthless hazards alone", () => {
-    expect(highlighted({ type: "wreck", depth: 12 })).toBe(false);
-    expect(highlighted({ type: "wreck" })).toBe(false);
-    expect(highlighted({ type: "buoy_lateral", depth: 1 })).toBe(false);
+    expect(highlighted({ type: "wreck", depth: 12, surrounding_depth: 15 })).toBe(false);
+    expect(highlighted({ type: "wreck", surrounding_depth: 15 })).toBe(false);
+    expect(highlighted({ type: "buoy_lateral", depth: 1, surrounding_depth: 15 })).toBe(false);
+  });
+});
+
+describe("thinning and decoration", () => {
+  const point = (properties: Record<string, unknown>) => ({ type: 1, properties }) as never;
+  const layer = (id: string) =>
+    chartLayers({ safety: 2 }).symbols.find((l) => l.id === id) as { filter: never };
+  const draws = (id: string, zoom: number, properties: Record<string, unknown>) =>
+    featureFilter(layer(id).filter).filter({ zoom }, point(properties), undefined as never);
+
+  const buoy = { type: "buoy_lateral", family: "minor_aid", topmark_shape: "cone" };
+  const turbine = { type: "landmark", family: "structure" };
+
+  it("spends a per-family budget that tightens as the chart zooms out", () => {
+    expect(draws("buoys", 14, { ...buoy, cell_rank: 3 })).toBe(true);
+    expect(draws("buoys", 12, { ...buoy, cell_rank: 3 })).toBe(true);
+    expect(draws("buoys", 12, { ...buoy, cell_rank: 4 })).toBe(false);
+  });
+
+  it("never thins a feature with no position in a cell", () => {
+    expect(draws("buoys", 12, buoy)).toBe(true);
+  });
+
+  it("keeps the body at every zoom and withholds only its decorations", () => {
+    const shown = { ...buoy, cell_rank: 0 };
+    for (const zoom of [7, 9, 11, 13]) expect(draws("buoys", zoom, shown)).toBe(true);
+
+    const t = { ...turbine, cell_rank: 0 };
+    for (const zoom of [7, 9, 11]) expect(draws("landmarks", zoom, t)).toBe(true);
+  });
+
+  /**
+   * Each decoration waits for the zoom that can read it, not for one blanket threshold — two
+   * cardinals alone in an empty view at z11 have every reason to show their topmarks.
+   */
+  it("gives each decoration its own legibility floor", () => {
+    const shown = { ...buoy, cell_rank: 0, radar_reflector: "yes", "seamark:light:colour": "red" };
+    const floors: [string, number][] = [
+      ["topmarks", 10],
+      ["lights", 10],
+      ["radar-reflectors", 11],
+      ["lights-label", 11],
+    ];
+    for (const [id, floor] of floors) {
+      expect(draws(id, floor - 1, shown), `${id} below its floor`).toBe(false);
+      expect(draws(id, floor, shown), `${id} at its floor`).toBe(true);
+    }
+  });
+
+  /** A name is the last thing afforded: only the mark that leads its cell gets one. */
+  it("gives a name only to the mark that leads its cell", () => {
+    expect(draws("seamark-label", 14, { ...buoy, name: "Nyhavn", cell_rank: 0 })).toBe(true);
+    expect(draws("seamark-label", 14, { ...buoy, name: "Nyhavn", cell_rank: 1 })).toBe(false);
+  });
+
+  it("thins bodies so a wind farm is a few marks and not a mat", () => {
+    // one turbine per cell at z8, loosening a band at a time as the cells shrink
+    expect(draws("landmarks", 8, { ...turbine, cell_rank: 0 })).toBe(true);
+    expect(draws("landmarks", 8, { ...turbine, cell_rank: 1 })).toBe(false);
+    expect(draws("landmarks", 9, { ...turbine, cell_rank: 1 })).toBe(true);
+    expect(draws("landmarks", 9, { ...turbine, cell_rank: 2 })).toBe(false);
+  });
+
+  it("drops a mark's labels and sector geometry with the mark itself", () => {
+    // a lit buoy thinned out of its cell must not leave text or arcs behind
+    const thinned = { ...buoy, family: "minor_aid", cell_rank: 9, "seamark:light:colour": "red" };
+    expect(draws("buoys", 12, thinned)).toBe(false);
+    const dependents = ["lights-label", "seamark-label", "racon-labels"];
+    for (const id of dependents) {
+      expect(draws(id, 12, { ...thinned, name: "Nyhavn", radar_transponder: "yes" })).toBe(false);
+    }
+    for (const id of ["sector-arc", "sector-legs"]) {
+      const sector = { ...thinned, subtype: "sector" };
+      expect(draws(id, 12, sector)).toBe(false);
+      expect(draws(id, 12, { ...sector, subtype: "leg" })).toBe(false);
+    }
+  });
+
+  it("keeps a hazard shallower than the safety depth whatever its rank", () => {
+    const deep = { type: "rock", family: "hazard", cell_rank: 9, depth: 20 };
+    expect(draws("rocks", 10, deep)).toBe(false);
+    expect(draws("rocks", 10, { ...deep, depth: 1 })).toBe(true);
+  });
+
+  it("gives a harbour its own allowance, so buoys never crowd it out", () => {
+    const marina = { type: "harbour", category: "marina", family: "harbour", cell_rank: 0 };
+    expect(draws("harhours", 10, marina)).toBe(true);
+    expect(draws("buoys", 10, { ...buoy, cell_rank: 0 })).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { anchorOffsets } from "./placement.js";
+import { TOKEN, sizeRamp, withinBudget } from "./visibility.js";
 
 /**
  * Fixed shore and harbour works: piers and breakwaters, piles and dolphins, platforms, cranes,
@@ -64,7 +65,7 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 11,
-      filter: ["in", ["get", "type"], ["literal", ["pile", "mooring"]]],
+      filter: ["all", ["in", ["get", "type"], ["literal", ["pile", "mooring"]]], withinBudget],
       paint: { "circle-radius": 3 },
     },
     {
@@ -73,13 +74,13 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 8,
-      filter: ["==", ["get", "type"], "platform"],
+      filter: ["all", ["==", ["get", "type"], "platform"], withinBudget],
       layout: {
         "icon-image": "freenauticalchart:platform",
         "icon-overlap": "always",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 10, 1],
-        // OFSPLF carries its name on the chart
-        "text-field": ["get", "name"],
+        "icon-size": sizeRamp(TOKEN.detail, 10),
+        // OFSPLF carries its name on the chart, once the zoom can carry decorations
+        "text-field": ["step", ["zoom"], "", 12, ["get", "name"]],
         "text-font": ["Noto Sans Regular"],
         "text-size": 11,
         "text-variable-anchor": ["left", "right", "bottom", "top"],
@@ -100,10 +101,10 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 14,
-      filter: ["==", ["get", "type"], "crane"],
+      filter: ["all", ["==", ["get", "type"], "crane"], withinBudget],
       layout: {
         "icon-image": "freenauticalchart:crane",
-        "icon-overlap": "always",
+        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.6, 16, 1],
       },
     },
@@ -113,10 +114,10 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 10,
-      filter: ["==", ["get", "type"], "rescue_station"],
+      filter: ["all", ["==", ["get", "type"], "rescue_station"], withinBudget],
       layout: {
         "icon-image": "freenauticalchart:rescue",
-        "icon-overlap": "always",
+        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 13, 1],
       },
     },
@@ -126,11 +127,11 @@ export function structures(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 11,
-      filter: ["==", ["get", "type"], "radar_station"],
+      filter: ["all", ["==", ["get", "type"], "radar_station"], withinBudget],
       layout: {
         "icon-image": "freenauticalchart:radar_scanner",
-        "icon-overlap": "always",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 11, 0.5, 14, 1],
+        "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 11, 0.6, 14, 1],
       },
     },
     {
@@ -246,6 +247,7 @@ export function structures(): LayerSpecification[] {
         // without the type check this also catches small_craft_facility/fishing points
         ["==", ["get", "type"], "harbour"],
         ["in", ["get", "category"], ["literal", ["marina", "fishing"]]],
+        withinBudget,
       ],
       layout: {
         "icon-image": [
@@ -256,7 +258,7 @@ export function structures(): LayerSpecification[] {
           "freenauticalchart:poi-fishing-harbour",
           "",
         ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 12, 1],
+        "icon-size": sizeRamp(TOKEN.disc, 12),
         "icon-overlap": "always",
         "text-font": ["Noto Sans Regular"],
         "text-field": ["get", "name"],
@@ -268,7 +270,7 @@ export function structures(): LayerSpecification[] {
           ["linear"],
           ["zoom"],
           8,
-          anchorOffsets(1.37),
+          anchorOffsets(1.72),
           12,
           anchorOffsets(1.96),
         ],

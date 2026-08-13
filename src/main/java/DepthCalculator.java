@@ -259,6 +259,46 @@ public class DepthCalculator {
   }
 
   /**
+   * What a ring of samples around a point says about its surroundings: how much of the ring is land
+   * or drying ground (the DEM clamps land to depth 0), and the shallowest water on it.
+   *
+   * <p>The land fraction separates "near the shore" from "is itself awash": a coastline within the
+   * radius fills a wide arc of the ring, an isolated drying rock only ever hits a sample or two.
+   * The minimum water depth approximates S-101's {@code surroundingDepth} — the shallow bound of
+   * the water the hazard sits in — which a single sample at the hazard cannot give, because that
+   * pixel may be reading the hazard itself.
+   */
+  public record RingStats(double landFraction, Double minWaterDepth) {}
+
+  /**
+   * @param coord position in world coordinates (0-1 Mercator)
+   * @param radiusMeters ring radius on the ground
+   * @param samples number of evenly spaced samples
+   * @return stats over the samples that returned data; land fraction 0 and null depth when none did
+   */
+  public RingStats ringStats(Coordinate coord, double radiusMeters, int samples) {
+    double lat = GeoUtils.getWorldLat(coord.y);
+    double lon = GeoUtils.getWorldLon(coord.x);
+    double dLat = radiusMeters / 111_320.0;
+    double dLon = radiusMeters / (111_320.0 * Math.cos(Math.toRadians(lat)));
+    int land = 0;
+    int valid = 0;
+    Double minWater = null;
+    for (int i = 0; i < samples; i++) {
+      double angle = 2 * Math.PI * i / samples;
+      Double depth = getDepthAtLocation(lon + dLon * Math.sin(angle), lat + dLat * Math.cos(angle));
+      if (depth == null) continue;
+      valid++;
+      if (depth <= 0.0) {
+        land++;
+      } else if (minWater == null || depth < minWater) {
+        minWater = depth;
+      }
+    }
+    return new RingStats(valid == 0 ? 0 : (double) land / valid, minWater);
+  }
+
+  /**
    * Calculates depth at a geographic position
    *
    * @param lon Longitude

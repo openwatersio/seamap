@@ -58,7 +58,9 @@ export interface LayersOptions {
   font?: (name: string) => string;
   /**
    * Safety depth in metres for the isolated-danger highlight and hazard-area boundaries;
-   * defaults to the 2 m small-craft value seascape's depth shading also defaults to.
+   * defaults to the 2 m small-craft value seascape's depth shading also defaults to. Values
+   * above 30 m clamp: the tiles only retain hazard context to that depth, and a deeper setting
+   * would highlight from data that is not there.
    */
   safety?: number;
   /** Depth unit for hazard depth numerals, matching seascape's soundings. */
