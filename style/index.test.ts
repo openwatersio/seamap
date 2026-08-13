@@ -222,16 +222,30 @@ describe("thinning and decoration", () => {
    */
   it("gives each decoration its own legibility floor", () => {
     const shown = { ...buoy, cell_rank: 0, radar_reflector: "yes", "seamark:light:colour": "red" };
-    const floors: [string, number][] = [
-      ["topmarks", 10],
-      ["lights", 10],
-      ["radar-reflectors", 11],
-      ["lights-label", 11],
+    // reflectors chart on fixed beacons only (S-4 B-465.1)
+    const beacon = { ...shown, type: "beacon_lateral", shape: "pile" };
+    const floors: [string, number, Record<string, unknown>][] = [
+      ["topmarks", 10, shown],
+      ["lights", 10, shown],
+      ["radar-reflectors", 11, beacon],
+      ["lights-label", 11, shown],
     ];
-    for (const [id, floor] of floors) {
-      expect(draws(id, floor - 1, shown), `${id} below its floor`).toBe(false);
-      expect(draws(id, floor, shown), `${id} at its floor`).toBe(true);
+    for (const [id, floor, props] of floors) {
+      expect(draws(id, floor - 1, props), `${id} below its floor`).toBe(false);
+      expect(draws(id, floor, props), `${id} at its floor`).toBe(true);
     }
+  });
+
+  /** Buoys and buoyant beacons are commonly radar reflective; the symbol would be noise there. */
+  it("charts reflectors on fixed beacons only", () => {
+    const reflective = { cell_rank: 0, radar_reflector: "yes", family: "minor_aid" };
+    expect(draws("radar-reflectors", 12, { ...reflective, type: "buoy_lateral" })).toBe(false);
+    expect(
+      draws("radar-reflectors", 12, { ...reflective, type: "beacon_lateral", shape: "buoyant" }),
+    ).toBe(false);
+    expect(
+      draws("radar-reflectors", 12, { ...reflective, type: "beacon_lateral", shape: "pile" }),
+    ).toBe(true);
   });
 
   /** A name is the last thing afforded: only the mark that leads its cell gets one. */
