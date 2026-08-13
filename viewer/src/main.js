@@ -5,8 +5,13 @@ import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
 import { style } from "@openwaters/seamap";
 
 // ?tiles=<url> points the chart at another TileJSON — a local `wrangler dev`
-// worker, say — instead of the published tiles.
-const tiles = new URLSearchParams(location.search).get("tiles") || undefined;
+// worker, say — instead of the published tiles. ?hillshade turns on the
+// bathymetric hillshading the style ships off; ?shading=relief swaps the
+// vector depth bands for the raster DEM color-relief.
+const params = new URLSearchParams(location.search);
+const tiles = params.get("tiles") || undefined;
+const depthHillshade = params.has("hillshade");
+const shading = params.get("shading") || undefined;
 
 // add the MapLibre GL RTL text plugin for proper rendering of right-to-left languages
 maplibregl.setRTLTextPlugin(
@@ -19,7 +24,7 @@ const map = new maplibregl.Map({
   center: [10.2351, 56.16858],
   zoom: 13.4,
   container: "map",
-  style: await style({ tiles }),
+  style: await style({ tiles, depthHillshade, shading }),
   dragRotate: false,
   touchPitch: false,
   maxPitch: 0,

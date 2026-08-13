@@ -133,6 +133,12 @@ export interface StyleOptions {
   /** URL of the directory serving this package's sprites/dist/ files. */
   spriteBase?: string;
   /**
+   * Bathymetric hillshading under the water, off by default: no chart standard
+   * shades depth relief, and the commercial charts that offer it ship it as a
+   * toggle, never baked in.
+   */
+  depthHillshade?: boolean;
+  /**
    * Land hillshading from the VersaTiles elevation tiles, on by default;
    * false skips it, an object customizes the builder's hillshade paint.
    */
@@ -156,7 +162,11 @@ export interface StyleOptions {
   unit?: Unit;
   /** Safety contour depth in metres, 0 = off (seascape). */
   safety?: number;
-  /** Water shading: raster relief or ENC depth bands (seascape). */
+  /**
+   * Water shading: ENC-style vector depth bands by default — their edges coincide with the
+   * contour lines by construction, and they stay crisp under overzoom. "relief" selects the
+   * raster DEM color-relief instead.
+   */
   shading?: Shading;
   /** Seascape source id overrides, applied to sources and layers together. */
   dem?: string;
@@ -177,11 +187,12 @@ export async function style({
   spriteBase = typeof document === "undefined"
     ? "sprites"
     : new URL("sprites", document.baseURI).href,
+  depthHillshade = false,
   hillshade = true,
   flavor,
   unit,
   safety,
-  shading,
+  shading = "bands",
   dem,
   vector,
   coverage,
@@ -225,7 +236,7 @@ export async function style({
     { dem, vector, coverage, unit, safety, shading },
   );
   const seaHillshade = bathymetry.find((l) => l.id === "depth-hillshade");
-  if (seaHillshade?.layout) seaHillshade.layout.visibility = "visible"; // seascape defaults it off
+  if (depthHillshade && seaHillshade?.layout) seaHillshade.layout.visibility = "visible";
 
   // seascape's depth fills are translucent to blend with a base map, but here the
   // water underpaint would leak through them over surveyed water; make them opaque
