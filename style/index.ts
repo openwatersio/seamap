@@ -236,7 +236,8 @@ export async function style({
     { dem, vector, coverage, unit, safety, shading },
   );
   const seaHillshade = bathymetry.find((l) => l.id === "depth-hillshade");
-  if (depthHillshade && seaHillshade?.layout) seaHillshade.layout.visibility = "visible";
+  // set both ways so the option holds even if seascape's shipped default changes
+  if (seaHillshade?.layout) seaHillshade.layout.visibility = depthHillshade ? "visible" : "none";
 
   // seascape's depth fills are translucent to blend with a base map, but here the
   // water underpaint would leak through them over surveyed water; make them opaque

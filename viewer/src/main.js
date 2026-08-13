@@ -11,7 +11,8 @@ import { style } from "@openwaters/seamap";
 const params = new URLSearchParams(location.search);
 const tiles = params.get("tiles") || undefined;
 const depthHillshade = params.has("hillshade");
-const shading = params.get("shading") || undefined;
+// anything but the known raster opt-in falls back to the style's default
+const shading = params.get("shading") === "relief" ? "relief" : undefined;
 
 // add the MapLibre GL RTL text plugin for proper rendering of right-to-left languages
 maplibregl.setRTLTextPlugin(
