@@ -17,16 +17,18 @@ const TOPMARK_Y: [string[], number][] = [
 ];
 
 /**
- * Reflectors clear a typical 12 px topmark on squat bodies; on tall thin bodies the reflector is
- * charted partway up the body itself, below the topmark.
+ * The caret's −60° rotation renders it beside the mark's upper-left, not above it, so one seat
+ * per shape works with or without a topmark: on squat bodies it takes the topmark's own seat
+ * (S-4 B-455.8: charted at the mark, not hovering), on tall thin bodies it sits partway up the
+ * body, below any topmark.
  */
 const REFLECTOR_Y: [string[], number][] = [
   [["pillar", "spar", "stake", "pole", "perch", "post"], -10],
   [["buoyant", "lattice", "pile", "tower"], -10],
-  [["cairn"], -36],
-  [["conical"], -30],
-  [["can"], -28],
-  [["spherical", "barrel", "super-buoy"], -26],
+  [["cairn"], -22],
+  [["conical"], -12],
+  [["can"], -8],
+  [["spherical", "barrel", "super-buoy"], -9],
 ];
 
 function shapeOffset(
@@ -48,7 +50,7 @@ function shapeOffset(
 }
 
 const topmarkOffset = shapeOffset(-16, TOPMARK_Y, -26);
-const reflectorOffset = shapeOffset(-30, REFLECTOR_Y, -40);
+const reflectorOffset = shapeOffset(-16, REFLECTOR_Y, -26);
 
 /** The sheet names buoyant bodies "pile" and pole/perch/post bodies "stake". */
 const bodyShape: ExpressionSpecification = [
@@ -79,7 +81,8 @@ const patternBodyShape: ExpressionSpecification = [
 ];
 
 /**
- * Floating and fixed marks: buoys and beacons, their topmarks and radar reflectors. Topmarks draw
+ * Floating and fixed marks: buoys and beacons, their topmarks, and radar reflectors (fixed
+ * beacons only — S-4 B-465.1). Topmarks draw
  * before the bodies so the hull hides their overlapping base and they read as mounted on the
  * mark; reflectors draw last, charted over the mark. minzoom 6 defers to the tile pipeline,
  * which only carries cardinal/isolated-danger/safe-water marks below zoom 8 (SeamarkZoomRules).
@@ -240,7 +243,16 @@ export function marks(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 10,
-      filter: ["all", ["has", "radar_reflector"], decoration("reflector"), withinBudget],
+      filter: [
+        "all",
+        ["has", "radar_reflector"],
+        // charted on fixed beacons only: buoys and buoyant beacons are commonly radar
+        // reflective, so the symbol would be noise there (S-4 B-455.8, B-465.1)
+        ["in", "beacon", ["get", "type"]],
+        ["!=", ["get", "shape"], "buoyant"],
+        decoration("reflector"),
+        withinBudget,
+      ],
       layout: {
         "icon-image": "freenauticalchart:radar-reflector",
         "icon-rotate": -60,
