@@ -9,7 +9,7 @@ import { RAMP_FROM, TOKEN, decoration, sizeRamp, withinBudget } from "./visibili
  */
 const TOPMARK_Y: [string[], number][] = [
   [["pillar", "spar", "stake", "pole", "perch", "post"], -22],
-  [["buoyant", "lattice", "pile", "tower"], -24],
+  [["buoyant", "lattice", "pile", "tower"], -20],
   [["cairn"], -22],
   [["conical"], -12],
   [["can"], -8],
