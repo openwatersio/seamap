@@ -4,7 +4,7 @@ import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
 import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
 import { style } from "@openwaters/seamap";
 
-// ?tiles=<url> points the chart at another TileJSON — a local `wrangler dev`
+// ?tiles=<url> points the chart at another TileJSON — the dev server's local
 // worker, say — instead of the published tiles. ?hillshade turns on the
 // bathymetric hillshading the style ships off; ?shading=relief swaps the
 // vector depth bands for the raster DEM color-relief.

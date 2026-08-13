@@ -11,6 +11,7 @@ build/
 tmp/
 node_modules
 viewer/dist
+viewer/.wrangler/
 .playwright-mcp/
 style/dist/
 style/sprites/dist/

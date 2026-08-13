@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Seed the local wrangler R2 simulation from a local build so `wrangler dev`
-# serves it: the versioned archive plus the `latest` pointer naming it.
-# Run after `bin/run --area=<area> --force`.
+# Seed the local R2 simulation from a local build so the dev server serves it:
+# the versioned archive plus the `latest` pointer naming it. Run after
+# `bin/run --area=<area> --force`. The Vite plugin reads the same state dir
+# (viewer/vite.config.js points persistState here), and dev serving is
+# uncached, so a reseed is live on plain refresh.
 set -euo pipefail
 cd "$(dirname "$0")"
 

@@ -25,8 +25,9 @@ export interface Env {
   TILES: R2Bucket;
   ASSETS: Fetcher;
   BASE_PATH?: string; // URL mount path = the Cloudflare route prefix; default "/seamap"
-  // Local `wrangler dev`: serve uncached and re-read the pointer every request, so
-  // a reseed shows up immediately and no validator can 304 a client onto stale bytes.
+  // Local dev (set in .dev.vars): serve uncached and re-read the pointer every
+  // request, so a reseed shows up immediately and no validator can 304 a client
+  // onto stale bytes.
   DEV?: string;
 }
 
@@ -61,7 +62,7 @@ function archive(env: Env, version: string): PMTiles {
   const key = `${PREFIX}${version}.pmtiles`;
   // Dev reseeds replace the archive under the same key, and a cached instance's
   // stale header/directory would read the new bytes at old offsets (garbage /
-  // 500s) until wrangler restarts. Published versions are immutable.
+  // 500s) until the dev server restarts. Published versions are immutable.
   if (env.DEV) return new PMTiles(new R2Source(env.TILES, key));
   let p = archives.get(key);
   if (!p) {
@@ -139,18 +140,21 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   const { rel, mount } = mountPath(url.pathname, base);
   const dev = !!env.DEV;
   const inm = req.headers.get("if-none-match");
-  // Absolute endpoint base echoed into the TileJSON/style URLs. `wrangler dev`
-  // rewrites the request URL *and* Host header to the configured route host,
-  // leaving no truthful origin in a local request — so dev pins localhost at
-  // the port the dev script binds (package.json).
-  const tilesBase = dev ? `http://localhost:8788${mount}` : `${url.origin}${mount}`;
+  // Absolute endpoint base echoed into the TileJSON/style URLs. The request
+  // origin is truthful everywhere this runs: deployed hosts and the Vite dev
+  // server (unlike `wrangler dev`, which rewrites the URL to the route host).
+  const tilesBase = `${url.origin}${mount}`;
 
   // ── Routes that don't depend on the published version ─────────────────────
 
   // The assets binding stores the sheet at its own paths, which the mount
   // prefix means the request path never matches — rewrite before handing over.
+  // Deployed, the assets root IS the sprites dist, so the prefix goes; in dev
+  // the Vite plugin ignores the assets directory and proxies ASSETS to the
+  // Vite server, which serves the same sheet at /sprites/* (vite.config.js).
   if (rel === "/sprites" || rel.startsWith("/sprites/")) {
-    const res = await env.ASSETS.fetch(new URL(rel.slice("/sprites".length) || "/", url.origin));
+    const path = dev ? rel : rel.slice("/sprites".length) || "/";
+    const res = await env.ASSETS.fetch(new URL(path, url.origin));
     const out = new Response(res.body, res);
     out.headers.set("access-control-allow-origin", "*");
     return out;
