@@ -60,6 +60,37 @@ for name in PATTERN_ICONS:
     path.write_text(head + svg[svg.index(">", svg.index("<svg")):])
 PY
 
+# The landmark sources are drawn at their 1.3x display scale; a conspicuous
+# landmark draws bolder at 1.6x, expanded here as a convis/ variant of each —
+# a size variant, the same way genicons expands colour variants. The style's
+# literal convis/ references fail its sprite-sheet test if this list falls out
+# of step with layers/labels.ts.
+python3 - "$src/icons/gen" <<'PY'
+import re, sys
+from pathlib import Path
+
+LANDMARKS = (
+    "church cairn-lmk chimney column cross-lmk dish_aerial dome flagstaff "
+    "flare-stack mast monument obelisk radar_scanner spire statue tower-lmk "
+    "windmill windmotor windsock"
+).split()
+CONVIS = 1.6 / 1.3  # the sources already carry the 1.3x base scale
+
+gen = Path(sys.argv[1])
+(gen / "convis").mkdir(exist_ok=True)
+for name in LANDMARKS:
+    svg = (gen / f"{name}.svg").read_text()
+    head_end = svg.index(">", svg.index("<svg"))
+    head = svg[:head_end]
+    # (?<![-\w]) keeps width= from matching attributes like inkscape:window-width=
+    for attr in ("width", "height"):
+        value = float(re.search(rf'(?<![-\w]){attr}="([\d.]+)"', head).group(1))
+        head = re.sub(
+            rf'(?<![-\w]){attr}="[\d.]+"', f'{attr}="{value * CONVIS:g}"', head, count=1
+        )
+    (gen / "convis" / f"{name}.svg").write_text(head + svg[head_end:])
+PY
+
 # Upstream's recipe (vector/makefile): rasterize at 2x/4x, then relabel the
 # pixel ratio down one step, so icons draw at twice their source units — the
 # scale the style's icon-size values are written against.

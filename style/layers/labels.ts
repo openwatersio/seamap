@@ -1,4 +1,4 @@
-import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { anchorOffsets } from "./placement.js";
 import { RAMP_FROM, TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
@@ -8,6 +8,60 @@ const halo = {
   "text-halo-width": 2,
   "text-halo-blur": 1,
 };
+
+/** A conspicuous landmark (CONVIS) draws bolder: it is the one worth steering by. */
+const convis: ExpressionSpecification = [
+  "==",
+  ["get", "seamark:landmark:conspicuity"],
+  "conspicuous",
+];
+
+/**
+ * The scales the landmark artwork carries: the source icons are drawn 1.3x chart-symbol scale
+ * and bin/sprites expands a 1.6x convis/ variant of each, so the style never sets icon-size
+ * above 1 (which would upsample the raster and blur).
+ */
+const LMK_SCALE = 1.3;
+const LMK_SCALE_CONVIS = 1.6;
+
+/** Landmark category → icon; each has a convis/ variant in the sheet (bin/sprites). */
+const LANDMARK_ICONS: Record<string, string> = {
+  cairn: "cairn-lmk",
+  chimney: "chimney",
+  column: "column",
+  cross: "cross-lmk",
+  dish_aerial: "dish_aerial",
+  dome: "dome",
+  flagstaff: "flagstaff",
+  flare_stack: "flare-stack",
+  mast: "mast",
+  monument: "monument",
+  obelisk: "obelisk",
+  radar_scanner: "radar_scanner",
+  spire: "spire",
+  statue: "statue",
+  tower: "tower-lmk",
+  windmill: "windmill",
+  windmotor: "windmotor",
+  windsock: "windsock",
+};
+
+function landmarkIcon(folder: "" | "convis/"): ExpressionSpecification {
+  return [
+    "case",
+    ["in", ["get", "function"], ["literal", ["church", "chapel"]]],
+    `freenauticalchart:${folder}church`,
+    [
+      "match",
+      ["get", "category"],
+      ...Object.entries(LANDMARK_ICONS).flatMap(([category, icon]) => [
+        category,
+        `freenauticalchart:${folder}${icon}`,
+      ]),
+      `freenauticalchart:${folder}monument`,
+    ],
+  ] as ExpressionSpecification;
+}
 
 /**
  * Named features and the text that names them. These place last, and MapLibre collides symbols in
@@ -50,53 +104,17 @@ export function labels(): LayerSpecification[] {
         ],
       ],
       layout: {
-        "icon-image": [
-          "case",
-          ["in", ["get", "function"], ["literal", ["church", "chapel"]]],
-          "freenauticalchart:church",
-          ["==", ["get", "category"], "cairn"],
-          "freenauticalchart:cairn-lmk",
-          ["==", ["get", "category"], "chimney"],
-          "freenauticalchart:chimney",
-          ["==", ["get", "category"], "column"],
-          "freenauticalchart:column",
-          ["==", ["get", "category"], "cross"],
-          "freenauticalchart:cross-lmk",
-          ["==", ["get", "category"], "dish_aerial"],
-          "freenauticalchart:dish_aerial",
-          ["==", ["get", "category"], "dome"],
-          "freenauticalchart:dome",
-          ["==", ["get", "category"], "flagstaff"],
-          "freenauticalchart:flagstaff",
-          ["==", ["get", "category"], "flare_stack"],
-          "freenauticalchart:flare-stack",
-          ["==", ["get", "category"], "mast"],
-          "freenauticalchart:mast",
-          ["==", ["get", "category"], "monument"],
-          "freenauticalchart:monument",
-          ["==", ["get", "category"], "obelisk"],
-          "freenauticalchart:obelisk",
-          ["==", ["get", "category"], "radar_scanner"],
-          "freenauticalchart:radar_scanner",
-          ["==", ["get", "category"], "spire"],
-          "freenauticalchart:spire",
-          ["==", ["get", "category"], "statue"],
-          "freenauticalchart:statue",
-          ["==", ["get", "category"], "tower"],
-          "freenauticalchart:tower-lmk",
-          ["==", ["get", "category"], "windmill"],
-          "freenauticalchart:windmill",
-          ["==", ["get", "category"], "windmotor"],
-          "freenauticalchart:windmotor",
-          ["==", ["get", "category"], "windsock"],
-          "freenauticalchart:windsock",
-          "freenauticalchart:monument",
-        ],
+        "icon-image": ["case", convis, landmarkIcon("convis/"), landmarkIcon("")],
         // a landmark stands on its charted position: base of the artwork on the point, like the
-        // paper-chart symbol. The art's base line sits ~4px above the sprite edge, so push down
-        // that far (icon px, scales with icon-size) to land it on the position.
+        // paper-chart symbol. The art's base line sits 4px (at chart-symbol scale) above the
+        // sprite edge, so push down that far to land it on the position.
         "icon-anchor": "bottom",
-        "icon-offset": [0, 4],
+        "icon-offset": [
+          "case",
+          convis,
+          ["literal", [0, 4 * LMK_SCALE_CONVIS]],
+          ["literal", [0, 4 * LMK_SCALE]],
+        ],
         "icon-overlap": "always",
         // A name is a decoration: below the decoration zoom the symbol stands alone, which also
         // keeps landmark labels — placed last, so they win — from taking the space a harbour
@@ -134,17 +152,18 @@ export function labels(): LayerSpecification[] {
         ],
         "text-justify": "auto",
         "text-optional": true,
-        // a conspicuous landmark (CONVIS) draws bolder: it is the one worth steering by
-        // CONVIS earns a larger full size, not a different floor: the artwork is the same artwork,
-        // so what it can survive shrinking to is the same too
+        // Full size is 1: the sheet carries each variant's artwork at display size, with CONVIS
+        // bolder in the convis/ art rather than an upscale. The artwork is the same artwork
+        // though, so what it can survive shrinking to is the same on-screen floor for both —
+        // hence the larger variant's smaller floor fraction.
         "icon-size": [
           "interpolate",
           ["linear"],
           ["zoom"],
           RAMP_FROM,
-          TOKEN.detail,
+          ["case", convis, TOKEN.detail / LMK_SCALE_CONVIS, TOKEN.detail / LMK_SCALE],
           12,
-          ["case", ["==", ["get", "seamark:landmark:conspicuity"], "conspicuous"], 1.6, 1.3],
+          1,
         ],
       },
       paint: { "text-color": colors.label, ...halo },
