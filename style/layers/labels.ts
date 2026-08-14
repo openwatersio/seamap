@@ -47,20 +47,18 @@ const LANDMARK_ICONS: Record<string, string> = {
 };
 
 function landmarkIcon(folder: "" | "convis/"): ExpressionSpecification {
-  return [
+  const match: unknown[] = ["match", ["get", "category"]];
+  for (const [category, icon] of Object.entries(LANDMARK_ICONS)) {
+    match.push(category, `freenauticalchart:${folder}${icon}`);
+  }
+  match.push(`freenauticalchart:${folder}monument`);
+  const icon: unknown[] = [
     "case",
     ["in", ["get", "function"], ["literal", ["church", "chapel"]]],
     `freenauticalchart:${folder}church`,
-    [
-      "match",
-      ["get", "category"],
-      ...Object.entries(LANDMARK_ICONS).flatMap(([category, icon]) => [
-        category,
-        `freenauticalchart:${folder}${icon}`,
-      ]),
-      `freenauticalchart:${folder}monument`,
-    ],
-  ] as ExpressionSpecification;
+    match,
+  ];
+  return icon as ExpressionSpecification;
 }
 
 /**
