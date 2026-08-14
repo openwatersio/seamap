@@ -9,23 +9,22 @@ export function routes(): LayerSpecification[] {
   return [
     {
       id: "cables-pipes",
-      type: "symbol",
+      type: "line",
       source: "seamap",
       "source-layer": "seamark",
       filter: ["in", ["get", "type"], ["literal", ["cable_submarine", "pipeline_submarine"]]],
-      layout: {
-        "icon-image": [
+      paint: {
+        "line-pattern": [
           "case",
           ["==", ["get", "type"], "pipeline_submarine"],
           "freenauticalchart:pipeline",
           "freenauticalchart:cable",
         ],
-        "icon-overlap": "always",
-        "symbol-placement": "line",
-        "symbol-spacing": 1,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.5, 12, 1],
+        // the pattern scales to line-width; the sprites are 8px tall, so 4→8 spans half to full size
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 12, 8],
+        // subdued: CBLSUB/PIPSOL sit in the S-52 OTHER display category
+        "line-opacity": 0.5,
       },
-      paint: { "icon-opacity": 0.5 },
     },
     {
       id: "TSS-separation-zone",
