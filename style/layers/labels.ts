@@ -92,6 +92,11 @@ export function labels(): LayerSpecification[] {
           "freenauticalchart:windsock",
           "freenauticalchart:monument",
         ],
+        // a landmark stands on its charted position: base of the artwork on the point, like the
+        // paper-chart symbol. The art's base line sits ~4px above the sprite edge, so push down
+        // that far (icon px, scales with icon-size) to land it on the position.
+        "icon-anchor": "bottom",
+        "icon-offset": [0, 4],
         "icon-overlap": "always",
         // A name is a decoration: below the decoration zoom the symbol stands alone, which also
         // keeps landmark labels — placed last, so they win — from taking the space a harbour
@@ -115,16 +120,17 @@ export function labels(): LayerSpecification[] {
         "text-padding": 8,
         "text-font": ["Noto Sans Regular"],
         // One monotone ramp from snug to full clearance, like lights-label: intermediate stops
-        // read as the label jumping around its mark. Sprites are 22 x 30 display px at
-        // icon-size 1, hence the taller vertical offsets.
+        // read as the label jumping around its mark. The icon is bottom-anchored, so nearly all
+        // of it stands above the point: `above` clears the full sprite height, `below` only the
+        // base pad.
         "text-variable-anchor-offset": [
           "interpolate",
           ["linear"],
           ["zoom"],
           RAMP_FROM,
-          anchorOffsets(0.85, 0.94),
+          anchorOffsets(0.85, 1.3, 0.6),
           16,
-          anchorOffsets(1.82, 2.25),
+          anchorOffsets(1.82, 3.3, 1.15),
         ],
         "text-justify": "auto",
         "text-optional": true,
@@ -300,15 +306,26 @@ export function labels(): LayerSpecification[] {
         // Matches the gap `landmarks` leaves off the same symbol, in ems of this layer's
         // text-size. The low stops track the body's size ramp (RAMP_FROM → full at 12): an
         // offset held at its full-size value while the star is still near its floor reads as a
-        // label adrift between marks, not attached to one.
+        // label adrift between marks, not attached to one. Landmarks are bottom-anchored, so
+        // their branch mirrors the `landmarks` layer's clearances (rescaled to this text-size).
         "text-variable-anchor-offset": [
           "interpolate",
           ["linear"],
           ["zoom"],
           RAMP_FROM,
-          anchorOffsets(0.3, 1.15),
+          [
+            "case",
+            ["==", ["get", "type"], "landmark"],
+            anchorOffsets(1.0, 1.55, 0.7),
+            anchorOffsets(0.3, 1.15),
+          ],
           16,
-          anchorOffsets(1.56, 1.93),
+          [
+            "case",
+            ["==", ["get", "type"], "landmark"],
+            anchorOffsets(1.56, 2.83, 1.0),
+            anchorOffsets(1.56, 1.93),
+          ],
         ],
       },
       paint: { ...halo },
