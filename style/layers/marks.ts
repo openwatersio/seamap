@@ -1,5 +1,5 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
-import { RAMP_FROM, TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
+import { TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
 
 /**
  * Y-offsets (sprite px, scaled by icon-size) that seat a bottom-anchored topmark on each body
@@ -49,7 +49,8 @@ function shapeOffset(
   return cases as ExpressionSpecification;
 }
 
-const topmarkOffset = shapeOffset(-16, TOPMARK_Y, -26);
+// floats' wide squat hulls seat the topmark deeper than the shape table's bodies
+const topmarkOffset = shapeOffset(-19.2, TOPMARK_Y, -26);
 const reflectorOffset = shapeOffset(-16, REFLECTOR_Y, -26);
 
 /** The sheet names buoyant bodies "pile" and pole/perch/post bodies "stake". */
@@ -138,27 +139,8 @@ export function marks(): LayerSpecification[] {
           0,
         ],
         // icon-offset is scaled by the icon's own icon-size, while the seat it aims for scales
-        // with the hull ramp — this must stay a constant multiple of the body's ramp, or the
-        // topmark rams into the body where the ratio shrinks and floats off where it grows
-        "icon-size": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          RAMP_FROM,
-          [
-            "case",
-            ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
-            TOKEN.hull,
-            1.2 * TOKEN.hull,
-          ],
-          12,
-          [
-            "case",
-            ["any", ["in", "buoy", ["get", "type"]], ["in", "beacon", ["get", "type"]]],
-            1,
-            1.2,
-          ],
-        ],
+        // with the hull ramp — the same ramp as the body keeps the seat tracking it
+        "icon-size": sizeRamp(TOKEN.hull, 12),
       },
     },
     {

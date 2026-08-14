@@ -31,6 +31,12 @@ values are written against. Two departures from upstream:
   first. MapLibre tiles pattern images edge to edge, so tight-cropped hatch
   marks read as a solid mass; upstream never hits this because its own style
   doesn't hatch restricted areas.
+- The landmark icons and light stars are drawn larger than upstream's — 1.3x
+  and 1.2x, the size the chart displays them at — and each landmark gets a
+  1.6x `convis/` variant expanded at build time for conspicuous features.
+  Upscaling a raster at render time blurs, so `icon-size` never exceeds 1
+  (enforced by index.test.ts); when syncing icons from upstream, rescale them
+  the same way (scale `width`/`height`, keep the original `viewBox`).
 
 Positioning is the style's job, not the sheet's: buoy/beacon artwork keeps its
 charted position 2 source units above the artwork bottom (the `basepoint`

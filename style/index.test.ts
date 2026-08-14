@@ -372,6 +372,27 @@ it("pads every fill pattern the style uses", () => {
   expect([...patterns].filter((name) => !script.includes(`"${name}"`))).toEqual([]);
 });
 
+// The sprite sheet is rasterized at display resolution, so any icon-size above 1 upsamples the
+// bitmap and blurs. Artwork that must draw larger is drawn larger in the sheet (bin/sprites).
+it("never scales an icon above the sheet's resolution", () => {
+  const variants = [{}, { "seamark:landmark:conspicuity": "conspicuous" }];
+  let checked = 0;
+  for (const layer of all) {
+    const size = (layer as { layout?: Record<string, unknown> }).layout?.["icon-size"];
+    if (size === undefined) continue;
+    const compiled = createExpression(size);
+    if (compiled.result !== "success") throw new Error(`${layer.id}: icon-size failed to compile`);
+    for (let zoom = 0; zoom <= 22; zoom += 0.25) {
+      for (const properties of variants) {
+        const value = compiled.value.evaluate({ zoom }, { type: 1, properties } as never) as number;
+        expect(value, `${layer.id} icon-size at z${zoom}`).toBeLessThanOrEqual(1);
+        checked++;
+      }
+    }
+  }
+  expect(checked).toBeGreaterThan(0);
+});
+
 it("returns fresh copies", () => {
   const a = layers({ font: (f) => f.toLowerCase() });
   const b = layers();

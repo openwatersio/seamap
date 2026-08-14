@@ -69,7 +69,9 @@ export function lights(): LayerSpecification[] {
       layout: {
         "icon-image": "freenauticalchart:light-minor",
         "icon-overlap": "always",
-        "icon-size": sizeRamp(TOKEN.star, 12, 1.2),
+        // the star art is drawn 1.2x, so full size is 1; the floor keeps the same on-screen px
+        // the star token names
+        "icon-size": sizeRamp(TOKEN.star / 1.2, 12),
       },
     },
     {
@@ -82,7 +84,7 @@ export function lights(): LayerSpecification[] {
       layout: {
         "icon-image": "freenauticalchart:light-major",
         "icon-overlap": "always",
-        "icon-size": sizeRamp(TOKEN.star, 11, 1.2),
+        "icon-size": sizeRamp(TOKEN.star / 1.2, 11),
       },
     },
     {
