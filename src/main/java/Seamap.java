@@ -214,6 +214,8 @@ public class Seamap implements Profile {
     if (type != null) {
       // add seamark to vector tile
       attrs.put("osm_id", sf.id());
+      // the floor a strict S-52 portrayal would use, for a style that offers one
+      attrs.put("std_minzoom", SeamarkZoomRules.getStandardMinZoom(attrs));
       // anyGeometry() makes a polygon of any closed way, which is wrong for the types that are
       // linear however they're drawn — a TSS lane or a cable loop is never an area.
       FeatureCollector.Feature feature =
@@ -258,6 +260,8 @@ public class Seamap implements Profile {
             lightFeature.setId(featureId(sf));
             lightFeature.setAttr("osm_id", sf.id());
             lightFeature.setAttr("type", type);
+            // sector geometry appears with the light it belongs to, never on a floor of its own
+            lightFeature.setAttr("std_minzoom", attrs.get("std_minzoom"));
             lightGeom.attrs.forEach((k, v) -> lightFeature.setAttr(k, v));
             lightFeature.setMinZoom(SeamarkZoomRules.getLightMinZoom(attrs));
           }

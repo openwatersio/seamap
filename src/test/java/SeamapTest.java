@@ -22,15 +22,19 @@ class SeamapTest {
 
   private static final GeometryFactory GF = new GeometryFactory();
 
-  private static List<FeatureCollector.Feature> seamarkFeatures(SimpleFeature sf) {
+  private static List<FeatureCollector.Feature> layerFeatures(SimpleFeature sf, String layer) {
     FeatureCollector collector =
         new FeatureCollector.Factory(PlanetilerConfig.defaults(), Stats.inMemory()).get(sf);
     new Seamap().processFeature(sf, collector);
     List<FeatureCollector.Feature> out = new ArrayList<>();
     for (FeatureCollector.Feature f : collector) {
-      if ("seamark".equals(f.getLayer())) out.add(f);
+      if (layer.equals(f.getLayer())) out.add(f);
     }
     return out;
+  }
+
+  private static List<FeatureCollector.Feature> seamarkFeatures(SimpleFeature sf) {
+    return layerFeatures(sf, "seamark");
   }
 
   /** A point source is already its own label; a second centroid would draw the name twice. */
@@ -58,6 +62,32 @@ class SeamapTest {
         SimpleFeature.create(
             polygon, Map.of("seamark:type", "landmark", "seamark:name", "Test"), "osm", null, 2);
     assertEquals(2, seamarkFeatures(sf).size());
+  }
+
+  /**
+   * A sector light writes both portrayals — arcs and legs on the ground, points at the light — and
+   * all of them appear with the mark, on its standard floor.
+   */
+  @Test
+  void sectorLightsEmitBothPortrayalsUnderTheHostsStandardFloor() {
+    Map<String, Object> tags = new HashMap<>();
+    tags.put("seamark:type", "light_minor");
+    tags.put("seamark:light:1:colour", "red");
+    tags.put("seamark:light:1:sector_start", "10");
+    tags.put("seamark:light:1:sector_end", "70");
+    SimpleFeature sf =
+        SimpleFeature.create(GF.createPoint(new Coordinate(11.0, 55.0)), tags, "osm", null, 1);
+
+    var lights = layerFeatures(sf, "light");
+    var subtypes = lights.stream().map(f -> f.getAttrsAtZoom(14).get("subtype")).toList();
+    assertTrue(subtypes.contains("sector"), subtypes.toString());
+    assertTrue(subtypes.contains("leg"), subtypes.toString());
+    assertTrue(subtypes.contains("sector_point"), subtypes.toString());
+    assertTrue(subtypes.contains("limit"), subtypes.toString());
+    for (FeatureCollector.Feature light : lights) {
+      assertEquals(11, light.getAttrsAtZoom(14).get("std_minzoom"));
+    }
+    assertEquals(11, seamarkFeatures(sf).get(0).getAttrsAtZoom(14).get("std_minzoom"));
   }
 
   /** A seamark point at tile-pixel x/y, classified the way processFeature classifies it. */
