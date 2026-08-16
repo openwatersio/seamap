@@ -138,6 +138,10 @@ Each decision lives at the cheapest layer that can express it correctly:
 
 The tile-build numbers are set generously (the cap well above any budget, floors below any style threshold that might move) precisely so the style side can be retuned without touching them.
 
+## Standards mode is the off-switch for every deviation on this page
+
+The `standards` style option renders strict S-52 portrayal instead of the chart's own: every mechanism above — budgets, `topOfCell`, decoration legibility floors, size tokens and ramps — is a deliberate departure from the standards, and standards mode neutralizes them all in one place ([`visibility.ts`](../../style/layers/visibility.ts), `visibility(standards)`). Symbols draw at their fixed S-52 size, decorations draw whenever their symbol does, visibility comes from the SCAMIN-derived `std_minzoom` the tiles carry per feature ([zoom.md](zoom.md)), and sectors switch to display-fixed 20 mm arcs drawn as rotated sprites ([`sectors.ts`](../../style/layers/sectors.ts)) — the portrayal this page argues against, kept available because seeing the standard is how the departures stay honest. Two ceilings are accepted rather than papered over: the destructive tile cap still bounds what dense cells carry below z13, and an all-scales class exists only from its tile floor.
+
 ## Safety guarantees
 
 - A hazard inside any supported safety depth is always in the tiles, and exempt from its budget when it breaches the mariner's setting.

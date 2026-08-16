@@ -15,7 +15,7 @@ const map = new maplibregl.Map({
 });
 ```
 
-`style()` is async: land hillshading comes from the VersaTiles elevation tiles, and the builder fetches their TileJSON. Options: `tiles` (seamark TileJSON URL), `seascape`, `versatiles`, `language`, `spriteBase`, `hillshade` (on by default; `false` to skip, or an object to tune the shading), and the seascape passthroughs — `flavor` (overrides merged over its `day`), `unit`, `safety`, `shading`, and the `dem`/`vector`/`coverage` source id overrides.
+`style()` is async: land hillshading comes from the VersaTiles elevation tiles, and the builder fetches their TileJSON. Options: `tiles` (seamark TileJSON URL), `seascape`, `versatiles`, `language`, `spriteBase`, `hillshade` (on by default; `false` to skip, or an object to tune the shading), `standards` (off by default; strict S-52 portrayal — fixed symbol sizes, SCAMIN-derived visibility, display-fixed sector arcs), and the seascape passthroughs — `flavor` (overrides merged over its `day`), `unit`, `safety`, `shading`, and the `dem`/`vector`/`coverage` source id overrides.
 
 ## Composed
 
@@ -37,7 +37,7 @@ const map = new maplibregl.Map({ style /* ... */ });
 ```
 
 - `sources({ url? })` — the `seamap` vector source (defaults to `https://tiles.openwaters.io/seamap/tiles.json`).
-- `layers({ font? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames glyph fontstacks (`"Noto Sans Regular"`) to match your glyph server.
+- `layers({ font?, safety?, unit?, standards? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames glyph fontstacks (`"Noto Sans Regular"`) to match your glyph server.
 - `sprite(base)` — the `style.sprite` entry pointing at wherever you serve the sheet.
 
 When tags compose a colour combination the sheet doesn't carry, the layers fall back to the shape's `generic` icon in the style itself (a `coalesce` of `image` expressions), so unusual marks never render as nothing.

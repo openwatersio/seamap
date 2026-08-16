@@ -1,5 +1,6 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
+import type { Visibility } from "./visibility.js";
 
 /** Restricted-area colouring: conservation green, everything else chart magenta (RESARE04). */
 const restrictionColor: ExpressionSpecification = [
@@ -39,7 +40,7 @@ const restriction: ExpressionSpecification = [
  * across a coastline stops at the shore. Allowed areas (anchorages, moorings) draw before
  * restricted areas — RESARE outranks ACHARE (S-52 priority 5 vs 3) where they overlap.
  */
-export function areas(): LayerSpecification[] {
+export function areas({ symbolSize }: Visibility): LayerSpecification[] {
   return [
     {
       id: "allowed-areas",
@@ -92,7 +93,7 @@ export function areas(): LayerSpecification[] {
         "icon-overlap": "always",
         "symbol-placement": "line",
         "symbol-spacing": 90,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.2, 12, 0.8],
+        "icon-size": symbolSize(8, 0.2, 12, 0.8),
       },
       paint: { "icon-opacity": 0.8 },
     },

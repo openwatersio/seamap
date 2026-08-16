@@ -1,7 +1,7 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { MARK, anchorOffsets, markOffsets } from "./placement.js";
-import { RAMP_FROM, TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
+import { RAMP_FROM, TOKEN, type Visibility } from "./visibility.js";
 
 const halo = {
   "text-halo-color": colors.halo,
@@ -137,7 +137,12 @@ function landmarkIcon(folder: "" | "convis/"): ExpressionSpecification {
  * name entirely. Instead `landmarks` blanks its own name for lit features once `lights-label` is
  * drawing, and `lights-label` stacks name over characteristic. Keep the two together.
  */
-export function labels(): LayerSpecification[] {
+export function labels({
+  decoration,
+  symbolSize,
+  topOfCell,
+  withinBudget,
+}: Visibility): LayerSpecification[] {
   return [
     {
       id: "landmarks",
@@ -210,15 +215,12 @@ export function labels(): LayerSpecification[] {
         // bolder in the convis/ art rather than an upscale. The artwork is the same artwork
         // though, so what it can survive shrinking to is the same on-screen floor for both —
         // hence the larger variant's smaller floor fraction.
-        "icon-size": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
+        "icon-size": symbolSize(
           RAMP_FROM,
           ["case", convis, TOKEN.detail / LMK_SCALE_CONVIS, TOKEN.detail / LMK_SCALE],
           12,
           1,
-        ],
+        ),
       },
       paint: { "text-color": colors.label, ...halo },
     },
@@ -232,7 +234,7 @@ export function labels(): LayerSpecification[] {
       layout: {
         "symbol-placement": "line",
         "text-field": ["get", "name"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 16, 12],
+        "text-size": symbolSize(10, 10, 16, 12),
         "text-font": ["Noto Sans Regular"],
       },
       paint: {
@@ -262,7 +264,7 @@ export function labels(): LayerSpecification[] {
         "text-max-width": 5,
         "text-offset": [0, -0.65],
         "text-pitch-alignment": "viewport",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10, 16, 13],
+        "text-size": symbolSize(13, 10, 16, 13),
       },
       paint: { "text-color": colors.label, ...halo },
     },
@@ -292,7 +294,7 @@ export function labels(): LayerSpecification[] {
         ] as ExpressionSpecification,
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13],
+        "text-size": symbolSize(12, 10, 16, 13),
         "text-padding": 8,
         // MARK's pixel clearances in this layer's ems per stop. Hazards are centred symbols
         // (and can wear the wide isolated-danger octagon), so they take even margins.
@@ -380,7 +382,7 @@ export function labels(): LayerSpecification[] {
         ],
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",
-        "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14],
+        "text-size": symbolSize(12, 10, 16, 14),
         // tighter than the name layers: the block carries the characteristic, and padding that
         // makes it fail to place hides information a mariner steers by
         "text-padding": 4,

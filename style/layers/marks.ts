@@ -1,5 +1,5 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
-import { TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
+import { TOKEN, type Visibility } from "./visibility.js";
 
 /**
  * Y-offsets (sprite px, scaled by icon-size) that seat a bottom-anchored topmark on each body
@@ -88,7 +88,7 @@ const patternBodyShape: ExpressionSpecification = [
  * mark; reflectors draw last, charted over the mark. minzoom 6 defers to the tile pipeline,
  * which only carries cardinal/isolated-danger/safe-water marks below zoom 8 (SeamarkZoomRules).
  */
-export function marks(): LayerSpecification[] {
+export function marks({ decoration, sizeRamp, withinBudget }: Visibility): LayerSpecification[] {
   return [
     {
       id: "topmarks",
