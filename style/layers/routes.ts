@@ -1,11 +1,12 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
+import type { Visibility } from "./visibility.js";
 
 /**
  * Things vessels follow or must stay clear of, drawn as lines: traffic separation schemes, ferry
  * routes, navigation lines and tracks, and the submarine cables and pipelines below them.
  */
-export function routes(): LayerSpecification[] {
+export function routes({ symbolSize }: Visibility): LayerSpecification[] {
   return [
     {
       id: "cables-pipes",
@@ -53,7 +54,7 @@ export function routes(): LayerSpecification[] {
         "icon-image": "freenauticalchart:TSS-arrow",
         // held at 0.15 (~8px on the 54px sprite) down to the z2 data floor: the arrow chain is
         // the lane's only portrayal, so it has to stay legible at passage-planning zooms
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.15, 6, 0.15, 14, 0.6],
+        "icon-size": symbolSize(2, 0.15, 6, 0.15, 14, 0.6),
         "symbol-placement": "line",
         "icon-padding": 0,
         // grows with icon-size so the gap between arrows stays open as they scale up

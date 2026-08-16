@@ -1,7 +1,7 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 import { anchorOffsets } from "./placement.js";
-import { TOKEN, sizeRamp, withinBudget } from "./visibility.js";
+import { TOKEN, type Visibility } from "./visibility.js";
 
 /**
  * Fixed shore and harbour works: piers and breakwaters, piles and dolphins, platforms, cranes,
@@ -15,7 +15,11 @@ const wallWaterLevel: ExpressionSpecification = [
   "",
 ];
 
-export function structures(): LayerSpecification[] {
+export function structures({
+  sizeRamp,
+  symbolSize,
+  withinBudget,
+}: Visibility): LayerSpecification[] {
   // access values that mean "not open to the public" (OpenSeaMap-vector's PRIVATE_TAGS).
   // An untagged feature gets null, and `in` against null is false, so it reads as public.
   const restricted: ExpressionSpecification = [
@@ -105,7 +109,7 @@ export function structures(): LayerSpecification[] {
       layout: {
         "icon-image": "freenauticalchart:crane",
         "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.6, 16, 1],
+        "icon-size": symbolSize(14, 0.6, 16, 1),
       },
     },
     {
@@ -118,7 +122,7 @@ export function structures(): LayerSpecification[] {
       layout: {
         "icon-image": "freenauticalchart:rescue",
         "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 13, 1],
+        "icon-size": symbolSize(10, 0.5, 13, 1),
       },
     },
     {
@@ -131,7 +135,7 @@ export function structures(): LayerSpecification[] {
       layout: {
         "icon-image": "freenauticalchart:radar_scanner",
         "symbol-sort-key": ["coalesce", ["get", "cell_rank"], 0],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 11, 0.6, 14, 1],
+        "icon-size": symbolSize(11, 0.6, 14, 1),
       },
     },
     {
@@ -203,7 +207,7 @@ export function structures(): LayerSpecification[] {
           "freenauticalchart:poi-beach",
           "freenauticalchart:poi-generic",
         ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.8, 17, 1],
+        "icon-size": symbolSize(14, 0.8, 17, 1),
         // which grades a dock sells decides whether it's worth the detour; the other badges say
         // all they need to with the icon
         "text-field": [
@@ -262,7 +266,7 @@ export function structures(): LayerSpecification[] {
         "icon-overlap": "always",
         "text-font": ["Noto Sans Regular"],
         "text-field": ["get", "name"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
+        "text-size": symbolSize(8, 9, 12, 12),
         // tracks icon-size to hold ~7.5px from icon edge to glyph, leaving ~5px clear of the halo.
         // Both sprites are square 32 display px at icon-size 1, so both axes match.
         "text-variable-anchor-offset": [

@@ -1,6 +1,6 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
-import { TOKEN, sizeRamp, withinBudget } from "./visibility.js";
+import { TOKEN, type Visibility } from "./visibility.js";
 
 const HAZARD_TYPES = ["rock", "wreck", "obstruction"];
 
@@ -56,7 +56,11 @@ const navigableSurround = (safety: number): ExpressionSpecification => [
  * `safety` is the safety depth in metres, defaulting to seascape's 2 m small-craft default; it
  * drives the isolated-danger highlight and the hazard-area boundary style.
  */
-export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecification[] {
+export function hazards(
+  { sizeRamp, symbolSize, withinBudget }: Visibility,
+  safety = 2,
+  unit: "m" | "ft" | "fm" = "m",
+): LayerSpecification[] {
   // the surveyed depth in the mariner's unit, floored toward shallower — the safe direction
   // (S-4 B-412); metres print as tagged, often with a decimal
   const depthText: ExpressionSpecification =
@@ -334,7 +338,7 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
         "text-letter-spacing": 0.1,
         "text-max-width": 5,
         "text-padding": 10,
-        "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 13, 11],
+        "text-size": symbolSize(8, 9, 13, 11),
       },
       paint: {
         "text-color": colors.label,

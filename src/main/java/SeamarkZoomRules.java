@@ -36,15 +36,78 @@ public class SeamarkZoomRules {
           Map.entry("anchorage", 9));
 
   /**
+   * The same floors as the standards put them: the home band's scale plus the class's SCAMIN steps
+   * (S-57 UOC Table 2.5), which is where the chart's own floors deliberately depart. The derivation
+   * and every departure are tabulated in docs/design/zoom.md.
+   */
+  private static final Map<String, Integer> STANDARD_FLOORS =
+      Map.ofEntries(
+          Map.entry("light_major", 5),
+          Map.entry("light_minor", 11),
+          Map.entry("fog_signal", 12),
+          Map.entry("platform", 5),
+          Map.entry("anchorage", 12),
+          Map.entry("cable_area", 10),
+          Map.entry("pipeline_area", 10),
+          Map.entry("marine_farm", 10),
+          Map.entry("buoy_lateral", 12),
+          Map.entry("beacon_lateral", 12),
+          Map.entry("buoy_special_purpose", 12),
+          Map.entry("beacon_special_purpose", 12),
+          Map.entry("mooring", 14),
+          Map.entry("harbour", 11),
+          Map.entry("small_craft_facility", 15));
+
+  /**
+   * The strict floor: the zoom at which the S-57/S-52 derivation in docs/design/zoom.md would first
+   * show the feature, band compilation and SCAMIN together. 0 is SCAMIN NOT SET — all scales, which
+   * in practice means the feature's own {@link #getMinZoom}, since nothing exists below it.
+   * Wherever SCAMIN does set a floor this is the later of the two, so a style thresholding on it is
+   * always asking for a feature the tile carries.
+   *
+   * @param attrs Map containing seamark attributes (type, category, etc.)
+   * @return the standards-derived minimum zoom
+   */
+  public static int getStandardMinZoom(Map<String, Object> attrs) {
+    String type = (String) attrs.get("type");
+    String category = (String) attrs.get("category");
+
+    int base;
+    if (type == null) {
+      base = chartFloor(type, category, attrs);
+    } else if (isHazard(type)) {
+      // the contextual derivation is itself the standard — UDWHAZ and S-4 B-404, not a departure
+      base = hazardMinZoom(type, category, attrs);
+    } else if (type.startsWith("separation_")) {
+      base = 0; // the whole TSS carries SCAMIN NOT SET
+    } else if ("landmark".equals(type)) {
+      // CONVIS promotes to STANDARD and a lit LNDMRK takes no SCAMIN; a plain one is Coastal detail
+      base = isSteeredBy(attrs) ? 0 : 11;
+    } else if (STANDARD_FLOORS.containsKey(type)) {
+      base = STANDARD_FLOORS.get(type);
+    } else if (isRestrictedArea(type)) {
+      base = 6;
+    } else if (isMediumHighPriorityType(type)) {
+      base = 9;
+    } else {
+      base = chartFloor(type, category, attrs);
+    }
+    return promoteByRange(base, attrs, 5, 6);
+  }
+
+  /**
    * Get the minimum zoom level for a given seamark based on its type and attributes.
    *
    * @param attrs Map containing seamark attributes (type, category, etc.)
    * @return minimum zoom level (0-14)
    */
   public static int getMinZoom(Map<String, Object> attrs) {
-    String type = (String) attrs.get("type");
-    String category = (String) attrs.get("category");
+    int base = chartFloor((String) attrs.get("type"), (String) attrs.get("category"), attrs);
+    return promoteByRange(base, attrs, 4, 6);
+  }
 
+  /** The chart's own floor for a type, before a light's reach promotes it. */
+  private static int chartFloor(String type, String category, Map<String, Object> attrs) {
     int base;
     if (type == null) {
       base = 8; // default
@@ -67,27 +130,37 @@ public class SeamarkZoomRules {
       base = 8;
     }
 
-    // A conspicuous landmark is part of what a mariner steers by (CONVIS promotes to the
-    // STANDARD display category in S-52), a lit one is an aid in its own right (LNDMRK carrying
-    // a light takes no SCAMIN), and wind turbines are conspicuous by what they are — the tag is
-    // rarely present, and without this a wind farm is empty sea below z10.
+    // Wind turbines are conspicuous by what they are — the conspicuity tag is rarely present, and
+    // without this a wind farm is empty sea below z10.
     if ("landmark".equals(type)
-        && ("conspicuous".equals(attrs.get("seamark:landmark:conspicuity"))
-            || attrs.get("light") != null
-            || "windmotor".equals(category)
-            || "windmill".equals(category))) {
+        && (isSteeredBy(attrs) || "windmotor".equals(category) || "windmill".equals(category))) {
       base = Math.min(base, 6);
     }
 
-    // A light's reach outranks how its host happens to be typed: plenty of real lighthouses are
-    // tagged light_minor or sit on plain beacons. The S-52 major-light test is 10 M nominal
-    // range (LIGHTS06); 15 M is landfall class. Range only ever promotes, never demotes.
-    Object range = attrs.get("light_range");
-    if (range instanceof Number n) {
-      if (n.doubleValue() >= 15) return Math.min(base, 4);
-      if (n.doubleValue() >= 10) return Math.min(base, 6);
+    return base;
+  }
+
+  /**
+   * A light's reach outranks how its host happens to be typed: plenty of real lighthouses are
+   * tagged light_minor or sit on plain beacons. The S-52 major-light test is 10 M nominal range
+   * (LIGHTS06); 15 M is landfall class. Range only ever promotes, never demotes.
+   */
+  private static int promoteByRange(
+      int base, Map<String, Object> attrs, int landfallZoom, int majorZoom) {
+    if (attrs.get("light_range") instanceof Number n) {
+      if (n.doubleValue() >= 15) return Math.min(base, landfallZoom);
+      if (n.doubleValue() >= 10) return Math.min(base, majorZoom);
     }
     return base;
+  }
+
+  /**
+   * A landmark a mariner steers by: conspicuous (CONVIS promotes to the STANDARD display category
+   * in S-52) or carrying a light, which makes it an aid in its own right and takes its SCAMIN away.
+   */
+  private static boolean isSteeredBy(Map<String, Object> attrs) {
+    return "conspicuous".equals(attrs.get("seamark:landmark:conspicuity"))
+        || attrs.get("light") != null;
   }
 
   /**

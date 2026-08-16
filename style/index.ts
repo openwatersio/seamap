@@ -65,6 +65,12 @@ export interface LayersOptions {
   safety?: number;
   /** Depth unit for hazard depth numerals, matching seascape's soundings. */
   unit?: "m" | "ft" | "fm";
+  /**
+   * Strict S-52 portrayal, off by default: fixed symbol sizes, SCAMIN-derived visibility, and
+   * light sectors as display-fixed arcs. The chart's own answers — density budgets, decoration
+   * legibility floors, size ramps, ground-geometry sectors — are what it ships with.
+   */
+  standards?: boolean;
 }
 
 /**
@@ -73,11 +79,11 @@ export interface LayersOptions {
  * fills) belong below land fills, `symbols` (hazards, buoys, lights, topmarks,
  * landmarks, labels) on top of everything.
  */
-export function layers({ font, safety, unit }: LayersOptions = {}): {
+export function layers({ font, safety, unit, standards }: LayersOptions = {}): {
   areas: LayerSpecification[];
   symbols: LayerSpecification[];
 } {
-  const { areas, symbols } = chartLayers({ safety, unit });
+  const { areas, symbols } = chartLayers({ safety, unit, standards });
   if (font) {
     for (const layer of [...areas, ...symbols]) {
       const layout = "layout" in layer ? (layer.layout as { "text-font"?: string[] }) : undefined;
@@ -163,6 +169,11 @@ export interface StyleOptions {
   /** Safety contour depth in metres, 0 = off (seascape). */
   safety?: number;
   /**
+   * Strict S-52 portrayal of the chart symbology, off by default: fixed symbol sizes,
+   * SCAMIN-derived visibility, and display-fixed light sector arcs.
+   */
+  standards?: boolean;
+  /**
    * Water shading: ENC-style vector depth bands by default — their edges coincide with the
    * contour lines by construction, and they stay crisp under overzoom. "relief" selects the
    * raster DEM color-relief instead.
@@ -192,6 +203,7 @@ export async function style({
   flavor,
   unit,
   safety,
+  standards,
   shading = "bands",
   dem,
   vector,
@@ -261,7 +273,7 @@ export async function style({
     paint: { "fill-pattern": "freenauticalchart:unsurveyed" },
   });
 
-  const { areas, symbols } = layers({ font: versatilesFont, safety, unit });
+  const { areas, symbols } = layers({ font: versatilesFont, safety, unit, standards });
 
   // draw sea: replace versatiles' first two layers (background, water) with the
   // chart's own background, bathymetry, sea areas, and seamap land

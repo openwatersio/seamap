@@ -1,4 +1,5 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.onthegomap.planetiler.reader.SimpleFeature;
@@ -143,6 +144,75 @@ class LightsTest {
                 "seamark:light:2:sector_start", "0",
                 "seamark:light:2:sector_end", "90"));
     assertEquals(3, of(all, "leg").size(), "270, north and 90 — never north twice");
+  }
+
+  /** Every sector is also a point at the light, carrying the angles it spans. */
+  @Test
+  void emitsOnePointPerSector() {
+    var all =
+        sectorsOf(
+            light(
+                "seamark:light:1:colour", "red",
+                "seamark:light:1:sector_start", "10",
+                "seamark:light:1:sector_end", "70",
+                "seamark:light:2:colour", "green",
+                "seamark:light:2:sector_start", "70",
+                "seamark:light:2:sector_end", "180"));
+    var points = of(all, "sector_point");
+    assertEquals(2, points.size());
+    for (var point : points) {
+      assertEquals("Point", point.geometry.getGeometryType());
+    }
+    var red = points.stream().filter(g -> "red".equals(g.attrs.get("color"))).findFirst().get();
+    assertEquals(10.0, red.attrs.get("sector_start"));
+    assertEquals(70.0, red.attrs.get("sector_end"));
+    assertEquals(60.0, red.attrs.get("sector_width"));
+  }
+
+  /** A point's width wraps through north rather than going negative. */
+  @Test
+  void pointWidthWrapsThroughNorth() {
+    var all =
+        sectorsOf(light("seamark:light:1:sector_start", "350", "seamark:light:1:sector_end", "20"));
+    assertEquals(30.0, of(all, "sector_point").get(0).attrs.get("sector_width"));
+  }
+
+  /** The smaller of an overlapping pair is marked on the point too. */
+  @Test
+  void marksTheSmallerOfTwoOverlappingSectorPoints() {
+    var points =
+        of(
+            sectorsOf(
+                light(
+                    "seamark:light:1:sector_start", "0",
+                    "seamark:light:1:sector_end", "180",
+                    "seamark:light:2:sector_start", "80",
+                    "seamark:light:2:sector_end", "100")),
+            "sector_point");
+    var wide = points.stream().filter(g -> g.attrs.get("sector_width").equals(180.0)).findFirst();
+    var narrow = points.stream().filter(g -> g.attrs.get("sector_width").equals(20.0)).findFirst();
+    assertFalse(wide.get().attrs.containsKey("extended"));
+    assertTrue((Boolean) narrow.get().attrs.get("extended"));
+  }
+
+  /** One point per deduped limit, at a bearing normalized into [0, 360). */
+  @Test
+  void emitsOnePointPerLimit() {
+    var all =
+        sectorsOf(
+            light(
+                "seamark:light:1:sector_start", "270",
+                "seamark:light:1:sector_end", "360",
+                "seamark:light:2:sector_start", "0",
+                "seamark:light:2:sector_end", "90"));
+    var limits = of(all, "limit");
+    assertEquals(3, limits.size(), "270, north and 90 — never north twice");
+    assertEquals(
+        List.of(0.0, 90.0, 270.0),
+        limits.stream().map(g -> (Double) g.attrs.get("bearing")).sorted().toList());
+    for (var limit : limits) {
+      assertEquals("Point", limit.geometry.getGeometryType());
+    }
   }
 
   /** An all-round light gets a flare, never an arc. */

@@ -7,10 +7,12 @@ import { style } from "@openwaters/seamap";
 // ?tiles=<url> points the chart at another TileJSON — the dev server's local
 // worker, say — instead of the published tiles. ?hillshade turns on the
 // bathymetric hillshading the style ships off; ?shading=relief swaps the
-// vector depth bands for the raster DEM color-relief.
+// vector depth bands for the raster DEM color-relief; ?standards draws the
+// symbology strictly per S-52 instead of the chart's own portrayal.
 const params = new URLSearchParams(location.search);
 const tiles = params.get("tiles") || undefined;
 const depthHillshade = params.has("hillshade");
+const standards = params.has("standards");
 // anything but the known raster opt-in falls back to the style's default
 const shading = params.get("shading") === "relief" ? "relief" : undefined;
 
@@ -25,7 +27,7 @@ const map = new maplibregl.Map({
   center: [10.2351, 56.16858],
   zoom: 13.4,
   container: "map",
-  style: await style({ tiles, depthHillshade, shading }),
+  style: await style({ tiles, depthHillshade, shading, standards }),
   dragRotate: false,
   touchPitch: false,
   maxPitch: 0,

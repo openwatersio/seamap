@@ -1,5 +1,5 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
-import { TOKEN, decoration, sizeRamp, withinBudget } from "./visibility.js";
+import { TOKEN, type Visibility } from "./visibility.js";
 
 /** Sprite folder for the flare icon: floodlights have their own artwork. */
 const lightPrefix: ExpressionSpecification = [
@@ -18,7 +18,12 @@ const lightPrefix: ExpressionSpecification = [
  * standalone light symbols, and fog signals. The light *characteristic* label lives in
  * labels.ts, where it shares an anchor with the name labels it has to cooperate with.
  */
-export function lights(): LayerSpecification[] {
+export function lights({
+  decoration,
+  sizeRamp,
+  symbolSize,
+  withinBudget,
+}: Visibility): LayerSpecification[] {
   return [
     {
       id: "lights",
@@ -56,7 +61,7 @@ export function lights(): LayerSpecification[] {
         // guaranteed placement; the budget and legibility filters above do the thinning
         "icon-overlap": "always",
         "icon-rotation-alignment": "viewport",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
+        "icon-size": symbolSize(12, 0.7, 14, 1),
       },
     },
     {
@@ -103,7 +108,7 @@ export function lights(): LayerSpecification[] {
         "icon-image": "freenauticalchart:fogsignal",
         "icon-overlap": "always",
         "icon-rotate": 90,
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1],
+        "icon-size": symbolSize(12, 0.7, 14, 1),
       },
     },
   ];

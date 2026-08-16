@@ -1,4 +1,8 @@
-import type { ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
+import type {
+  DataDrivenPropertyValueSpecification,
+  ExpressionFilterSpecification,
+  ExpressionSpecification,
+} from "@maplibre/maplibre-gl-style-spec";
 
 /**
  * What survives when symbols overlap, and how much of each surviving symbol gets drawn.
@@ -10,6 +14,9 @@ import type { ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
  *
  * Budgets are per family, which is what keeps a harbour from being displaced by the forty buoys
  * around it: they never compete for the same allowance.
+ *
+ * S-52 answers all of this from SCAMIN and a table of fixed symbol sizes, so standards mode makes
+ * every helper here a pass-through and the layers read the same either way.
  */
 
 /**
@@ -62,11 +69,6 @@ const LEGIBLE_FROM = {
  */
 export const MAX_SAFETY_DEPTH = 30;
 
-/** The zoom can resolve this kind of decoration. */
-export function decoration(kind: keyof typeof LEGIBLE_FROM): ExpressionSpecification {
-  return [">=", ["zoom"], LEGIBLE_FROM[kind]];
-}
-
 /**
  * How small a symbol can be drawn and still mean something — a property of the artwork, not of the
  * feature's importance. Hue and gross silhouette survive scaling; internal detail does not, so what
@@ -97,35 +99,68 @@ export const TOKEN = {
  */
 export const RAMP_FROM = 9;
 
-/**
- * Floor from the token until {@link RAMP_FROM}, full size at the zoom the feature's prominence
- * earns. A body never vanishes at the bottom of this ramp; only a budget removes one.
- */
-export function sizeRamp(floor: number, fullAt: number, full = 1): ExpressionSpecification {
-  return ["interpolate", ["linear"], ["zoom"], RAMP_FROM, floor, fullAt, full];
-}
-
 function budgetAt(step: 0 | 1 | 2 | 3): ExpressionSpecification {
   const arms = Object.entries(BUDGET).flatMap(([family, steps]) => [family, steps[step]]);
   return ["match", ["get", "family"], ...arms, 999] as unknown as ExpressionSpecification;
 }
 
-/** This feature is inside its family's allowance for the cell it sits in. */
-export const withinBudget: ExpressionSpecification = [
-  // `cell_rank` counts from zero, so the comparison is strict and BUDGET reads as symbol counts
-  "<",
-  // lines and areas hold no position in a cell, so they are never thinned
-  ["coalesce", ["get", "cell_rank"], 0],
-  ["step", ["zoom"], budgetAt(0), 9, budgetAt(1), 11, budgetAt(2), 13, budgetAt(3)],
-];
+/** A zoom stop's size: a constant, or an expression over the feature. */
+type Size = number | ExpressionSpecification;
+
+/** The thinning, dressing and sizing rules the layer modules share. */
+export interface Visibility {
+  /** Strict S-52 portrayal rather than the chart's own. */
+  standards: boolean;
+  /** This feature is inside its family's allowance for the cell it sits in. */
+  withinBudget: ExpressionFilterSpecification;
+  /**
+   * A name is a luxury: it is affordable where the symbols around it already fit, and it must
+   * never take the room a light characteristic or a Racon group needs, because those change the
+   * decision and a name does not.
+   *
+   * Being first in your own cell is the proxy for "there is room here". Where the chart is sparse
+   * every mark is first and every mark is named; where it is crowded only the mark its neighbours
+   * are ranked against gets one. That needs no data the tiles do not already carry.
+   */
+  topOfCell: ExpressionFilterSpecification;
+  /** The zoom can resolve this kind of decoration. */
+  decoration(kind: keyof typeof LEGIBLE_FROM): ExpressionFilterSpecification;
+  /**
+   * Floor from the token until {@link RAMP_FROM}, full size at the zoom the feature's prominence
+   * earns. A body never vanishes at the bottom of this ramp; only a budget removes one.
+   */
+  sizeRamp(
+    floor: number,
+    fullAt: number,
+    full?: number,
+  ): DataDrivenPropertyValueSpecification<number>;
+  /**
+   * An icon or text size interpolated over `zoom, size` stops, for symbols whose growth follows
+   * the detail they carry rather than the feature's prominence. The last stop is full size.
+   */
+  symbolSize(...stops: Size[]): DataDrivenPropertyValueSpecification<number>;
+}
 
 /**
- * A name is a luxury: it is affordable where the symbols around it already fit, and it must never
- * take the room a light characteristic or a Racon group needs, because those change the decision
- * and a name does not.
- *
- * Being first in your own cell is the proxy for "there is room here". Where the chart is sparse
- * every mark is first and every mark is named; where it is crowded only the mark its neighbours
- * are ranked against gets one. That needs no data the tiles do not already carry.
+ * The helper set for one portrayal. Standards mode neutralizes each one: SCAMIN carries no notion
+ * of density, so nothing is thinned and nothing is undressed for want of room, and every symbol is
+ * drawn at the fixed size the standard gives it.
  */
-export const topOfCell: ExpressionSpecification = ["==", ["coalesce", ["get", "cell_rank"], 0], 0];
+export function visibility(standards = false): Visibility {
+  return {
+    standards,
+    withinBudget: standards || [
+      // `cell_rank` counts from zero, so the comparison is strict and BUDGET reads as symbol counts
+      "<",
+      // lines and areas hold no position in a cell, so they are never thinned
+      ["coalesce", ["get", "cell_rank"], 0],
+      ["step", ["zoom"], budgetAt(0), 9, budgetAt(1), 11, budgetAt(2), 13, budgetAt(3)],
+    ],
+    topOfCell: standards || ["==", ["coalesce", ["get", "cell_rank"], 0], 0],
+    decoration: (kind) => standards || [">=", ["zoom"], LEGIBLE_FROM[kind]],
+    sizeRamp: (floor, fullAt, full = 1) =>
+      standards ? full : ["interpolate", ["linear"], ["zoom"], RAMP_FROM, floor, fullAt, full],
+    symbolSize: (...stops) =>
+      standards ? stops[stops.length - 1] : ["interpolate", ["linear"], ["zoom"], ...stops],
+  };
+}

@@ -4,7 +4,8 @@ import java.util.*;
 import org.locationtech.jts.geom.*;
 
 /**
- * Turns a light's OSM sector tags into arc and leg lines on the ground.
+ * Turns a light's OSM sector tags into arc and leg lines on the ground, and into a point per sector
+ * and per sector limit carrying the angles those figures span.
  *
  * <p>S-52 fixes the arc to the display — 20 mm radius whatever the scale (PresLib 4.0.4,
  * `LIGHTS06`) — but on a chart the reader zooms, a display-fixed figure is the one thing moving
@@ -12,6 +13,9 @@ import org.locationtech.jts.geom.*;
  * the chart like its neighbours, and the style stops drawing it at the zoom where the radius
  * outgrows the screen. The radius is a drawing size, not the light's range: nobody navigates by
  * being inside the arc, and the range is stated in the characteristic.
+ *
+ * <p>A line cannot hold a constant screen size, so the points are what a display-fixed portrayal
+ * draws from: the light's position plus the bearings to rotate a sprite to.
  */
 public class Lights {
 
@@ -41,13 +45,34 @@ public class Lights {
     /** A coloured sector, drawn as an arc at the light's nominal radius. */
     static LightGeometry sector(
         Geometry arc, String color, String visibility, String range, boolean extended) {
+      return new LightGeometry(arc, sectorAttrs("sector", color, visibility, range, extended));
+    }
+
+    /** The same sector as a point at the light, for a portrayal fixed to the display. */
+    static LightGeometry sectorPoint(
+        Point at,
+        String color,
+        String visibility,
+        String range,
+        double start,
+        double end,
+        boolean extended) {
+      Map<String, Object> attrs = sectorAttrs("sector_point", color, visibility, range, extended);
+      attrs.put("sector_start", start);
+      attrs.put("sector_end", end);
+      attrs.put("sector_width", width(start, end));
+      return new LightGeometry(at, attrs);
+    }
+
+    private static Map<String, Object> sectorAttrs(
+        String subtype, String color, String visibility, String range, boolean extended) {
       Map<String, Object> attrs = new HashMap<>();
-      attrs.put("subtype", "sector");
+      attrs.put("subtype", subtype);
       if (extended) attrs.put("extended", true);
       if (color != null) attrs.put("color", color);
       if (visibility != null) attrs.put("visibility", visibility);
       if (range != null) attrs.put("range", range);
-      return new LightGeometry(arc, attrs);
+      return attrs;
     }
 
     /** One radial leg, at a bearing where some sector begins or ends. */
@@ -56,6 +81,15 @@ public class Lights {
       attrs.put("subtype", "leg");
       if (range != null) attrs.put("range", range);
       return new LightGeometry(line, attrs);
+    }
+
+    /** The same limit as a point at the light, for a portrayal fixed to the display. */
+    static LightGeometry limit(Point at, double bearing, String range) {
+      Map<String, Object> attrs = new HashMap<>();
+      attrs.put("subtype", "limit");
+      attrs.put("bearing", bearing);
+      if (range != null) attrs.put("range", range);
+      return new LightGeometry(at, attrs);
     }
   }
 
@@ -115,13 +149,13 @@ public class Lights {
       if (from.equals(to) || (from == 0 && to == 360)) continue;
       boolean extended = overlappedByWider(from, to, limits);
       double radius = (extended ? EXTENDED_SCALE : 1) * arcRadius / metersPerWorldUnit;
+      String color = Seamark.resolveLightColor(segment.get("colour"));
+      String visibility = segment.get("visibility");
+      String range = segment.get("range");
       results.add(
           LightGeometry.sector(
-              createArc(center, from, to, radius),
-              Seamark.resolveLightColor(segment.get("colour")),
-              segment.get("visibility"),
-              segment.get("range"),
-              extended));
+              createArc(center, from, to, radius), color, visibility, range, extended));
+      results.add(LightGeometry.sectorPoint(center, color, visibility, range, from, to, extended));
     }
 
     // Adjacent sectors share a limit, and one leg per bearing is enough. Bearings normalize
@@ -145,6 +179,7 @@ public class Lights {
     double legRadius = EXTENDED_SCALE * arcRadius / metersPerWorldUnit;
     for (Map.Entry<Double, String> leg : legs.entrySet()) {
       results.add(LightGeometry.leg(createLeg(center, leg.getKey(), legRadius), leg.getValue()));
+      results.add(LightGeometry.limit(center, leg.getKey(), leg.getValue()));
     }
 
     return results;

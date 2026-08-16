@@ -12,6 +12,9 @@ import { chartLayers } from "./layers/index.ts";
 const { areas, symbols } = layers();
 const all = [...areas, ...symbols];
 
+const strict = chartLayers({ standards: true });
+const strictLayers = [...strict.areas, ...strict.symbols];
+
 it("produces a valid style", () => {
   const style: StyleSpecification = {
     version: 8,
@@ -138,6 +141,11 @@ it("keeps layer ids and order stable", () => {
     "racon-labels",
     "lights-label",
   ]);
+});
+
+// The chart's own portrayal is what ships; a second mode alongside it must not move it at all.
+it("keeps the chart portrayal byte for byte", () => {
+  expect(chartLayers()).toMatchSnapshot();
 });
 
 describe("isolated dangers", () => {
@@ -290,6 +298,129 @@ describe("thinning and decoration", () => {
   });
 });
 
+// The strict S-52 portrayal: the standard's own answers instead of the chart's, so every
+// deviation the chart makes deliberately has to be absent here.
+describe("standards mode", () => {
+  const point = (properties: Record<string, unknown>) => ({ type: 1, properties }) as never;
+  const draws = (id: string, zoom: number, properties: Record<string, unknown>) => {
+    const layer = strictLayers.find((l) => l.id === id) as { filter: never };
+    return featureFilter(layer.filter).filter({ zoom }, point(properties), undefined as never);
+  };
+
+  it("produces a valid style", () => {
+    const style: StyleSpecification = {
+      version: 8,
+      glyphs: "https://example.com/glyphs/{fontstack}/{range}.pbf",
+      sprite: [sprite("https://example.com/sprites")],
+      sources: sources(),
+      layers: strictLayers,
+    };
+    expect(validateStyleMin(style)).toEqual([]);
+  });
+
+  // SCAMIN is the whole of S-52's scale rule, and the tiles carry the derived floor per feature
+  it("gates every seamap layer on the tiles' strict scale floor", () => {
+    const clause = JSON.stringify([">=", ["zoom"], ["coalesce", ["get", "std_minzoom"], 0]]);
+    for (const layer of strictLayers) {
+      expect(JSON.stringify((layer as { filter?: unknown }).filter), layer.id).toContain(clause);
+    }
+    expect(JSON.stringify(chartLayers())).not.toContain("std_minzoom");
+  });
+
+  it("holds a feature back until its own SCAMIN floor, where the chart never does", () => {
+    const buoy = { type: "buoy_lateral", family: "minor_aid", std_minzoom: 14 };
+    expect(draws("buoys", 12, buoy)).toBe(false);
+    expect(draws("buoys", 14, buoy)).toBe(true);
+    const chart = chartLayers().symbols.find((l) => l.id === "buoys") as { filter: never };
+    expect(featureFilter(chart.filter).filter({ zoom: 12 }, point(buoy), undefined as never)).toBe(
+      true,
+    );
+  });
+
+  it("draws light sectors as display-fixed arcs rather than ground geometry", () => {
+    const ids = strict.symbols.map((l) => l.id);
+    for (const id of ["sector-arc-start", "sector-arc-middle-casing", "sector-arc-end-obscured"]) {
+      expect(ids).toContain(id);
+    }
+    for (const id of ["sector-arc", "sector-arc-casing", "sector-arc-obscured"]) {
+      expect(ids).not.toContain(id);
+    }
+    // the arcs ride the sector points and their limits, not the tiles' arc and leg lines
+    const sector = { subtype: "sector_point", sector_start: 10, sector_end: 40, sector_width: 30 };
+    expect(draws("sector-arc-start", 12, sector)).toBe(true);
+    expect(draws("sector-arc-start", 12, { ...sector, subtype: "sector" })).toBe(false);
+    expect(draws("sector-legs", 12, { subtype: "limit", bearing: 40 })).toBe(true);
+    expect(draws("sector-legs", 12, { subtype: "leg" })).toBe(false);
+  });
+
+  /**
+   * One sprite covers its own span and no more, so a sector wider than that needs all three
+   * copies — obscured sectors included, or a 100° obscured sector shows only its middle 40°.
+   */
+  it("covers an obscured sector with the same three copies as a coloured one", () => {
+    const obscured = {
+      subtype: "sector_point",
+      visibility: "obscured",
+      sector_start: 10,
+      sector_end: 110,
+      sector_width: 100,
+    };
+    for (const part of ["start", "middle", "end"]) {
+      expect(draws(`sector-arc-${part}-obscured`, 12, obscured), part).toBe(true);
+      expect(draws(`sector-arc-${part}`, 12, obscured), part).toBe(false);
+    }
+  });
+
+  // the sprite index picks the largest arc whose three copies fit, so the two must agree
+  it("keeps the sprite spans in step with the artwork", () => {
+    // the end copy rotates back by the sprite's span: ["-", sector_end, ["step", width, span0, …]]
+    const endRotate = (strictLayers.find((l) => l.id === "sector-arc-end") as { layout: never })
+      .layout["icon-rotate"] as [string, unknown, [string, unknown, ...number[]]];
+    // in the step, every other entry from the first output is a span
+    const spans = endRotate[2].slice(2).filter((_, i) => i % 2 === 0) as number[];
+    expect(spans).toHaveLength(5);
+    spans.forEach((span, i) => {
+      const svg = readFileSync(`sprites/icons/arc-${i}-G.svg`, "utf8");
+      const radians = Number(/sodipodi:end="([\d.]+)"/.exec(svg)?.[1]);
+      expect(Number(((radians * 180) / Math.PI).toFixed(2)), `arc-${i}`).toBe(span);
+    });
+  });
+
+  // S-52 sizes every symbol in millimetres on the display; a zoom ramp is the chart's own idea
+  it("holds every symbol at a fixed size", () => {
+    const variants = [{}, { "seamark:landmark:conspicuity": "conspicuous" }];
+    let checked = 0;
+    for (const layer of strictLayers) {
+      const layout = (layer as { layout?: Record<string, unknown> }).layout;
+      for (const key of ["icon-size", "text-size"] as const) {
+        const size = layout?.[key];
+        if (size === undefined) continue;
+        const compiled = createExpression(size);
+        if (compiled.result !== "success") throw new Error(`${layer.id}: ${key} failed`);
+        for (const properties of variants) {
+          const at = (zoom: number) =>
+            compiled.value.evaluate({ zoom }, { type: 1, properties } as never) as number;
+          for (let zoom = 0; zoom <= 22; zoom += 0.25) {
+            expect(at(zoom), `${layer.id} ${key} at z${zoom}`).toBe(at(0));
+          }
+          // the sheet is rasterized at display resolution, so an icon above 1 upsamples and blurs
+          if (key === "icon-size") expect(at(0), `${layer.id} icon-size`).toBeLessThanOrEqual(1);
+        }
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  // no density budget, no legibility floors: a symbol that passes SCAMIN draws, dressed
+  it("draws every mark and its decorations whatever the crowd", () => {
+    const buoy = { type: "buoy_lateral", family: "minor_aid", topmark_shape: "cone" };
+    expect(draws("buoys", 8, { ...buoy, cell_rank: 40 })).toBe(true);
+    expect(draws("topmarks", 8, { ...buoy, cell_rank: 40 })).toBe(true);
+    expect(draws("seamark-label", 14, { ...buoy, name: "Nyhavn", cell_rank: 3 })).toBe(true);
+  });
+});
+
 const PRIVATE = ["no", "private", "permit", "customers"];
 
 describe("restricted access", () => {
@@ -417,7 +548,8 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
       node.forEach(walk);
     }
   };
-  for (const layer of all) {
+  // both portrayals: the sector arcs only draw in standards mode, and their sprites still ship
+  for (const layer of [...all, ...strictLayers]) {
     walk((layer as { layout?: { "icon-image"?: unknown } }).layout?.["icon-image"]);
     walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
   }
@@ -425,6 +557,15 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
   it("contains every icon the style names literally", () => {
     expect(literals.size).toBeGreaterThan(0);
     expect([...literals].filter((name) => !icons.has(name))).toEqual([]);
+  });
+
+  // The sector layers compose an arc name from a sprite index and a colour token, which the walk
+  // above cannot see, and there is no /generic fallback behind them — so spell the grid out.
+  it("contains every sector arc the standards portrayal can compose", () => {
+    const arcs = [0, 1, 2, 3, 4].flatMap((index) =>
+      ["G", "R", "Y", "M", "casing", "obscured"].map((suffix) => `arc-${index}-${suffix}`),
+    );
+    expect([...arcs, "sector-leg"].filter((name) => !icons.has(name))).toEqual([]);
   });
 
   // style() adds fill patterns the layers() walk above never sees (the unsurveyed
