@@ -369,7 +369,9 @@ it("pads every fill pattern the style uses", () => {
   for (const layer of all)
     walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
   expect(patterns.size).toBeGreaterThan(0);
-  expect([...patterns].filter((name) => !script.includes(`"${name}"`))).toEqual([]);
+  // `-sm` variants are generated from the padded base by the same script (SMALL_VARIANTS)
+  const bases = [...patterns].map((name) => name.replace(/-sm$/, ""));
+  expect(bases.filter((name) => !script.includes(`"${name}"`))).toEqual([]);
 });
 
 // The sprite sheet is rasterized at display resolution, so any icon-size above 1 upsamples the

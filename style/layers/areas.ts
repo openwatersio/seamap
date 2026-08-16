@@ -35,6 +35,32 @@ const restriction: ExpressionSpecification = [
 ];
 
 /**
+ * The repeat-cell glyph for a restriction. Always the half-size `-sm` variant
+ * (style/bin/sprites): S-52 tiles no restriction glyph at all — a centred symbol and the
+ * boundary carry it — so the tiled glyph this chart keeps for pannability stays small and
+ * faint, whispering the kind of restriction rather than papering the area with it.
+ */
+const restrictionPattern: ExpressionSpecification = [
+  "let",
+  "restriction",
+  restriction,
+  [
+    "case",
+    ["==", ["get", "type"], "military_area"],
+    "freenauticalchart:military-sm",
+    ["==", ["get", "category"], "military"],
+    "freenauticalchart:military-sm",
+    ["in", "no_entry", ["var", "restriction"]],
+    "freenauticalchart:no-entry-sm",
+    ["in", "restricted_entry", ["var", "restriction"]],
+    "freenauticalchart:no-entry-sm",
+    ["in", "no_anchoring", ["var", "restriction"]],
+    "freenauticalchart:no-anchor-sm",
+    "",
+  ],
+];
+
+/**
  * Sea area boundaries and fills. These draw *below* the land fills, so a restricted area sweeping
  * across a coastline stops at the shore. Allowed areas (anchorages, moorings) draw before
  * restricted areas — RESARE outranks ACHARE (S-52 priority 5 vs 3) where they overlap.
@@ -189,32 +215,16 @@ export function areas(): LayerSpecification[] {
         ],
       ],
       paint: {
-        "fill-pattern": [
-          "let",
-          "restriction",
-          restriction,
-          [
-            "case",
-            ["==", ["get", "type"], "military_area"],
-            "freenauticalchart:military",
-            ["==", ["get", "category"], "military"],
-            "freenauticalchart:military",
-            ["in", "no_entry", ["var", "restriction"]],
-            "freenauticalchart:no-entry",
-            ["in", "restricted_entry", ["var", "restriction"]],
-            "freenauticalchart:no-entry",
-            ["in", "no_anchoring", ["var", "restriction"]],
-            "freenauticalchart:no-anchor",
-            "",
-          ],
-        ],
+        "fill-pattern": restrictionPattern,
+        // faint, like every standards area screen (S-52's one sanctioned screen is 75%
+        // transparent); the tint and boundary localize the area, the glyph only names it
         "fill-opacity": [
           "case",
           ["==", ["get", "type"], "military_area"],
           0.1,
           ["==", ["get", "category"], "military"],
           0.1,
-          0.4,
+          0.2,
         ],
       },
     },
