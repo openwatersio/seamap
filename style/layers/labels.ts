@@ -1,6 +1,6 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
-import { anchorOffsets } from "./placement.js";
+import { MARK, anchorOffsets, markOffsets } from "./placement.js";
 import { RAMP_FROM, TOKEN, decoration, topOfCell, withinBudget } from "./visibility.js";
 
 const halo = {
@@ -15,6 +15,69 @@ const convis: ExpressionSpecification = [
   ["get", "seamark:landmark:conspicuity"],
   "conspicuous",
 ];
+
+/** The feature exhibits a light, so `lights-label` owns its text. */
+const lit: ExpressionSpecification = [
+  "any",
+  ["has", "seamark:light:colour"],
+  ["has", "seamark:light:1:colour"],
+];
+
+/**
+ * Chart lettering slopes with the aid, not the kind of text: floating aids (buoys, light floats,
+ * light vessels) letter sloping, fixed aids (beacons, landmarks, lighthouses) upright — S-4 B-450.
+ */
+const floating: ExpressionSpecification = [
+  "any",
+  ["in", "buoy", ["get", "type"]],
+  ["in", ["get", "type"], ["literal", ["light_float", "light_vessel"]]],
+];
+
+/** Draws a hull/stake body standing on the point (marks.ts), unlike a centred light star. */
+const bodied: ExpressionSpecification = [
+  "any",
+  ["in", "buoy", ["get", "type"]],
+  ["in", "beacon", ["get", "type"]],
+  ["in", ["get", "type"], ["literal", ["light_float", "light_vessel"]]],
+];
+
+/** Squat hull shapes, whose centre sits lower than a pillar's (MARK.squatLift). */
+const squat: ExpressionSpecification = [
+  "in",
+  ["get", "shape"],
+  ["literal", ["can", "conical", "spherical", "barrel", "super-buoy", "ice-buoy", "ice_buoy"]],
+];
+
+/** Side labels centre on the hull; a centred symbol (light star, hazard glyph) takes no lift. */
+function bodyOffsets(textSize: number): ExpressionSpecification {
+  return [
+    "case",
+    squat,
+    markOffsets(textSize, MARK.squatLift),
+    markOffsets(textSize, MARK.lift),
+  ] as ExpressionSpecification;
+}
+
+/**
+ * One label block per S-4 B-560.3: the name stacks over the light characteristic so the pair can
+ * never straddle the mark, a touch larger so it reads first. Fresh objects on every call — the
+ * font-renaming walker in index.ts mutates format sections in place.
+ */
+function lightBlock(named: boolean, sloping: boolean): ExpressionSpecification {
+  const font = () =>
+    sloping ? { "text-font": ["literal", ["Noto Sans Italic"]] as ["literal", string[]] } : {};
+  return named
+    ? [
+        "format",
+        ["get", "name"],
+        { ...font(), "font-scale": 1.15 },
+        "\n",
+        {},
+        ["get", "light"],
+        font(),
+      ]
+    : ["format", ["get", "light"], font()];
+}
 
 /**
  * The scales the landmark artwork carries: the source icons are drawn 1.3x chart-symbol scale
@@ -123,14 +186,7 @@ export function labels(): LayerSpecification[] {
           ["zoom"],
           "",
           12,
-          [
-            "case",
-            ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
-            "",
-            ["!", topOfCell],
-            "",
-            ["get", "name"],
-          ],
+          ["case", lit, "", ["!", topOfCell], "", ["get", "name"]],
         ],
         "text-size": 12,
         "text-padding": 8,
@@ -221,18 +277,25 @@ export function labels(): LayerSpecification[] {
         ["==", ["geometry-type"], "Point"],
         ["has", "name"],
         ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour"]]]],
+        // a lit mark's name rides with its characteristic in lights-label
+        ["!", lit],
         withinBudget,
         topOfCell,
       ],
       layout: {
-        "text-field": ["get", "name"],
+        // unlit floating aids still letter sloping (S-4 B-450)
+        "text-field": [
+          "case",
+          floating,
+          ["format", ["get", "name"], { "text-font": ["literal", ["Noto Sans Italic"]] }],
+          ["get", "name"],
+        ] as ExpressionSpecification,
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13],
         "text-padding": 8,
-        // mark bodies are bottom-anchored 4px below the position and stack topmarks upward, so a
-        // name below the mark needs far less clearance than one above it. Hazards are centred
-        // symbols (and can wear the wide isolated-danger octagon), so they take even margins.
+        // MARK's pixel clearances in this layer's ems per stop. Hazards are centred symbols
+        // (and can wear the wide isolated-danger octagon), so they take even margins.
         "text-variable-anchor-offset": [
           "interpolate",
           ["linear"],
@@ -242,14 +305,18 @@ export function labels(): LayerSpecification[] {
             "case",
             ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
             anchorOffsets(1.7),
-            anchorOffsets(1.85, 3.15, 1.15),
+            bodied,
+            bodyOffsets(10),
+            markOffsets(10),
           ],
           16,
           [
             "case",
             ["in", ["get", "type"], ["literal", ["rock", "wreck", "obstruction"]]],
             anchorOffsets(1.4),
-            anchorOffsets(1.42, 2.42, 0.88),
+            bodied,
+            bodyOffsets(13),
+            markOffsets(13),
           ],
         ],
       },
@@ -293,33 +360,30 @@ export function labels(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "seamark",
       minzoom: 11,
-      filter: [
-        "all",
-        ["any", ["has", "seamark:light:colour"], ["has", "seamark:light:1:colour"]],
-        decoration("characteristic"),
-        withinBudget,
-      ],
+      filter: ["all", lit, decoration("characteristic"), withinBudget],
       layout: {
-        // the characteristic sets italic per paper-chart convention (hydrographic text);
-        // a lit landmark's name stays roman — it is a fixed structure
+        // The name joins the characteristic at the name-legibility zoom, top-of-cell only — a
+        // name is a luxury, the characteristic is not.
         "text-field": [
-          "case",
-          ["all", ["==", ["get", "type"], "landmark"], ["has", "name"]],
+          "step",
+          ["zoom"],
+          ["case", floating, lightBlock(false, true), lightBlock(false, false)],
+          12,
           [
-            "format",
-            ["get", "name"],
-            {},
-            "\n",
-            {},
-            ["get", "light"],
-            { "text-font": ["literal", ["Noto Sans Italic"]] },
+            "case",
+            ["!", ["all", ["has", "name"], topOfCell]],
+            ["case", floating, lightBlock(false, true), lightBlock(false, false)],
+            floating,
+            lightBlock(true, true),
+            lightBlock(true, false),
           ],
-          ["format", ["get", "light"], { "text-font": ["literal", ["Noto Sans Italic"]] }],
         ],
         "text-font": ["Noto Sans Regular"],
         "text-justify": "auto",
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 14],
-        "text-padding": 8,
+        // tighter than the name layers: the block carries the characteristic, and padding that
+        // makes it fail to place hides information a mariner steers by
+        "text-padding": 4,
         // Matches the gap `landmarks` leaves off the same symbol, in ems of this layer's
         // text-size. The low stops track the body's size ramp (RAMP_FROM → full at 12): an
         // offset held at its full-size value while the star is still near its floor reads as a
@@ -334,14 +398,29 @@ export function labels(): LayerSpecification[] {
             "case",
             ["==", ["get", "type"], "landmark"],
             anchorOffsets(1.0, 1.55, 0.7),
+            // snug while the body rides its size ramp; MARK's pixel clearances from z12, where
+            // the body is full and a lit mark matches an unlit one (seamark-label)
+            bodied,
+            anchorOffsets(0.3, 1.15, 1.15, 0.3),
             anchorOffsets(0.3, 1.15),
+          ],
+          12,
+          [
+            "case",
+            ["==", ["get", "type"], "landmark"],
+            anchorOffsets(1.24, 2.1, 0.83),
+            bodied,
+            bodyOffsets(10),
+            markOffsets(10),
           ],
           16,
           [
             "case",
             ["==", ["get", "type"], "landmark"],
             anchorOffsets(1.56, 2.83, 1.0),
-            anchorOffsets(1.56, 1.93),
+            bodied,
+            bodyOffsets(14),
+            markOffsets(14),
           ],
         ],
       },
