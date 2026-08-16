@@ -11,8 +11,9 @@ import { decoration, withinBudget } from "./visibility.js";
  * (`Lights.java`), scaling with the chart like its neighbours; only the stroke widths live here.
  *
  * The zoom window is where that stops working. Below ~z10 the radius is a smudge; past ~z15 the
- * arc outgrows the screen and reads as an unexplained curve with its light nowhere in view — the
- * arc never was a claim about reach, so it bows out rather than growing into one.
+ * arc starts outgrowing the screen and reads as an unexplained curve with its light nowhere in
+ * view — the arc never was a claim about reach, so it fades out over z15–17 rather than growing
+ * into one.
  */
 
 /** A sector where the light shows; obscured/faint sectors draw uncoloured (S-52 LIGHTS06). */
@@ -32,9 +33,21 @@ const common = {
   source: "seamap",
   "source-layer": "light",
   minzoom: 10,
-  maxzoom: 15,
-  layout: { "line-cap": "round", "line-join": "round" },
+  maxzoom: 17,
+  // butt caps: an arc ends exactly at its sector bearing (a round cap overshoots the limit)
+  layout: { "line-cap": "butt", "line-join": "round" },
 } as const;
+
+/** The bow-out: full strength through z15, gone by z17 (scaled by each layer's base opacity). */
+const fade = (opacity: number): ExpressionSpecification => [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  15,
+  opacity,
+  17,
+  0,
+];
 
 export function sectors(): LayerSpecification[] {
   return [
@@ -46,7 +59,7 @@ export function sectors(): LayerSpecification[] {
       paint: {
         "line-color": colors.sectorLeg,
         "line-dasharray": [2, 3],
-        "line-opacity": 0.8,
+        "line-opacity": fade(0.8),
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 14, 1.2],
       },
     },
@@ -58,6 +71,7 @@ export function sectors(): LayerSpecification[] {
       filter: ["all", isSector, visible, decoration("sector"), withinBudget],
       paint: {
         "line-color": colors.label,
+        "line-opacity": fade(1),
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5],
       },
     },
@@ -80,6 +94,7 @@ export function sectors(): LayerSpecification[] {
           colors.lightYellow,
           colors.magenta,
         ],
+        "line-opacity": fade(1),
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 14, 3],
       },
     },
@@ -92,6 +107,7 @@ export function sectors(): LayerSpecification[] {
       paint: {
         "line-color": colors.sectorLeg,
         "line-dasharray": [2, 2],
+        "line-opacity": fade(1),
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1, 14, 2],
       },
     },
