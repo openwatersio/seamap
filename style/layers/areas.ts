@@ -1,28 +1,40 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { colors } from "./palette.js";
 
+/** Conservation categories draw green; everything else chart magenta (a recorded departure). */
+const isConservation: ExpressionSpecification = [
+  "in",
+  ["get", "category"],
+  [
+    "literal",
+    [
+      "nature_reserve",
+      "bird_sanctuary",
+      "game_reserve",
+      "seal_sanctuary",
+      "fish_sanctuary",
+      "ecological_reserve",
+      "essa",
+      "pssa",
+    ],
+  ],
+];
+
 /** Restricted-area colouring: conservation green, everything else chart magenta (RESARE04). */
 const restrictionColor: ExpressionSpecification = [
   "case",
-  [
-    "in",
-    ["get", "category"],
-    [
-      "literal",
-      [
-        "nature_reserve",
-        "bird_sanctuary",
-        "game_reserve",
-        "seal_sanctuary",
-        "fish_sanctuary",
-        "ecological_reserve",
-        "essa",
-        "pssa",
-      ],
-    ],
-  ],
+  isConservation,
   colors.conservation,
   colors.magenta,
+];
+
+const RESTRICTED_TYPES = [
+  "restricted_area",
+  "military_area",
+  "production_area",
+  "cable_area",
+  "dumping_ground",
+  "pipeline_area",
 ];
 
 /** The restriction value, resolved across the type-specific key and its unprefixed fallbacks. */
@@ -127,26 +139,40 @@ export function areas(): LayerSpecification[] {
       type: "line",
       source: "seamap",
       "source-layer": "seamark",
-      filter: [
-        "in",
-        ["get", "type"],
-        [
-          "literal",
-          [
-            "restricted_area",
-            "military_area",
-            "production_area",
-            "cable_area",
-            "dumping_ground",
-            "pipeline_area",
-          ],
-        ],
-      ],
+      filter: ["in", ["get", "type"], ["literal", RESTRICTED_TYPES]],
       paint: {
         "line-color": restrictionColor,
         "line-dasharray": [4, 2],
         "line-opacity": 0.8,
         "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.5, 10, 1.5],
+      },
+    },
+    {
+      // The paper T-dash (S-4 B-439.2, S-52 ENTRES51): short stubs on the inward side of
+      // the limit, riding beside the dashed line above. MVT v2 winds exterior rings
+      // clockwise in screen space, so the interior lies to the right of travel: a positive
+      // line-offset pushes the stub band inward, and holes wind the other way, flipping
+      // offset and tick together so stubs still point into the restricted water. A pattern
+      // cannot be recoloured at runtime, so the sprite ships per boundary colour.
+      id: "restricted-areas-stubs",
+      type: "line",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 9,
+      filter: ["in", ["get", "type"], ["literal", RESTRICTED_TYPES]],
+      paint: {
+        "line-pattern": [
+          "case",
+          isConservation,
+          "freenauticalchart:t-stub-green",
+          "freenauticalchart:t-stub-magenta",
+        ],
+        // the image scales with line-width (aspect preserved), so the ticks grow in and
+        // tighten with the boundary's own ramp
+        // native at width 7: S-52's 1.6 mm ticks every 7.7 mm land at 6 px every 29 px
+        "line-width": ["interpolate", ["linear"], ["zoom"], 9, 4, 14, 7],
+        "line-offset": ["interpolate", ["linear"], ["zoom"], 9, 2, 14, 3.5],
+        "line-opacity": 0.8,
       },
     },
     {

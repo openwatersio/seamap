@@ -78,6 +78,7 @@ it("keeps layer ids and order stable", () => {
     "allowed-areas",
     "allowed-areas-labels",
     "restricted-areas",
+    "restricted-areas-stubs",
     "restricted-areas-label",
     "restricted-areas-fill",
     "restricted-areas-fill-pattern",
