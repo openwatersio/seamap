@@ -1,8 +1,11 @@
 import java.util.*;
 
 /**
- * Defines at which zoom levels different types of seamarks should be visible. This centralizes all
- * zoom-related logic for seamarks.
+ * Assigns each seamark type the minimum zoom at which it may appear. The floors derive from the
+ * standards' scale framework: the S-11 navigational purpose bands (Overview through Berthing,
+ * mapped to Web Mercator zooms) give each class a home band, and its S-57 SCAMIN retention steps
+ * say how far past that band it stays visible. Deliberate departures from that derivation — and the
+ * full band/SCAMIN tables — are recorded in docs/design/zoom.md.
  */
 public class SeamarkZoomRules {
 
