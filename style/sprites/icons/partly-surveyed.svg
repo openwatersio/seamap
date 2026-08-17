@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="33" viewBox="0 0 20 33">
+  <!-- S-52 AP(PRTSUR01) dashes for a partly surveyed area (DEPARE carrying no depth
+       values), transparent ground: the flat fill is its own layer so the dashes can fade
+       out at small scales. At 1.5 px/mm: 2 mm × 0.64 mm dash, ~13 mm column pitch, 11 mm
+       row pitch. Rows stagger at half pitch so the tile repeats as a rectangle (PresLib's
+       3.02 mm row shift doesn't); integer-sized so spreet doesn't pad a seam column into
+       the repeat. Colour is CHGRD blended 50% over seascape's provisional tint, matching
+       the fill layer's base. Dash spacing is the semantics: sparse = partly surveyed,
+       dense (NODATA03) = unsurveyed — keep them apart if the dense variant is ever added. -->
+  <rect x="2" y="8" width="3" height="1" fill="#36719b" />
+  <rect x="12" y="24.5" width="3" height="1" fill="#36719b" />
+</svg>

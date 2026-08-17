@@ -1,5 +1,6 @@
 import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { areas } from "./areas.js";
+import { tidalFlats, marshes } from "./wetlands.js";
 import { hazards } from "./hazards.js";
 import { routes } from "./routes.js";
 import { structures } from "./structures.js";
@@ -27,8 +28,11 @@ export function chartLayers({ safety, unit }: { safety?: number; unit?: "m" | "f
   // hazards it appears to highlight. Clamp rather than honour a promise the data cannot keep.
   const clamped = Math.min(safety ?? 2, MAX_SAFETY_DEPTH);
   return {
-    areas: areas(),
+    // tidal flats first: depth information, under every boundary and fill areas() draws
+    areas: [...tidalFlats(), ...areas()],
     symbols: [
+      // the marsh overlay sits directly on the land/water fills, under all hazards
+      ...marshes(),
       ...hazards(clamped, unit),
       ...routes(),
       ...structures(),
