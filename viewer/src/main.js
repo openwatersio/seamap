@@ -14,6 +14,7 @@ const params = new URLSearchParams(location.search);
 if (params.get("hillshade") === "") {
   params.delete("hillshade");
   params.set("depthHillshade", "1");
+  history.replaceState(null, "", `${location.pathname}?${params}${location.hash}`);
 }
 
 const inputs = [...document.querySelectorAll("[id^='opt-']")];
@@ -32,13 +33,15 @@ advanced.open = [...advanced.querySelectorAll("[id^='opt-']")].some(
   (el) => serialize(el) !== defaults.get(el),
 );
 
-// style() fills in its own defaults for anything left undefined
+// only non-default inputs become options — style() fills in its own defaults
+// for the rest
 function styleOptions() {
   const o = {};
   for (const el of inputs) {
+    if (serialize(el) === defaults.get(el)) continue;
     const name = el.id.slice(4);
     if (el.type === "checkbox") o[name] = el.checked;
-    else if (el.value.trim()) o[name] = el.type === "number" ? Number(el.value) : el.value.trim();
+    else o[name] = el.type === "number" ? Number(el.value) : el.value.trim();
   }
   return o;
 }
