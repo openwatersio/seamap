@@ -179,6 +179,8 @@ export function structures(): LayerSpecification[] {
           "freenauticalchart:poi-boatyard",
           "boat_storage",
           "freenauticalchart:poi-boat-storage",
+          "boat_rental",
+          "freenauticalchart:poi-boat-rental",
           "toilets",
           "freenauticalchart:poi-toilets",
           "showers",
@@ -203,14 +205,19 @@ export function structures(): LayerSpecification[] {
           "freenauticalchart:poi-beach",
           "freenauticalchart:poi-generic",
         ],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.8, 17, 1],
-        // which grades a dock sells decides whether it's worth the detour; the other badges say
-        // all they need to with the icon
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 17, 1],
+        // An unnamed badge yields first when two collide: it is the one with least to say, the
+        // same call harbourDraw makes in the pipeline.
+        "symbol-sort-key": ["case", ["has", "name"], 0, 1],
+        // The name rides in this layer rather than seamark-label so the badge and its text are one
+        // symbol — text-optional then drops the name in a crowded harbour and keeps the icon,
+        // which is the only order that makes sense. A fuel dock shows its grades instead: which
+        // ones it sells decides whether it's worth the detour, and the icon already says "fuel".
         "text-field": [
           "case",
-          ["==", ["get", "category"], "fuel_station"],
-          ["coalesce", ["get", "fuel"], ""],
-          "",
+          ["all", ["==", ["get", "category"], "fuel_station"], ["has", "fuel"]],
+          ["get", "fuel"],
+          ["coalesce", ["get", "name"], ""],
         ],
         "text-font": ["Noto Sans Regular"],
         "text-size": 10,
@@ -221,7 +228,7 @@ export function structures(): LayerSpecification[] {
           ["linear"],
           ["zoom"],
           14,
-          anchorOffsets(2.03),
+          anchorOffsets(1.63),
           17,
           anchorOffsets(2.35),
         ],

@@ -62,6 +62,7 @@ public class Seamark {
     {"waterway", "boatyard", "small_craft_facility", "boatyard"},
     {"waterway", "boat_lift", "small_craft_facility", "boat_hoist"},
     {"waterway", "access_point", "small_craft_facility", "access_point"},
+    {"amenity", "boat_rental", "small_craft_facility", "boat_rental"},
     {"amenity", "boat_storage", "small_craft_facility", "boat_storage"},
     {"amenity", "fish_cleaning", "small_craft_facility", "fish_cleaning"},
     {"industrial", "shipyard", "small_craft_facility", "boatyard"},

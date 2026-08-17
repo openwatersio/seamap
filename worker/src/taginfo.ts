@@ -126,6 +126,11 @@ export const taginfo = {
     },
     {
       key: "amenity",
+      value: "boat_rental",
+      description: "Drawn as a boat rental.",
+    },
+    {
+      key: "amenity",
       value: "boat_storage",
       description: "Drawn as boat storage.",
     },

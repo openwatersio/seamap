@@ -276,7 +276,11 @@ export function labels(): LayerSpecification[] {
         "all",
         ["==", ["geometry-type"], "Point"],
         ["has", "name"],
-        ["!", ["in", ["get", "type"], ["literal", ["landmark", "harbour"]]]],
+        // these carry their own name alongside their icon, as one symbol
+        [
+          "!",
+          ["in", ["get", "type"], ["literal", ["landmark", "harbour", "small_craft_facility"]]],
+        ],
         // a lit mark's name rides with its characteristic in lights-label
         ["!", lit],
         withinBudget,
