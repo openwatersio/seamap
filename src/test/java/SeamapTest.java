@@ -22,15 +22,54 @@ class SeamapTest {
 
   private static final GeometryFactory GF = new GeometryFactory();
 
-  private static List<FeatureCollector.Feature> seamarkFeatures(SimpleFeature sf) {
+  private static List<FeatureCollector.Feature> layerFeatures(SimpleFeature sf, String layer) {
     FeatureCollector collector =
         new FeatureCollector.Factory(PlanetilerConfig.defaults(), Stats.inMemory()).get(sf);
     new Seamap().processFeature(sf, collector);
     List<FeatureCollector.Feature> out = new ArrayList<>();
     for (FeatureCollector.Feature f : collector) {
-      if ("seamark".equals(f.getLayer())) out.add(f);
+      if (layer.equals(f.getLayer())) out.add(f);
     }
     return out;
+  }
+
+  private static List<FeatureCollector.Feature> seamarkFeatures(SimpleFeature sf) {
+    return layerFeatures(sf, "seamark");
+  }
+
+  /** A degree square on the equator: ~12,300 km², a Chesapeake-sized bay. */
+  private static Polygon degreeSquare() {
+    return GF.createPolygon(
+        new Coordinate[] {
+          new Coordinate(0, 0),
+          new Coordinate(1, 0),
+          new Coordinate(1, 1),
+          new Coordinate(0, 1),
+          new Coordinate(0, 0)
+        });
+  }
+
+  /** A bay's name appears at the zoom its water grows wide enough to hold it. */
+  @Test
+  void bayEmitsLabelPointSizedByArea() {
+    SimpleFeature sf =
+        SimpleFeature.create(
+            degreeSquare(), Map.of("natural", "bay", "name", "Test Bay"), "osm", null, 1);
+    List<FeatureCollector.Feature> out = layerFeatures(sf, "sea_area");
+    assertEquals(1, out.size());
+    assertEquals("Test Bay", out.get(0).getAttrsAtZoom(14).get("name"));
+    assertEquals("bay", out.get(0).getAttrsAtZoom(14).get("category"));
+    assertEquals(6, out.get(0).getMinZoom());
+  }
+
+  /** A lake is a water polygon, not a named sea area — one name, from one layer. */
+  @Test
+  void lakeIsNotASeaArea() {
+    SimpleFeature sf =
+        SimpleFeature.create(
+            degreeSquare(), Map.of("natural", "water", "name", "Test Lake"), "osm", null, 1);
+    assertEquals(0, layerFeatures(sf, "sea_area").size());
+    assertEquals(1, layerFeatures(sf, "water").size());
   }
 
   /** A point source is already its own label; a second centroid would draw the name twice. */

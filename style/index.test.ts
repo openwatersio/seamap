@@ -37,9 +37,12 @@ it("assembles a valid whole style", async () => {
   expect(whole.name).toBe("Open Waters Seamap");
   expect(whole.metadata).toBeUndefined(); // versatiles' license claim must not leak through
   const ids = whole.layers.map((l) => l.id);
-  for (const id of ["background", "buoys", "lights", "land_area"]) {
+  for (const id of ["background", "buoys", "lights", "land_area", "label-place-island"]) {
     expect(ids).toContain(id);
   }
+  // geographic names are background information: the chart symbology draws after them, so
+  // MapLibre places a buoy's label before a bay's (S-4 B-562.3)
+  expect(ids.indexOf("sea-areas")).toBeLessThan(ids.indexOf("buoys"));
   // sea-area fills sit below land; hazard points draw above it, and the coastline above its fill
   expect(ids.indexOf("restricted-areas")).toBeLessThan(ids.indexOf("land_area"));
   expect(ids.indexOf("rocks")).toBeGreaterThan(ids.indexOf("land_area"));
