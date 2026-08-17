@@ -24,7 +24,7 @@ jobs:
       # then restored from cache. Static key: the dataset changes rarely and
       # exact freshness doesn't matter for a smoke build.
       - name: Cache land polygons
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: data/land-polygons-split-4326
           key: land-polygons-split-4326
