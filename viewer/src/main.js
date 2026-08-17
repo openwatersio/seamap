@@ -4,15 +4,44 @@ import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
 import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
 import { style } from "@openwaters/seamap";
 
-// ?tiles=<url> points the chart at another TileJSON — the dev server's local
-// worker, say — instead of the published tiles. ?hillshade turns on the
-// bathymetric hillshading the style ships off; ?shading=relief swaps the
-// vector depth bands for the raster DEM color-relief.
+// The ⚙ panel (index.html) exposes the style() options; each opt-<name> input
+// mirrors a same-named URL param (only set when it differs from the default),
+// so any state here is shareable, e.g. ?tiles=<url> points the chart at the
+// dev server's local worker instead of the published tiles.
 const params = new URLSearchParams(location.search);
-const tiles = params.get("tiles") || undefined;
-const depthHillshade = params.has("hillshade");
-// anything but the known raster opt-in falls back to the style's default
-const shading = params.get("shading") === "relief" ? "relief" : undefined;
+// legacy: bare ?hillshade meant the bathymetric hillshade before the panel's
+// option-named params
+if (params.get("hillshade") === "") {
+  params.delete("hillshade");
+  params.set("depthHillshade", "1");
+}
+
+const inputs = [...document.querySelectorAll("[id^='opt-']")];
+const serialize = (el) => (el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value.trim());
+const defaults = new Map(inputs.map((el) => [el, serialize(el)]));
+for (const el of inputs) {
+  const name = el.id.slice(4);
+  if (!params.has(name)) continue;
+  if (el.type === "checkbox") el.checked = params.get(name) !== "0";
+  else el.value = params.get(name);
+}
+
+// don't hide a non-default option behind the collapsed Advanced toggle
+const advanced = document.getElementById("advanced");
+advanced.open = [...advanced.querySelectorAll("[id^='opt-']")].some(
+  (el) => serialize(el) !== defaults.get(el),
+);
+
+// style() fills in its own defaults for anything left undefined
+function styleOptions() {
+  const o = {};
+  for (const el of inputs) {
+    const name = el.id.slice(4);
+    if (el.type === "checkbox") o[name] = el.checked;
+    else if (el.value.trim()) o[name] = el.type === "number" ? Number(el.value) : el.value.trim();
+  }
+  return o;
+}
 
 // add the MapLibre GL RTL text plugin for proper rendering of right-to-left languages
 maplibregl.setRTLTextPlugin(
@@ -25,7 +54,7 @@ const map = new maplibregl.Map({
   center: [10.2351, 56.16858],
   zoom: 13.4,
   container: "map",
-  style: await style({ tiles, depthHillshade, shading }),
+  style: await style(styleOptions()),
   dragRotate: false,
   touchPitch: false,
   maxPitch: 0,
@@ -44,5 +73,29 @@ map.addControl(
     popup: new maplibregl.Popup({ closeButton: false, closeOnClick: false }),
   }),
 );
+
+// Panel changes: sync the URL, rebuild the style (setStyle diffs, so the map
+// only reloads what changed). Token guards a slow build landing out of order.
+let styleToken = 0;
+async function applyOptions() {
+  const p = new URLSearchParams(location.search);
+  for (const el of inputs) {
+    const name = el.id.slice(4);
+    const cur = serialize(el);
+    if (cur !== defaults.get(el)) p.set(name, cur);
+    else p.delete(name);
+  }
+  const query = p.size ? `?${p}` : "";
+  history.replaceState(null, "", `${location.pathname}${query}${location.hash}`);
+  const token = ++styleToken;
+  const s = await style(styleOptions());
+  if (token === styleToken) map.setStyle(s);
+}
+for (const el of inputs) el.addEventListener("change", applyOptions);
+
+map.addControl({
+  onAdd: () => document.getElementById("controls"),
+  onRemove: () => {},
+});
 
 window.map = map; // console/devtools access

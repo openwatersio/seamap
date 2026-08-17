@@ -8,11 +8,152 @@
       body {
         margin: 0;
       }
+
+      #controls {
+        background: #fff;
+        border-radius: 6px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+        font:
+          13px/1.6 system-ui,
+          sans-serif;
+        display: flex;
+        flex-direction: row-reverse;
+      }
+
+      #controls > summary {
+        list-style: none;
+        cursor: pointer;
+        width: 29px;
+        height: 29px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-left: auto;
+        z-index: 2;
+      }
+
+      #controls > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      #advanced summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      #advanced > div {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+
+      #controls-panel {
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-right: -29px;
+        z-index: 1;
+        /* fixed so revealing the Advanced section doesn't resize the panel */
+        width: 17rem;
+      }
+
+      #controls label {
+        cursor: pointer;
+      }
+
+      #controls label.row {
+        display: flex;
+        flex-direction: row;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      #controls input[type="checkbox"] {
+        margin-right: 0.5rem;
+      }
+
+      #controls input[type="url"] {
+        width: 100%;
+        box-sizing: border-box;
+      }
     </style>
   </head>
 
   <body>
-    <div id="map" style="height: 100vh"></div>
+    <div id="map" style="height: 100vh">
+      <!-- Style options panel: input ids are opt-<StyleOptions key>; main.js
+           syncs them to same-named URL params and rebuilds the style on change. -->
+      <details id="controls" class="maplibregl-ctrl">
+        <summary title="Style options" aria-label="Style options" role="button">&#9881;</summary>
+        <div id="controls-panel">
+          <strong>Style options</strong>
+          <label class="row">
+            Units
+            <select id="opt-unit">
+              <option value="m">metres</option>
+              <option value="ft">feet</option>
+              <option value="fm">fathoms</option>
+            </select>
+          </label>
+          <label class="row" title="Safety contour depth in metres, 0 = off">
+            Safety
+            <div>
+              <input
+                type="number"
+                id="opt-safety"
+                min="0"
+                step="1"
+                placeholder="2"
+                style="width: 3.5em"
+              />
+              m
+            </div>
+          </label>
+          <label class="row" title="Base map label language">
+            Language
+            <input type="text" id="opt-language" placeholder="en" size="4" />
+          </label>
+          <details id="advanced">
+            <summary>Advanced</summary>
+            <div>
+              <label title="Bathymetric hillshading under the water (off by default)">
+                <input type="checkbox" id="opt-depthHillshade" /> Depth hillshade
+              </label>
+              <label title="Land hillshading from the VersaTiles elevation tiles">
+                <input type="checkbox" id="opt-hillshade" checked /> Land hillshade
+              </label>
+              <label class="row" title="Vector ENC depth bands, or raster DEM color-relief">
+                Shading
+                <select id="opt-shading">
+                  <option value="bands">Bands (vector)</option>
+                  <option value="relief">Relief (raster)</option>
+                </select>
+              </label>
+              <label title="Seamark TileJSON URL">
+                Seamark tiles
+                <input type="url" id="opt-tiles" placeholder="(published tiles)" />
+              </label>
+              <label title="Seascape bathymetry tiles base URL">
+                Seascape tiles
+                <input
+                  type="url"
+                  id="opt-seascape"
+                  placeholder="https://tiles.openwaters.io/seascape"
+                />
+              </label>
+              <label title="VersaTiles server for the base map, glyphs, and base sprites">
+                VersaTiles server
+                <input type="url" id="opt-versatiles" placeholder="https://tiles.versatiles.org" />
+              </label>
+            </div>
+          </details>
+        </div>
+      </details>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
