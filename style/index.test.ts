@@ -107,6 +107,8 @@ it("keeps layer ids and order stable", () => {
     // structures
     "shoreline-constructions",
     "pontoons",
+    "hulks",
+    "hulk-outlines",
     "piles",
     "platforms",
     "cranes",

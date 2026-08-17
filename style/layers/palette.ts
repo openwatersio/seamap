@@ -21,6 +21,8 @@ export const day = {
   recommendedTrack: "gray",
   /** CHGRD chart grey: linework that recedes (deep-hazard boundaries, safe soundings) */
   chartGrey: "#768c97",
+  /** CHBRN chart brown: ground that floats — hulks and floating docks */
+  chartBrown: "#a19653",
   /** DEPVS shallow-water tint, for hazard-area fills */
   shallowWater: "#61b7ff",
   /** light flare/arc colours, matching the flare sprites (sprites/genicons.py) */

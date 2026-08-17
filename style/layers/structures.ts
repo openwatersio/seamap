@@ -60,6 +60,41 @@ export function structures(): LayerSpecification[] {
       },
     },
     {
+      // A hulk is a permanently moored vessel — a floating piece of ground, charted brown with a
+      // coastline edge rather than as a wreck (S-52 HULKES, AC(CHBRN);LS(SOLD,2,CSTLN)). Extruded
+      // so it stands up under pitch; looking straight down its roof is the brown fill S-52 asks
+      // for. The outline is a separate layer because fill-extrusion has none.
+      id: "hulks",
+      type: "fill-extrusion",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 12,
+      filter: ["==", ["get", "type"], "hulk"],
+      paint: {
+        "fill-extrusion-color": colors.chartBrown,
+        // building:height is rarely tagged and can hold a unit suffix, so 5 m stands in for a
+        // plain vessel both when it is missing and when it won't parse
+        "fill-extrusion-height": [
+          "case",
+          ["has", "building:height"],
+          ["to-number", ["get", "building:height"], 5],
+          5,
+        ],
+      },
+    },
+    {
+      id: "hulk-outlines",
+      type: "line",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 12,
+      filter: ["==", ["get", "type"], "hulk"],
+      paint: {
+        "line-color": colors.coastline,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.6, 16, 1.8],
+      },
+    },
+    {
       id: "piles",
       type: "circle",
       source: "seamap",
