@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Repeat cell for the paper T-dash boundary (S-4 B-439.2 / S-52 ENTRES51): one inward tick
+     per S-52's ~7.7 mm stub spacing; the dashes come from the companion dashed-line layer.
+     The sheet rasterizes at 2x and relabels, so these dimensions are half the on-screen px. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="14.5" height="3.5" viewBox="0 0 14.5 3.5">
+  <rect x="6.95" y="0" width="0.6" height="3" fill="#ec008c"/>
+</svg>
