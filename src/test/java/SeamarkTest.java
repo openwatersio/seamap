@@ -486,6 +486,16 @@ class SeamarkTest {
         attrs(Map.of("man_made", "dolphin", "seamark:type", "mooring_area")).get("type"));
   }
 
+  /** Rapids are charted from either of the two tags OSM uses for them (S-57 RAPIDS). */
+  @Test
+  void plainRapidsTags() {
+    var alongTheChannel = attrs(Map.of("waterway", "rapids", "name", "Lachine Rapids"));
+    assertEquals("rapids", alongTheChannel.get("type"));
+    assertEquals("Lachine Rapids", alongTheChannel.get("name"));
+
+    assertEquals("rapids", attrs(Map.of("natural", "water", "water", "rapids")).get("type"));
+  }
+
   // The S-52 LIGHTS06 colour precedence for the flare and arcs.
 
   @Test

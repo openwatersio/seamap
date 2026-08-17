@@ -315,6 +315,15 @@ export const taginfo = {
       description:
         "Ways are charted as a waterway. Rivers, canals and fairways appear first, then locks, docks, streams and tidal channels; ditches and drains only when zoomed well in.",
     },
+    ...[
+      { key: "waterway", value: "rapids" },
+      { key: "water", value: "rapids" },
+    ].map(({ key, value }) => ({
+      key,
+      value,
+      description:
+        "Charted as rapids, in chart grey — filled where the broken water is an area, drawn along the channel where it is a way.",
+    })),
 
     // ── The seamark vocabulary ──────────────────────────────────────────────
     {

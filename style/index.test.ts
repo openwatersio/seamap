@@ -84,6 +84,8 @@ it("keeps layer ids and order stable", () => {
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
     // hazards — point symbols draw above land so the coastline never hides them
+    "rapids-fill",
+    "rapids-line",
     "hazard-areas-fill",
     "hazard-areas",
     "isolated-dangers",

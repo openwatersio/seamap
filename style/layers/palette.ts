@@ -19,7 +19,7 @@ export const day = {
   ferry: "#7c8af6",
   navigationLine: "black",
   recommendedTrack: "gray",
-  /** CHGRD chart grey: linework that recedes (deep-hazard boundaries, safe soundings) */
+  /** CHGRD chart grey: linework that recedes (deep-hazard boundaries, safe soundings, rapids) */
   chartGrey: "#768c97",
   /** DEPVS shallow-water tint, for hazard-area fills */
   shallowWater: "#61b7ff",

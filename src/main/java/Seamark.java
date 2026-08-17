@@ -81,6 +81,10 @@ public class Seamark {
     {"barrier", "floating_boom", "obstruction", "boom"},
     {"barrier", "shark_net", "obstruction", "shark_net"},
     {"man_made", "dolphin", "mooring", "dolphin"},
+    // RAPIDS, an S-57 class in its own right. OSM maps the same feature as a way along the river
+    // and as the water body it disturbs, and both are charted the same way.
+    {"waterway", "rapids", "rapids", null},
+    {"water", "rapids", "rapids", null},
   };
 
   /**

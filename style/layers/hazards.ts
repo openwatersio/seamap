@@ -69,6 +69,31 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
   const survivesThinning: ExpressionSpecification = ["any", withinBudget, isKnownShallow(safety)];
   return [
     {
+      // RAPIDS: broken water a boat has to be lined up for, on the river reaches an inland chart
+      // covers. Chart grey, as an area where the disturbed water was mapped as one and as a heavy
+      // line where it was mapped along the channel (S-52 RAPIDS, AC(CHGRD) / LS(SOLD,3,CHGRD)).
+      id: "rapids-fill",
+      type: "fill",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 11,
+      filter: ["all", ["==", ["get", "type"], "rapids"], ["==", ["geometry-type"], "Polygon"]],
+      paint: { "fill-color": colors.chartGrey, "fill-opacity": 0.5 },
+    },
+    {
+      id: "rapids-line",
+      type: "line",
+      source: "seamap",
+      "source-layer": "seamark",
+      minzoom: 11,
+      filter: ["all", ["==", ["get", "type"], "rapids"], ["==", ["geometry-type"], "LineString"]],
+      layout: { "line-cap": "round" },
+      paint: {
+        "line-color": colors.chartGrey,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1.5, 16, 3],
+      },
+    },
+    {
       // a hazard with area extent tints like very shallow water (S-52 fills no-VALSOU hazard
       // areas with DEPVS) so a square kilometre of foul area stops looking like a single snag
       id: "hazard-areas-fill",
