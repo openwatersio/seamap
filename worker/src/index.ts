@@ -92,8 +92,8 @@ async function version(env: Env): Promise<string> {
   return v;
 }
 
-// chartStyle() fetches the VersaTiles elevation TileJSON, so hold the assembled
-// document per param combo rather than paying that round trip per request.
+// Hold the assembled style document per param combo rather than rebuilding and
+// re-serializing it per request.
 // ponytail: unbounded map — the param space is tiny (a handful of mariner
 // defaults); add an LRU if arbitrary combos ever start growing an isolate.
 const styles = new Map<string, string>();
@@ -255,7 +255,8 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
 
   // Drop-in MapLibre style for these tiles — the same style the viewer renders.
   // Point MapLibre's `style:` (or Maputnik) at this URL directly. ?unit=m|ft|fm,
-  // ?safety=<metres>, ?shading=relief|bands, ?language=<code>.
+  // ?safety=<metres>, ?shading=relief|bands, ?language=<code>,
+  // ?basemap=true|false (the base-map mariner preference; default true).
   if (rel === "/style.json") {
     const q = styleQuery(url.searchParams);
     // Uncacheable plain-text 400: an intermediary must never cache an error for

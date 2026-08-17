@@ -1,6 +1,6 @@
 # @openwaters/seamap
 
-The [Open Waters](https://github.com/openwatersio/seamap) nautical chart as a MapLibre GL style: a [VersaTiles](https://versatiles.org) base map, [Seascape](https://github.com/openwatersio/seascape) bathymetry, and chart symbology (buoys, beacons, lights, topmarks, landmarks, restricted areas) with the sprite sheet that draws it.
+The [Open Waters](https://github.com/openwatersio/seamap) nautical chart as a MapLibre GL style: a chart-styled base map from the [VersaTiles](https://versatiles.org) shortbread tiles, [Seascape](https://github.com/openwatersio/seascape) bathymetry, and chart symbology (buoys, beacons, lights, topmarks, landmarks, restricted areas) with the sprite sheet that draws it.
 
 ## Whole style
 
@@ -15,7 +15,7 @@ const map = new maplibregl.Map({
 });
 ```
 
-`style()` is async: land hillshading comes from the VersaTiles elevation tiles, and the builder fetches their TileJSON. Options: `tiles` (seamark TileJSON URL), `seascape`, `versatiles`, `language`, `spriteBase`, `hillshade` (on by default; `false` to skip, or an object to tune the shading), and the seascape passthroughs — `flavor` (overrides merged over its `day`), `unit`, `safety`, `shading`, and the `dem`/`vector`/`coverage` source id overrides.
+Options: `tiles` (seamark TileJSON URL), `seascape`, `versatiles`, `language`, `spriteBase`, `basemap` (the base-map mariner preference — roads, railways, buildings, landcover, street names; on by default, `false` leaves only the chart and its topography), `hillshade` (on by default; `false` to skip, or an object to tune the shading), `depthHillshade`, and the seascape passthroughs — `flavor` (overrides merged over its `day`), `unit`, `safety`, `shading`, and the `dem`/`vector`/`coverage` source id overrides.
 
 ## Composed
 
@@ -66,6 +66,7 @@ The symbology lives in [layers/](layers/), grouped by what it draws. Each module
 
 | module                                | draws                                                                                                          |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [wetlands.ts](layers/wetlands.ts)     | tidal flats and marshes from the tiles' wetland layer                                                          |
 | [areas.ts](layers/areas.ts)           | rocks, wrecks and obstructions, seabed quality, restricted and allowed areas                                   |
 | [routes.ts](layers/routes.ts)         | traffic separation schemes, ferry routes, navigation lines and tracks, submarine cables and pipelines          |
 | [structures.ts](layers/structures.ts) | piers and breakwaters, piles and dolphins, platforms, cranes, shore stations, harbours, small craft facilities |
@@ -74,6 +75,8 @@ The symbology lives in [layers/](layers/), grouped by what it draws. Each module
 | [labels.ts](layers/labels.ts)         | landmarks and all name text, including the light characteristic                                                |
 
 The order of that concatenation is load-bearing twice. Paint order is the obvious half. The other is symbol collision: MapLibre places symbols in _reverse_ draw order, so a layer listed later wins the anchor in a crowded harbour — which is why labels come last. `index.test.ts` asserts the full id order, so a reshuffle can't happen by accident.
+
+The base map is authored the same way but stays outside the `layers()` export — it only rides inside `style()`. [topography.ts](layers/topography.ts) is chart topography from the VersaTiles shortbread tiles (urban extent, airports, boundaries, place and island names), always drawn; [basemap.ts](layers/basemap.ts) is the land context behind the `basemap` mariner preference (roads and railways, minor streets, buildings, landcover, street names), styled to sit below every piece of chart content.
 
 Layer geometry comes from the `seamark` and `light` layers of the seamap tiles; the symbols come from the sprite sheet, and because icon names are composed from tag values the two must move together.
 

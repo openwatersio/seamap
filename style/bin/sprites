@@ -38,9 +38,10 @@ from pathlib import Path
 CELL = 32
 
 # Every fill pattern the style uses: layers/areas.ts `restricted-areas-fill-pattern` plus the
-# `unsurveyed` water stipple (full-bleed at cell size, so its pad is a no-op). A test in
-# index.test.ts fails if the style grows a fill pattern that is not listed here.
-PATTERN_ICONS = ("military", "no-entry", "no-anchor", "unsurveyed")
+# chart patterns `partly-surveyed`, `marsh`, and `glacier`, which carry their own viewBox
+# repeat cells (S-52 lattices, non-square) and so skip the pad below. A test in index.test.ts
+# fails if the style grows a fill pattern that is not listed here.
+PATTERN_ICONS = ("military", "no-entry", "no-anchor", "partly-surveyed", "marsh", "glacier")
 
 gen = Path(sys.argv[1])
 for name in PATTERN_ICONS:

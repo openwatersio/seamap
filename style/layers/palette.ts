@@ -29,6 +29,26 @@ export const day = {
   lightYellow: "#fab20b",
   /** grey, not CHBLK black: a busy sector light should not read as a hazard boundary (S-4 B-475.1) */
   sectorLeg: "#666",
+  /** CHBRN built-up areas: one flat urban tint, a step toward chart brown from the land buff */
+  urban: "#e8d5a4",
+  /** LANDF chart brown: land linework — roads, railways, runways (S-52 draws these brown, never class-coded) */
+  landFeature: "#8d642e",
+  /** buildings and airport paving, darker than the urban tint they sit on */
+  building: "#d9c48e",
+  /** minor streets, a warm grey legible on both the land buff and the urban tint */
+  street: "#b8b09e",
+  /** landcover wash, kept well off the S-52 greens (radar/buoys) and moss-green (intertidal) */
+  vegetation: "#dfe5d3",
+  /** CHGRD: bridges and overhead crossings — S-52's highest-priority landward linework */
+  bridge: "#4c5b63",
+  /** DEPIT drying tint, matching seascape's foreshore green: tidal flats the ENC data misses */
+  intertidal: "#58af9c",
+  /** beaches and dunes, a going-ashore courtesy, slightly lighter than the land buff */
+  sand: "#faf2d0",
+  /** partly-surveyed water: NODTA blended 50% over seascape's provisional tint */
+  noData: "#599ac3",
+  /** glaciers: paper charts omit the land tint over ice (S-4 B-353.8) */
+  glacier: "#ffffff",
 } as const;
 
 export type Palette = typeof day;

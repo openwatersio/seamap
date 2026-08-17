@@ -1,7 +1,8 @@
 /**
  * @openwaters/seamap — the Open Waters nautical chart as a MapLibre GL style:
- * a VersaTiles base map, Seascape bathymetry, and chart symbology (buoys,
- * beacons, lights, topmarks, landmarks, restricted areas) from layers/.
+ * a chart-styled base map from the VersaTiles shortbread tiles, Seascape
+ * bathymetry, and chart symbology (buoys, beacons, lights, topmarks,
+ * landmarks, restricted areas) from layers/.
  *
  * Whole-style path — style() assembles everything:
  *
@@ -22,11 +23,11 @@
  * time, so the style layers and the sprite sheet must always move together.
  */
 import type {
+  ExpressionSpecification,
   LayerSpecification,
   SourceSpecification,
   StyleSpecification,
 } from "@maplibre/maplibre-gl-style-spec";
-import { colorful } from "@versatiles/style";
 import {
   day,
   layers as seascapeLayers,
@@ -37,8 +38,15 @@ import {
 } from "@openwaters/seascape";
 import { chartLayers } from "./layers/index.js";
 import { colors } from "./layers/palette.js";
+import { topography } from "./layers/topography.js";
+import { basemap as basemapLayers } from "./layers/basemap.js";
 
 const DEFAULT_TILEJSON = "https://tiles.openwaters.io/seamap/tiles.json";
+
+// Byte-identical to the OSM atom the seamap TileJSON emits (worker/src/index.ts),
+// so MapLibre's attribution control dedupes the two.
+const OSM_ATTRIBUTION =
+  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 /** The seamark vector source. `url` is a TileJSON document. */
 export function sources({ url = DEFAULT_TILEJSON }: { url?: string } = {}): Record<
@@ -126,12 +134,18 @@ export interface StyleOptions {
   tiles?: string;
   /** Seascape bathymetry tiles base URL. */
   seascape?: string;
-  /** VersaTiles server for the base map, glyphs, and base sprites. */
+  /** VersaTiles server for the base-map tiles, glyphs, and elevation. */
   versatiles?: string;
   /** Base map label language. */
   language?: string;
   /** URL of the directory serving this package's sprites/dist/ files. */
   spriteBase?: string;
+  /**
+   * The base-map mariner preference: land context beyond what a chart carries (roads,
+   * railways, buildings, landcover, street names). On by default; false leaves only the
+   * chart and its topography.
+   */
+  basemap?: boolean;
   /**
    * Bathymetric hillshading under the water, off by default: no chart standard
    * shades depth relief, and the commercial charts that offer it ship it as a
@@ -140,7 +154,7 @@ export interface StyleOptions {
   depthHillshade?: boolean;
   /**
    * Land hillshading from the VersaTiles elevation tiles, on by default;
-   * false skips it, an object customizes the builder's hillshade paint.
+   * false skips it, an object customizes the hillshade paint.
    */
   hillshade?:
     | boolean
@@ -175,9 +189,11 @@ export interface StyleOptions {
 }
 
 /**
- * The whole chart style: VersaTiles base map, Seascape bathymetry, and the
- * chart symbology, in nautical draw order. Async because the builder fetches
- * the VersaTiles elevation TileJSON for land hillshading.
+ * The whole chart style: chart symbology and Seascape bathymetry over a
+ * chart-styled base map, in nautical draw order. Async as API contract — the
+ * document assembles without any fetches (MapLibre resolves TileJSON URLs
+ * itself), but the signature stays a Promise so the builder is free to need
+ * one again.
  */
 export async function style({
   tiles,
@@ -187,6 +203,7 @@ export async function style({
   spriteBase = typeof document === "undefined"
     ? "sprites"
     : new URL("sprites", document.baseURI).href,
+  basemap = true,
   depthHillshade = false,
   hillshade = true,
   flavor,
@@ -197,40 +214,15 @@ export async function style({
   vector,
   coverage,
 }: StyleOptions = {}): Promise<StyleSpecification> {
-  const s = await colorful({
-    baseUrl: versatiles,
-    language,
-    colors: { label: "#000" },
-    // the base map is context, not content: desaturate and lighten it so the
-    // chart symbology reads first
-    recolor: { saturate: -0.3, blend: 0.2, blendColor: "#ffffff" },
-    textScale: 0.9,
-    iconScale: 0.8,
-    // low-zoom landcover tint, and load-bearing for the water-area→unsurveyed restyle below:
-    // without it versatiles adds an opacity ramp to water-area that turns inland lakes into
-    // dark stipple blobs at low zoom
-    experimental: { landcover: true },
-    hillshade,
-  });
-  s.name = "Open Waters Seamap";
-  delete s.metadata; // versatiles' CC0 claim covered only its own JSON, not this composite
-  // drop-in default view for consumers that don't set one (the viewer overrides)
-  s.center = [10.2351, 56.16858];
-  s.zoom = 13.4;
+  // shortbread carries name, name_en, and name_de; fall back to the local name
+  const name: ExpressionSpecification = language
+    ? ["coalesce", ["get", `name_${language}`], ["get", "name"]]
+    : ["get", "name"];
 
-  // the chart draws its own ferry routes and lighthouse symbols; drop the
-  // base map's duplicates
-  s.layers = s.layers.filter((l) => !l.id.startsWith("transport-ferry"));
-  const poi = s.layers.find((l) => l.id === "poi-man_made") as { filter?: unknown } | undefined;
-  if (poi?.filter) {
-    poi.filter = ["all", poi.filter, ["!=", ["get", "man_made"], "lighthouse"]];
-  }
-
-  (s.sprite as { id: string; url: string }[]).push(sprite(spriteBase));
-  Object.assign(s.sources, sources({ url: tiles }));
+  const topo = topography(name);
+  const base = basemapLayers(name);
 
   // Seascape bathymetry: depth shading, depth areas, contours, soundings.
-  Object.assign(s.sources, seascapeSources({ tilesBase: seascape, dem, vector, coverage }));
   const bathymetry = seascapeLayers(
     { ...day, font: [versatilesFont(day.font[0])], ...flavor },
     { dem, vector, coverage, unit, safety, shading },
@@ -250,76 +242,133 @@ export async function style({
     | undefined;
   if (depare?.paint) depare.paint["fill-opacity"] = 1;
 
-  // ENC DEPARE features without depth values are unsurveyed water; stipple them
-  // (replacing seascape's flat provisional tint) — the chart cue for unsurveyed
-  bathymetry.splice(bathymetry.findIndex((l) => l.id === "depth-areas") + 1, 0, {
-    id: "unsurveyed",
-    type: "fill",
-    source: vector ?? "seascape-vector",
-    "source-layer": "depare",
-    filter: ["!", ["has", "drval1"]],
-    paint: { "fill-pattern": "freenauticalchart:unsurveyed" },
-  });
+  // ENC DEPARE features without depth values take the S-52 partly-surveyed portrayal —
+  // NODTA grey with sparse PRTSUR01 dashes (replacing seascape's flat provisional tint).
+  // Flat fill and dash pattern are separate layers: fixed-size pattern glyphs read as
+  // noise at small scales, so the dashes fade in only once the chart can carry them.
+  const noDepth = ["!", ["has", "drval1"]] as ExpressionSpecification;
+  bathymetry.splice(
+    bathymetry.findIndex((l) => l.id === "depth-areas") + 1,
+    0,
+    {
+      id: "partly-surveyed",
+      type: "fill",
+      source: vector ?? "seascape-vector",
+      "source-layer": "depare",
+      filter: noDepth,
+      // antialias off: the fill must reach the tile edge, or the fade leaks the layers
+      // below as a hairline seam at every tile boundary
+      paint: { "fill-color": colors.noData, "fill-antialias": false },
+    },
+    {
+      id: "partly-surveyed-pattern",
+      type: "fill",
+      source: vector ?? "seascape-vector",
+      "source-layer": "depare",
+      minzoom: 6,
+      filter: noDepth,
+      paint: {
+        "fill-pattern": "freenauticalchart:partly-surveyed",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 8, 1],
+        "fill-antialias": false,
+      },
+    },
+  );
 
   const { areas, symbols } = layers({ font: versatilesFont, safety, unit });
 
-  // draw sea: replace versatiles' first two layers (background, water) with the
-  // chart's own background, bathymetry, sea areas, and seamap land
-  s.layers.splice(
-    0,
-    2,
-    {
-      id: "background",
-      type: "background",
-      paint: { "background-color": colors.background },
+  const h = typeof hillshade === "object" ? hillshade : {};
+  const landHillshade: LayerSpecification[] = hillshade
+    ? [
+        {
+          id: "hillshade",
+          type: "hillshade",
+          source: "elevation",
+          paint: {
+            "hillshade-exaggeration": h.exaggeration ?? 0.1,
+            "hillshade-shadow-color": h.shadowColor ?? "#000000",
+            "hillshade-highlight-color": h.highlightColor ?? "#ffffff",
+            "hillshade-accent-color": h.accentColor ?? "#000000",
+            "hillshade-illumination-direction": h.illuminationDirection ?? 315,
+            "hillshade-illumination-altitude": h.illuminationAltitude ?? 45,
+            "hillshade-illumination-anchor": h.illuminationAnchor ?? "map",
+          },
+        },
+      ]
+    : [];
+
+  return {
+    version: 8,
+    name: "Open Waters Seamap",
+    // drop-in default view for consumers that don't set one (the viewer overrides)
+    center: [10.2351, 56.16858],
+    zoom: 13.4,
+    glyphs: `${versatiles}/assets/glyphs/{fontstack}/{range}.pbf`,
+    sprite: [sprite(spriteBase)],
+    sources: {
+      "versatiles-shortbread": {
+        type: "vector",
+        tiles: [`${versatiles}/tiles/osm/{z}/{x}/{y}`],
+        maxzoom: 14,
+        attribution: OSM_ATTRIBUTION,
+      },
+      ...(hillshade
+        ? {
+            elevation: {
+              type: "raster-dem",
+              tiles: [`${versatiles}/tiles/elevation/{z}/{x}/{y}`],
+              tileSize: 512,
+              maxzoom: 12,
+              encoding: "terrarium",
+              attribution: '<a href="https://mapterhorn.com/attribution">© Mapterhorn</a>',
+            } as SourceSpecification,
+          }
+        : {}),
+      ...sources({ url: tiles }),
+      ...seascapeSources({ tilesBase: seascape, dem, vector, coverage }),
     },
-    ...bathymetry,
-    ...areas,
-    {
-      id: "land_area",
-      source: "seamap",
-      "source-layer": "land",
-      type: "fill",
-      paint: { "fill-color": colors.land },
-    },
-  );
-
-  // the coastline draws above the base map's land fills, not just the chart's land fill —
-  // otherwise landuse polygons reaching the shore eat its landward half and its weight varies
-  // along the shore (S-52 gives the coastline priority 7-8, above all land detail). It still
-  // sits below the base map's POIs and labels, which start at the first poi-/label- layer.
-  const firstBaseSymbol = s.layers.findIndex((l) => /^(poi-|label-|marking-|symbol-)/.test(l.id));
-  s.layers.splice(firstBaseSymbol === -1 ? s.layers.length : firstBaseSymbol, 0, {
-    id: "land_outline",
-    source: "seamap",
-    "source-layer": "land",
-    type: "line",
-    paint: {
-      "line-color": colors.coastline,
-      // thin and faint at low zoom
-      "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.1, 12, 1],
-      "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 12, 1],
-    },
-  });
-
-  // draw seamarks: buoys, lights, topmarks, landmarks, labels
-  s.layers = s.layers.concat(symbols);
-
-  // versatiles' opaque water-polygon fills (estuaries, rivers, docks) paint over
-  // the bathymetry. Move them *below* it and restyle as a stipple, so they only
-  // show through where there's no depth data — the chart cue for unsurveyed
-  // water.
-  const waterFillIds = ["water-area", "water-area-river", "water-area-small"];
-  const unsurveyed = s.layers.filter((l) => waterFillIds.includes(l.id));
-  s.layers = s.layers.filter((l) => !waterFillIds.includes(l.id));
-  unsurveyed.forEach(
-    (l) => ((l as { paint: unknown }).paint = { "fill-pattern": "freenauticalchart:unsurveyed" }),
-  );
-  s.layers.splice(1, 0, ...unsurveyed); // index 1: just above `background`, below bathymetry
-
-  // Charts never draw a centerline through navigable water (S-57 UOC §4.7.6)
-  const waterwayLineIds = ["water-river", "water-canal", "water-stream", "water-ditch"];
-  s.layers = s.layers.filter((l) => !waterwayLineIds.includes(l.id));
-
-  return s;
+    layers: [
+      {
+        id: "background",
+        type: "background",
+        paint: { "background-color": colors.background },
+      },
+      ...bathymetry,
+      // sea areas below land, so a boundary sweeping the coast stops at the shore
+      ...areas,
+      {
+        id: "land_area",
+        source: "seamap",
+        "source-layer": "land",
+        type: "fill",
+        paint: { "fill-color": colors.land },
+      },
+      ...topo.fills,
+      ...(basemap ? base.fills : []),
+      ...landHillshade,
+      ...(basemap ? base.lines : []),
+      ...topo.lines,
+      // the coastline draws above all land detail, not just the land fill — otherwise landuse
+      // and streets reaching the shore eat its landward half and its weight varies along the
+      // shore (S-52 gives the coastline priority 7-8, above all land detail)
+      {
+        id: "land_outline",
+        source: "seamap",
+        "source-layer": "land",
+        type: "line",
+        paint: {
+          "line-color": colors.coastline,
+          // thin and faint at low zoom
+          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.1, 12, 1],
+          "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 12, 1],
+        },
+      },
+      topo.bridge,
+      // base-map labels before the chart's, so chart labels win every collision
+      ...(basemap ? base.labels : []),
+      ...topo.labels,
+      // seamarks: buoys, lights, topmarks, landmarks, labels
+      ...symbols,
+    ],
+  };
 }
