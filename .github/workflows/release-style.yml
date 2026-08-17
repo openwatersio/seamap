@@ -37,6 +37,6 @@ jobs:
       - run: npm test --workspace style
       - run: npm publish --workspace style
 
-      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+      - run: gh release view "$GITHUB_REF_NAME" || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
