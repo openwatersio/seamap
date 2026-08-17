@@ -33,6 +33,7 @@ jobs:
             exit 1
           }
 
+      - run: bin/sprites
       - run: npm test --workspace style
       - run: npm publish --workspace style
 
