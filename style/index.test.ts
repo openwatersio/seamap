@@ -323,7 +323,10 @@ describe("restricted access", () => {
     expect(drawn("harhours", { type: "small_craft_facility", category: "fishing" })).toBe(false);
 
     for (const key of ["icon-opacity", "text-opacity"]) {
-      const compiled = createExpression(layer("harhours").paint[key]);
+      const compiled = createExpression(
+        layer("harhours").paint[key],
+        `layers.harhours.paint.${key}`,
+      );
       if (compiled.result !== "success") throw new Error(`${key} failed to compile`);
       const opacity = (access?: string) =>
         compiled.value.evaluate({ zoom: 12 }, point(access ? { access } : {}));
@@ -337,7 +340,10 @@ describe("restricted access", () => {
 describe("fuel dock labels", () => {
   const layout = (all.find((l) => l.id === "small-craft-facilities") as { layout: never })
     .layout as Record<string, unknown>;
-  const compiled = createExpression(layout["text-field"]);
+  const compiled = createExpression(
+    layout["text-field"],
+    "layers.small-craft-facilities.layout.text-field",
+  );
   if (compiled.result !== "success") throw new Error("text-field failed to compile");
   const label = (properties: Record<string, string>) =>
     compiled.value
@@ -380,7 +386,7 @@ it("never scales an icon above the sheet's resolution", () => {
   for (const layer of all) {
     const size = (layer as { layout?: Record<string, unknown> }).layout?.["icon-size"];
     if (size === undefined) continue;
-    const compiled = createExpression(size);
+    const compiled = createExpression(size, `layers.${layer.id}.layout.icon-size`);
     if (compiled.result !== "success") throw new Error(`${layer.id}: icon-size failed to compile`);
     for (let zoom = 0; zoom <= 22; zoom += 0.25) {
       for (const properties of variants) {
