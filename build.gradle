@@ -10,10 +10,10 @@ repositories {
 }
 
 dependencies {
-  implementation 'com.onthegomap.planetiler:planetiler-core:0.9.3'
+  implementation 'com.onthegomap.planetiler:planetiler-core:0.10.2'
   // WebP decoding for Terrarium DEM tiles (DepthCalculator). Registered via
   // ServiceLoader at runtime, so not needed on the compile classpath.
-  runtimeOnly 'com.twelvemonkeys.imageio:imageio-webp:3.10.1'
+  runtimeOnly 'com.twelvemonkeys.imageio:imageio-webp:3.14.0'
   testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
