@@ -3,6 +3,7 @@ import com.onthegomap.planetiler.Planetiler;
 import com.onthegomap.planetiler.Profile;
 import com.onthegomap.planetiler.VectorTile;
 import com.onthegomap.planetiler.config.Arguments;
+import com.onthegomap.planetiler.geo.GeometryException;
 import com.onthegomap.planetiler.geo.GeometryType;
 import com.onthegomap.planetiler.geo.TileCoord;
 import com.onthegomap.planetiler.reader.SourceFeature;
@@ -13,9 +14,10 @@ import java.util.*;
 import org.locationtech.jts.geom.*;
 
 /**
- * Planetiler profile for the nautical chart. Emits the seamark, light, land, water, wetland and
- * waterway layers; {@link Seamark#extractSeamarkAttributes} owns the OSM tag mapping, including the
- * derivations that invent a seamark type from plain tags (leisure=marina, route=ferry, ...).
+ * Planetiler profile for the nautical chart. Emits the seamark, light, land, water, sea_area,
+ * wetland and waterway layers; {@link Seamark#extractSeamarkAttributes} owns the OSM tag mapping,
+ * including the derivations that invent a seamark type from plain tags (leisure=marina,
+ * route=ferry, ...).
  *
  * <p>Harbours, landmarks and lights additionally emit a label point, so their name still places
  * once the polygon itself is too small to hold one.
@@ -49,6 +51,27 @@ public class Seamap implements Profile {
   private static int cellCap(int zoom) {
     if (zoom >= 13) return Integer.MAX_VALUE;
     return zoom >= 11 ? 16 : 8;
+  }
+
+  /** The named-water-body category, or null if the feature is not one. */
+  private static String seaAreaCategory(Map<String, Object> tags) {
+    String natural = (String) tags.get("natural");
+    if ("bay".equals(natural) || "strait".equals(natural)) return natural;
+    String place = (String) tags.get("place");
+    return "sea".equals(place) || "ocean".equals(place) ? place : null;
+  }
+
+  /** A water body holds its name once it is this many pixels across. */
+  private static final double LABEL_SPAN_PIXELS = 40;
+
+  private static final double EARTH_CIRCUMFERENCE_KM = 40_075.017;
+
+  /** The zoom at which a body of this area reaches {@link #LABEL_SPAN_PIXELS}. */
+  private static int labelMinZoom(double areaKm2) {
+    double spanKm = Math.sqrt(areaKm2);
+    double zoom =
+        Math.log(LABEL_SPAN_PIXELS * EARTH_CIRCUMFERENCE_KM / (256 * spanKm)) / Math.log(2);
+    return Math.clamp((int) Math.ceil(zoom), 0, 14);
   }
 
   /**
@@ -157,6 +180,25 @@ public class Seamap implements Profile {
         // does — at z<4 the Great Lakes rendered as land. Planetiler's pixel-size
         // dropping prunes small lakes at low zooms on its own.
         waterFeature.setMinZoom(0);
+      }
+
+      // Named water bodies: bays, straits, seas and oceans. None of them are natural=water, so
+      // the biggest names a chart carries — Chesapeake Bay, Kattegat, Strait of Gibraltar —
+      // come from nowhere else. A label point rather than the area: nothing renders the area,
+      // and one point places the name once instead of once per tile it crosses.
+      String seaArea = seaAreaCategory(tags);
+      if (seaArea != null && sf.canBePolygon() && tags.containsKey("name")) {
+        try {
+          double areaKm2 = sf.areaMeters() / 1e6;
+          features
+              .pointOnSurface("sea_area")
+              .setAttr("name", tags.get("name"))
+              .setAttr("category", seaArea)
+              .setAttr("area", Math.round(areaKm2))
+              .setMinZoom(labelMinZoom(areaKm2));
+        } catch (GeometryException e) {
+          System.err.println("Error measuring sea area for OSM ID " + sf.id() + ": " + e);
+        }
       }
 
       // Extract wetland / intertidal areas relevant for navigation:

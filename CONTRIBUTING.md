@@ -43,14 +43,14 @@ bin/run --area=monaco --force      # small build for a quick check
 
 Key files (Java sources are in the default package, `src/main/java/`):
 
-- `Seamap.java` — Planetiler `Profile`; `processFeature` (seamarks, land, water, wetland, waterway) and `postProcessTileFeatures`, which cuts all water out of land so Seascape's bathymetry shows through (the `water` layer stays for names only).
+- `Seamap.java` — Planetiler `Profile`; `processFeature` (seamarks, land, water, sea areas, wetland, waterway) and `postProcessTileFeatures`, which cuts all water out of land so Seascape's bathymetry shows through (the `water` layer stays for names only).
 - `Seamark.java` — OSM tag → seamark attribute extraction; IALA buoyage defaults; S-57 light abbreviation (`Fl(3).WRG.10s15m12M`).
 - `Lights.java` — light-sector arc/ray geometry generation.
 - `LandPolygons.java` — downloads + reads the global land shapefile.
 - `DepthCalculator.java` — looks up depth for rocks/wrecks from a Terrarium DEM (`--depth=`); needs the `imageio-webp` runtime dep.
 - `SeamarkZoomRules.java` — per-type min-zoom rules; derivation and recorded departures in [docs/design/zoom.md](docs/design/zoom.md).
 
-Output layers: `seamark`, `land`, `water`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map, glyphs, and land elevation from third-party infra (VersaTiles).
+Output layers: `seamark`, `land`, `water`, `sea_area`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map, glyphs, and land elevation from third-party infra (VersaTiles).
 
 ### Documenting the tags it reads
 

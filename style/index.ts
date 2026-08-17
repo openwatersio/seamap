@@ -36,6 +36,7 @@ import {
   type Unit,
 } from "@openwaters/seascape";
 import { chartLayers } from "./layers/index.js";
+import { names } from "./layers/names.js";
 import { colors } from "./layers/palette.js";
 
 const DEFAULT_TILEJSON = "https://tiles.openwaters.io/seamap/tiles.json";
@@ -301,6 +302,10 @@ export async function style({
       "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0, 12, 1],
     },
   });
+
+  // the base map draws no island or water-body names, and a chart that names neither is no use
+  // on the water. These go above its own labels and below the chart symbology.
+  s.layers.push(...names({ font: versatilesFont, language }));
 
   // draw seamarks: buoys, lights, topmarks, landmarks, labels
   s.layers = s.layers.concat(symbols);
