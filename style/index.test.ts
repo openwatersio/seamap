@@ -140,6 +140,31 @@ it("keeps layer ids and order stable", () => {
   ]);
 });
 
+describe("small craft facilities", () => {
+  const point = (properties: Record<string, unknown>) => ({ type: 1, properties }) as never;
+  const draws = (id: string, properties: Record<string, unknown>) => {
+    const layer = all.find((l) => l.id === id) as { filter: never };
+    return featureFilter(layer.filter).filter({ zoom: 16 }, point(properties), undefined as never);
+  };
+
+  // The badge and its label are one symbol, so seamark-label must not draw a second one for the
+  // same point: labels place first, and the badge would lose the collision to its own name.
+  it("leaves facility names to the badge layer", () => {
+    const facility = {
+      type: "small_craft_facility",
+      category: "boat_rental",
+      name: "Whiskey Creek Kayak Rentals",
+      cell_rank: 0,
+    };
+    expect(draws("small-craft-facilities", facility)).toBe(true);
+    expect(draws("seamark-label", facility)).toBe(false);
+  });
+
+  it("still names other points", () => {
+    expect(draws("seamark-label", { type: "pile", name: "Dolphin", cell_rank: 0 })).toBe(true);
+  });
+});
+
 describe("isolated dangers", () => {
   const layer = chartLayers({ safety: 2 }).symbols.find((l) => l.id === "isolated-dangers") as {
     filter: never;

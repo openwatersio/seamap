@@ -15,6 +15,19 @@ const wallWaterLevel: ExpressionSpecification = [
   "",
 ];
 
+/**
+ * A fuel dock labels with the grades it sells rather than its name: which ones decide whether it is
+ * worth the detour, and the icon already says "fuel".
+ */
+const sellsFuel: ExpressionSpecification = [
+  "all",
+  ["==", ["get", "category"], "fuel_station"],
+  ["has", "fuel"],
+];
+
+/** The badge has something to print. Drives both what it prints and what it yields to. */
+const hasLabel: ExpressionSpecification = ["any", sellsFuel, ["has", "name"]];
+
 export function structures(): LayerSpecification[] {
   // access values that mean "not open to the public" (OpenSeaMap-vector's PRIVATE_TAGS).
   // An untagged feature gets null, and `in` against null is false, so it reads as public.
@@ -206,19 +219,13 @@ export function structures(): LayerSpecification[] {
           "freenauticalchart:poi-generic",
         ],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 17, 1],
-        // An unnamed badge yields first when two collide: it is the one with least to say, the
-        // same call harbourDraw makes in the pipeline.
-        "symbol-sort-key": ["case", ["has", "name"], 0, 1],
-        // The name rides in this layer rather than seamark-label so the badge and its text are one
-        // symbol — text-optional then drops the name in a crowded harbour and keeps the icon,
-        // which is the only order that makes sense. A fuel dock shows its grades instead: which
-        // ones it sells decides whether it's worth the detour, and the icon already says "fuel".
-        "text-field": [
-          "case",
-          ["all", ["==", ["get", "category"], "fuel_station"], ["has", "fuel"]],
-          ["get", "fuel"],
-          ["coalesce", ["get", "name"], ""],
-        ],
+        // A badge with nothing to print yields first when two collide: it is the one with least
+        // to say, the same call harbourDraw makes in the pipeline.
+        "symbol-sort-key": ["case", hasLabel, 0, 1],
+        // The text rides in this layer rather than seamark-label so the badge and its label are
+        // one symbol — text-optional then drops the text in a crowded harbour and keeps the icon,
+        // which is the only order that makes sense.
+        "text-field": ["case", sellsFuel, ["get", "fuel"], ["coalesce", ["get", "name"], ""]],
         "text-font": ["Noto Sans Regular"],
         "text-size": 10,
         // tracks icon-size to hold ~7.5px from the 32px badge edge to the glyph, as the
