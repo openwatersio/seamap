@@ -50,7 +50,7 @@ Key files (Java sources are in the default package, `src/main/java/`):
 - `DepthCalculator.java` — looks up depth for rocks/wrecks from a Terrarium DEM (`--depth=`); needs the `imageio-webp` runtime dep.
 - `SeamarkZoomRules.java` — per-type min-zoom rules; derivation and recorded departures in [docs/design/zoom.md](docs/design/zoom.md).
 
-Output layers: `seamark`, `land`, `water`, `sea_area`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map, glyphs, and land elevation from third-party infra (VersaTiles).
+Output layers: `seamark`, `land`, `water`, `sea_area`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map and land elevation from third-party infra (VersaTiles). Label glyphs come from `https://tiles.openwaters.io/fonts`, built by [tile-fonts](https://github.com/openwatersio/tile-fonts).
 
 ### Documenting the tags it reads
 

@@ -50,6 +50,37 @@ it("assembles a valid whole style", async () => {
   expect(ids.at(-1)).toBe("lights-label");
 });
 
+// The stacks openwatersio/tile-fonts publishes at https://tiles.openwaters.io/fonts. Asking
+// for anything else — including the base map's own noto_sans_bold — renders as nothing.
+const PUBLISHED = [
+  "Noto Sans Regular",
+  "Noto Sans Italic",
+  "Noto Sans Medium",
+  "Noto Sans Medium Italic",
+  "Noto Sans SemiBold",
+  "Noto Sans SemiBold Italic",
+];
+
+it("asks only for fontstacks the glyph server publishes", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  expect(whole.glyphs).toBe("https://tiles.openwaters.io/fonts/{fontstack}/{range}.pbf");
+  const used = new Set<string>();
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (!v || typeof v !== "object") return;
+    const tf = (v as Record<string, unknown>)["text-font"];
+    if (Array.isArray(tf)) {
+      (tf[0] === "literal" ? tf[1] : tf).forEach((f: unknown) => {
+        if (typeof f === "string") used.add(f);
+      });
+    }
+    Object.values(v).forEach(walk);
+  };
+  walk(whole.layers);
+  expect(used.size).toBeGreaterThan(0);
+  expect([...used].filter((f) => !PUBLISHED.includes(f))).toEqual([]);
+});
+
 it("carries both land and sea hillshade layers without id collisions", async () => {
   const tilejson = {
     tilejson: "3.0.0",

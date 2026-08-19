@@ -52,9 +52,7 @@ export function sources({ url = DEFAULT_TILEJSON }: { url?: string } = {}): Reco
 export interface LayersOptions {
   /**
    * Rename glyph fontstacks to match the consumer's glyph server. The chart layers use
-   * "Noto Sans Regular", plus "Noto Sans Italic" for hydrographic text — a stack Noto
-   * doesn't actually have, so map it to whatever italic your server serves (the built-in
-   * builder uses versatiles' open_sans_regular_italic).
+   * "Noto Sans Regular" and "Noto Sans Italic", both served by the default glyph endpoint.
    */
   font?: (name: string) => string;
   /**
@@ -116,18 +114,19 @@ export function sprite(base: string): { id: string; url: string } {
   };
 }
 
-// versatiles glyph names are lowercase with underscores. Noto Sans has no italic cut
-// anywhere, so the chart's italic hydrographic text maps to the closest humanist match
-// versatiles serves.
-const versatilesFont = (f: string) =>
-  f === "Noto Sans Italic" ? "open_sans_regular_italic" : f.toLowerCase().replaceAll(" ", "_");
+// Self-hosted (openwatersio/tile-fonts): a chart needs a real italic for hydrographic text
+// and weights above Regular, neither of which the versatiles glyphs offer.
+const GLYPHS = "https://tiles.openwaters.io/fonts/{fontstack}/{range}.pbf";
+
+// tile-fonts stops at SemiBold, and the base map's bold labels are context, not content
+const BASE_MAP_FONTS = { regular: "Noto Sans Regular", bold: "Noto Sans SemiBold" };
 
 export interface StyleOptions {
   /** Seamark TileJSON URL. */
   tiles?: string;
   /** Seascape bathymetry tiles base URL. */
   seascape?: string;
-  /** VersaTiles server for the base map, glyphs, and base sprites. */
+  /** VersaTiles server for the base map and base sprites. */
   versatiles?: string;
   /** Base map label language. */
   language?: string;
@@ -200,6 +199,8 @@ export async function style({
 }: StyleOptions = {}): Promise<StyleSpecification> {
   const s = await colorful({
     baseUrl: versatiles,
+    glyphs: GLYPHS,
+    fonts: BASE_MAP_FONTS,
     language,
     colors: { label: "#000" },
     // the base map is context, not content: desaturate and lighten it so the
@@ -233,7 +234,7 @@ export async function style({
   // Seascape bathymetry: depth shading, depth areas, contours, soundings.
   Object.assign(s.sources, seascapeSources({ tilesBase: seascape, dem, vector, coverage }));
   const bathymetry = seascapeLayers(
-    { ...day, font: [versatilesFont(day.font[0])], ...flavor },
+    { ...day, ...flavor },
     { dem, vector, coverage, unit, safety, shading },
   );
   const seaHillshade = bathymetry.find((l) => l.id === "depth-hillshade");
@@ -262,7 +263,7 @@ export async function style({
     paint: { "fill-pattern": "freenauticalchart:unsurveyed" },
   });
 
-  const { areas, symbols } = layers({ font: versatilesFont, safety, unit });
+  const { areas, symbols } = layers({ safety, unit });
 
   // draw sea: replace versatiles' first two layers (background, water) with the
   // chart's own background, bathymetry, sea areas, and seamap land
@@ -305,7 +306,7 @@ export async function style({
 
   // the base map draws no island or water-body names, and a chart that names neither is no use
   // on the water. These go above its own labels and below the chart symbology.
-  s.layers.push(...names({ font: versatilesFont, language }));
+  s.layers.push(...names({ language }));
 
   // draw seamarks: buoys, lights, topmarks, landmarks, labels
   s.layers = s.layers.concat(symbols);
