@@ -1,4 +1,4 @@
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
 import "@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css";
