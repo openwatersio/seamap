@@ -35,14 +35,14 @@
   "dependencies": {
     "@maplibre/maplibre-gl-style-spec": "^25.0.0",
     "@openwaters/seascape": "^0.3.0",
-    "@versatiles/style": "^5.12.1"
+    "@versatiles/style": "^5.13.1"
   },
   "devDependencies": {
     "@iconify-json/maki": "^1.2.5",
-    "@iconify-json/pinhead": "^1.2.18",
+    "@iconify-json/pinhead": "^1.2.20",
     "@iconify-json/tabler": "^1.2.38",
     "@iconify-json/temaki": "^1.2.6",
     "typescript": "^5.6.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }
