@@ -8,13 +8,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@maplibre/maplibre-gl-inspect": "^1.8.2",
+    "@maplibre/maplibre-gl-inspect": "^1.9.0",
     "@openwaters/seamap": "*",
     "maplibre-gl": "^5.24.0"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.52.0",
-    "vite": "^8.2.1",
+    "@cloudflare/vite-plugin": "^1.54.4",
+    "vite": "^8.2.2",
     "vite-plugin-static-copy": "^4.1.1"
   }
 }
