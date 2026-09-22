@@ -96,7 +96,7 @@ async function version(env: Env): Promise<string> {
 // document per param combo rather than paying that round trip per request.
 // ponytail: unbounded map — the param space is tiny (a handful of mariner
 // defaults); add an LRU if arbitrary combos ever start growing an isolate.
-const styles = new Map<string, string>();
+const styles = new Map<string, { body: string; etag: string }>();
 
 const CORS = { "access-control-allow-origin": "*" };
 // Stable tile URLs: a release never orphans cached tiles, and
@@ -217,12 +217,11 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
   // ── Routes served out of the current archive ──────────────────────────────
 
   const v = await version(env);
-  // JSON endpoints validate by version: they derive from the archive, so they
-  // SHOULD change every release. Tiles validate by content (below) — most
-  // releases leave most tiles byte-identical.
-  const etag = `"${v}"`;
-  const json = (body: string) =>
-    !dev && inm === etag
+  // JSON endpoints validate by content, like tiles (below): a Worker deploy changes style.json
+  // without a new archive, and a version-only tag would 304 clients onto the stale copy.
+  const json = async (body: string, etag?: string) => {
+    etag ??= await contentEtag(new TextEncoder().encode(body));
+    return !dev && inm === etag
       ? new Response(null, {
           status: 304,
           headers: { etag, "cache-control": JSON_CACHE, ...CORS },
@@ -234,6 +233,7 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
             ...CORS,
           },
         });
+  };
 
   if (rel === "/tiles.json") {
     const a = archive(env, v);
@@ -272,16 +272,17 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     const key = JSON.stringify([tilesBase, q]);
     let doc = styles.get(key);
     if (!doc) {
-      doc = JSON.stringify(
+      const body = JSON.stringify(
         await chartStyle({
           tiles: `${tilesBase}/tiles.json`,
           spriteBase: `${tilesBase}/sprites`,
           ...q,
         }),
       );
+      doc = { body, etag: await contentEtag(new TextEncoder().encode(body)) };
       styles.set(key, doc);
     }
-    return json(doc);
+    return json(doc.body, doc.etag);
   }
 
   const m = rel.match(/^\/(\d+)\/(\d+)\/(\d+)\.(pbf|mvt)$/);
