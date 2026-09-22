@@ -35,6 +35,7 @@ import {
   type Shading,
   type Unit,
 } from "@openwaters/seascape";
+import { BASE_SPRITE, useBaseSprites } from "./layers/basemap-sprites.js";
 import { chartLayers } from "./layers/index.js";
 import { names } from "./layers/names.js";
 import { colors } from "./layers/palette.js";
@@ -201,6 +202,7 @@ export async function style({
     baseUrl: versatiles,
     glyphs: GLYPHS,
     fonts: BASE_MAP_FONTS,
+    sprite: [{ id: BASE_SPRITE, url: `/assets/sprites/${BASE_SPRITE}` }],
     language,
     colors: { label: "#000" },
     // the base map is context, not content: desaturate and lighten it so the
@@ -219,6 +221,7 @@ export async function style({
   // drop-in default view for consumers that don't set one (the viewer overrides)
   s.center = [10.2351, 56.16858];
   s.zoom = 13.4;
+  useBaseSprites(s.layers);
 
   // the chart draws its own ferry routes and lighthouse symbols; drop the
   // base map's duplicates

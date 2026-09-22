@@ -509,6 +509,55 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
   });
 });
 
+// MapLibre loads a style's sprite sheets all or nothing: one image reference into a sheet that
+// fails to load blanks every seamark (#84).
+describe("base map sprites", async () => {
+  const whole = await style({
+    spriteBase: "https://example.com/sprites",
+    versatiles: "https://versatiles.example.com",
+    hillshade: false,
+  });
+  const references: string[] = [];
+  const walk = (node: unknown): void => {
+    if (typeof node === "string" && node.includes(":")) references.push(node);
+    // tag keys like seamark:type are not image references
+    else if (Array.isArray(node) && node[0] !== "get" && node[0] !== "has") node.forEach(walk);
+  };
+  for (const layer of whole.layers as { layout?: object; paint?: object }[]) {
+    for (const [property, value] of [
+      ...Object.entries(layer.layout ?? {}),
+      ...Object.entries(layer.paint ?? {}),
+    ]) {
+      if (property === "icon-image" || property.endsWith("-pattern")) walk(value);
+    }
+  }
+  const sheets = whole.sprite as { id: string; url: string }[];
+
+  it("draws from the sheet the VersaTiles server publishes", () => {
+    expect(sheets).toContainEqual({
+      id: "base",
+      url: "https://versatiles.example.com/assets/sprites/base",
+    });
+  });
+
+  it("names only sheets the style declares", () => {
+    const declared = new Set(sheets.map((s) => s.id));
+    const prefixes = new Set(references.map((r) => r.split(":", 1)[0]));
+    expect(prefixes.size).toBeGreaterThan(1);
+    expect([...prefixes].filter((p) => !declared.has(p))).toEqual([]);
+  });
+
+  // a copy of the ids in https://tiles.versatiles.org/assets/sprites/base.json
+  it("names only icons the base sheet carries", () => {
+    const icons = new Set(
+      JSON.parse(readFileSync("fixtures/versatiles-base-sprites.json", "utf8")),
+    );
+    const base = references.filter((r) => r.startsWith("base:")).map((r) => r.slice(5));
+    expect(base.length).toBeGreaterThan(0);
+    expect([...new Set(base)].filter((id) => !icons.has(id))).toEqual([]);
+  });
+});
+
 // Charts never draw a centerline through navigable water (S-57 UOC §4.7.6),
 // and OSM centerlines run through wide rivers too — so none survive.
 it("drops waterway centerlines", async () => {
