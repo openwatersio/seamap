@@ -75,13 +75,12 @@ jobs:
           # Registered in taginfo/taginfo-projects, so a 404 here breaks a URL
           # that lives in someone else's repo.
           check "taginfo"    200 "$BASE/taginfo.json" json
-          # tiles.json validates by version, so its ETag names the archive the
-          # pointer currently resolves to.
-          version=$(curl -sSI "$BASE/tiles.json" | tr -d '\r"' | awk 'tolower($1)=="etag:"{print $2}')
+          # tiles.json names the archive the pointer currently resolves to.
+          version=$(curl -sSI "$BASE/tiles.json" | tr -d '\r' | awk 'tolower($1)=="seamap-version:"{print $2}')
           if [ -n "$version" ]; then
             check "archive" 200 "$BASE/$version.pmtiles"
           else
-            echo "::error::tiles.json served no ETag — can't tell which archive is live"
+            echo "::error::tiles.json served no seamap-version header — can't tell which archive is live"
             fail=1
           fi
           exit $fail

@@ -250,7 +250,10 @@ async function handle(req: Request, env: Env, ctx: ExecutionContext): Promise<Re
     // Unconditional: the archive bakes its own attribution, which drifts from
     // the canonical dedupe-able form until the next data release.
     tj.attribution = ATTRIBUTION;
-    return json(JSON.stringify(tj));
+    const res = await json(JSON.stringify(tj));
+    // names the archive the pointer resolves to; the deploy smoke test reads it
+    res.headers.set("seamap-version", v);
+    return res;
   }
 
   // Drop-in MapLibre style for these tiles — the same style the viewer renders.
