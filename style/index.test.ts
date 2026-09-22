@@ -533,11 +533,12 @@ describe("base map sprites", async () => {
   }
   const sheets = whole.sprite as { id: string; url: string }[];
 
-  it("draws from the sheet the VersaTiles server publishes", () => {
-    expect(sheets).toContainEqual({
-      id: "base",
-      url: "https://versatiles.example.com/assets/sprites/base",
-    });
+  // an unreferenced sheet still fails the load, so the list must be exact
+  it("declares only sheets that are published", () => {
+    expect(sheets).toEqual([
+      { id: "base", url: "https://versatiles.example.com/assets/sprites/base" },
+      sprite("https://example.com/sprites"),
+    ]);
   });
 
   it("names only sheets the style declares", () => {
