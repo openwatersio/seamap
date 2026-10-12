@@ -18,7 +18,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       # bin/setup builds the sprites, which need spreet (pinned in mise.toml).
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
 
       # Global land polygons (~600MB). Downloaded by the build on first run,
       # then restored from cache. Static key: the dataset changes rarely and
@@ -66,7 +66,7 @@ jobs:
       # of the style package. mise supplies spreet at the pinned version, and
       # the POI badges are composed from the @iconify-json packages, so the
       # install has to come first.
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
       - run: npm ci
       - run: bin/sprites
 
