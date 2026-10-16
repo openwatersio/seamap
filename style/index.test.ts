@@ -206,7 +206,11 @@ describe("isolated dangers", () => {
   };
   const point = (properties: Record<string, unknown>) => ({ type: 1, properties }) as never;
   const highlighted = (properties: Record<string, unknown>) =>
-    featureFilter(layer.filter).filter({ zoom: 12 }, point(properties), undefined as never);
+    featureFilter(layer.filter, "layers.isolated-dangers.filter").filter(
+      { zoom: 12 },
+      point(properties),
+      undefined as never,
+    );
 
   it("rings a shoal hazard in navigable water", () => {
     expect(highlighted({ type: "wreck", depth: 1.5, surrounding_depth: 15 })).toBe(true);
@@ -228,7 +232,11 @@ describe("isolated dangers", () => {
       filter: never;
     };
     const ringed = (properties: Record<string, unknown>) =>
-      featureFilter(deep.filter).filter({ zoom: 12 }, point(properties), undefined as never);
+      featureFilter(deep.filter, "layers.isolated-dangers.filter").filter(
+        { zoom: 12 },
+        point(properties),
+        undefined as never,
+      );
     // a 35 m hazard is "shallow" at safety 40, but the tiles stop retaining hazards past 30 —
     // highlighting it would promise coverage the data does not have
     expect(ringed({ type: "rock", depth: 35, surrounding_depth: 50 })).toBe(false);
@@ -253,7 +261,11 @@ describe("thinning and decoration", () => {
   const layer = (id: string) =>
     chartLayers({ safety: 2 }).symbols.find((l) => l.id === id) as { filter: never };
   const draws = (id: string, zoom: number, properties: Record<string, unknown>) =>
-    featureFilter(layer(id).filter).filter({ zoom }, point(properties), undefined as never);
+    featureFilter(layer(id).filter, `layers.${id}.filter`).filter(
+      { zoom },
+      point(properties),
+      undefined as never,
+    );
 
   const buoy = { type: "buoy_lateral", family: "minor_aid", topmark_shape: "cone" };
   const turbine = { type: "landmark", family: "structure" };
@@ -358,7 +370,11 @@ describe("restricted access", () => {
   const point = (properties: Record<string, string>) => ({ type: 1, properties }) as never;
 
   const drawn = (id: string, properties: Record<string, string>) =>
-    featureFilter(layer(id).filter).filter({ zoom: 16 }, point(properties), undefined as never);
+    featureFilter(layer(id).filter, `layers.${id}.filter`).filter(
+      { zoom: 16 },
+      point(properties),
+      undefined as never,
+    );
 
   const slipway = { type: "small_craft_facility", category: "slipway" };
 
@@ -383,7 +399,10 @@ describe("restricted access", () => {
     expect(drawn("harhours", { type: "small_craft_facility", category: "fishing" })).toBe(false);
 
     for (const key of ["icon-opacity", "text-opacity"]) {
-      const compiled = createExpression(layer("harhours").paint[key]);
+      const compiled = createExpression(
+        layer("harhours").paint[key],
+        `layers.harhours.paint.${key}`,
+      );
       if (compiled.result !== "success") throw new Error(`${key} failed to compile`);
       const opacity = (access?: string) =>
         compiled.value.evaluate({ zoom: 12 }, point(access ? { access } : {}));
@@ -397,7 +416,10 @@ describe("restricted access", () => {
 describe("fuel dock labels", () => {
   const layout = (all.find((l) => l.id === "small-craft-facilities") as { layout: never })
     .layout as Record<string, unknown>;
-  const compiled = createExpression(layout["text-field"]);
+  const compiled = createExpression(
+    layout["text-field"],
+    "layers.small-craft-facilities.layout.text-field",
+  );
   if (compiled.result !== "success") throw new Error("text-field failed to compile");
   const label = (properties: Record<string, string>) =>
     compiled.value
@@ -442,7 +464,7 @@ it("never scales an icon above the sheet's resolution", () => {
   for (const layer of all) {
     const size = (layer as { layout?: Record<string, unknown> }).layout?.["icon-size"];
     if (size === undefined) continue;
-    const compiled = createExpression(size);
+    const compiled = createExpression(size, `layers.${layer.id}.layout.icon-size`);
     if (compiled.result !== "success") throw new Error(`${layer.id}: icon-size failed to compile`);
     for (let zoom = 0; zoom <= 22; zoom += 0.25) {
       for (const properties of variants) {
