@@ -4,6 +4,8 @@ A nautical-themed map with depths, seamarks, and hazards for the whole planet, r
 
 **[View the chart →](https://openwatersio.github.io/seamap/)**
 
+See the [Seamap documentation](https://openwaters.io/charts/seamap/) for tile endpoints, MapLibre integration, and attribution.
+
 ![Chart of the German Bight](sh.png)
 
 The chart shows what you'd expect from a paper chart, drawn live from open data: buoys and beacons with IALA colours and topmarks, lights with sector arcs and characteristics (`Fl(3)WRG.10s`), depth shading, contours and spot soundings, rocks, wrecks and obstructions, traffic separation schemes, anchorages and restricted areas, marinas, slipways and shore facilities.
