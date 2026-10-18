@@ -121,4 +121,10 @@ When `@openwaters/seamap` has accumulated changes worth shipping:
 
 1. Bump `version` in `style/package.json` per the [versioning policy](style/README.md#versioning) — layer ids and icon naming are the contract.
 2. Commit, then `git tag v<version> && git push origin main --tags`.
-3. `.github/workflows/release-style.yml` does the rest: verifies the tag matches the package version, runs the style tests, publishes to npm (sprites rebuilt via `prepublishOnly`, provenance via trusted publishing), and creates the GitHub release with generated notes — edit them afterwards if the commit list needs a consumer-facing summary.
+3. `.github/workflows/release-style.yml` does the rest: verifies the tag matches the package version, runs the style tests, publishes to npm (sprites rebuilt via `prepublishOnly`, provenance via trusted publishing), and creates the GitHub release with generated notes, titled with the tag.
+4. Retitle the release and rewrite its notes for the [org release-notes guidance](https://github.com/openwatersio/.github/blob/main/docs/agents/releases.md#release-notes): a short headline in sentence case with no version, an opening line on what is new for people reading the chart and for developers embedding the style, breaking changes first, then user-visible changes with their PR links. Drop chores, CI and test changes, refactors, and bot dependency bumps; the generated notes include them all. Start from the generated text, edit it, and save it back:
+
+   ```sh
+   gh release view v$VERSION --repo openwatersio/seamap --json body --jq .body > notes.md
+   gh release edit v$VERSION --repo openwatersio/seamap --title "$HEADLINE" --notes-file notes.md
+   ```
