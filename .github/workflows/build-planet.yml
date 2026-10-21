@@ -33,9 +33,9 @@ permissions:
   actions: write # dispatches the worker/viewer deploys after publishing
 
 env:
-  # Types are tried in order against live capacity (the datacenter API lists
-  # which types are orderable right now); capacity moves around, so no location
-  # is pinned. Every candidate needs ~280GB free disk — the planet build (~82
+  # Types are tried in order against live capacity (each server type lists the
+  # locations where it is orderable right now); capacity moves around, so no
+  # location is pinned. Every candidate needs ~280GB free disk — the planet build (~82
   # PBF + ~110 nodemap + ~25 output + scratch) runs on local NVMe with no
   # Hetzner volume, since the account's volume quota is taken by another project.
   SERVER_TYPES: ${{ inputs.server_types || 'ccx43 ccx53' }}
@@ -70,18 +70,17 @@ jobs:
           ssh-keygen -t ed25519 -N "" -f id_build -q
           hcloud ssh-key create --name "$NAME" --public-key-from-file id_build.pub
 
-          # Pick the first type from SERVER_TYPES with capacity in any datacenter
-          # (server_types.available is live stock, unlike server-type list), then
-          # still tolerate a create failure — stock can vanish between the query
-          # and the create — by falling through to the next candidate.
+          # Pick the first type from SERVER_TYPES with capacity in any location
+          # (locations[].available is live stock), then still tolerate a create
+          # failure — stock can vanish between the query and the create — by
+          # falling through to the next candidate.
           types_json=$(hcloud server-type list -o json)
-          dcs_json=$(hcloud datacenter list -o json)
           created=""
           for T in $SERVER_TYPES; do
-            tid=$(echo "$types_json" | jq -r --arg t "$T" '.[] | select(.name==$t) | .id')
-            [ -n "$tid" ] || { echo "unknown server type: $T" >&2; continue; }
-            for LOC in $(echo "$dcs_json" | jq -r --argjson id "$tid" \
-                '.[] | select(.server_types.available | index($id)) | .location.name' | sort -u); do
+            echo "$types_json" | jq -e --arg t "$T" 'any(.[]; .name==$t)' >/dev/null \
+              || { echo "unknown server type: $T" >&2; continue; }
+            for LOC in $(echo "$types_json" | jq -r --arg t "$T" \
+                '.[] | select(.name==$t) | .locations[] | select(.available) | .name'); do
               [ -n "$SERVER_LOCATION" ] && [ "$LOC" != "$SERVER_LOCATION" ] && continue
               echo "trying $T in $LOC"
               if hcloud server create --name "$NAME" \
