@@ -55,6 +55,9 @@ public class Seamap implements Profile {
   /** Cell size for the per-family numbering, in tile pixels — a tile is 256 across. */
   private static final int CELL_PIXELS = 32;
 
+  /** A light node this close to a structure node on the ground stands on it. */
+  private static final double COLOCATED_KM = 0.02;
+
   /**
    * Storage backstop: the most of one family kept in a cell, whatever the tile holds. This is not
    * the selection mechanism — the style's per-family budgets in `style/layers/visibility.ts` decide
@@ -329,7 +332,7 @@ public class Seamap implements Profile {
     List<VectorTile.Feature> seamarks = layers.get("seamark");
     if (seamarks != null && !seamarks.isEmpty()) {
       List<VectorTile.Feature> numbered =
-          numberPerCell(adoptColocatedLights(seamarks), tileCoord.z());
+          numberPerCell(adoptColocatedLights(seamarks, tileCoord), tileCoord.z());
       layers.put("seamark", numbered);
       List<VectorTile.Feature> lights = layers.get("light");
       if (lights != null && !lights.isEmpty()) {
@@ -374,24 +377,15 @@ public class Seamap implements Profile {
   }
 
   /**
-   * Numbers each point by its position among its own presentation family within a grid cell, most
-   * important first, and writes that back as {@code cell_rank}. The style decides how many of a
-   * family survive at a given zoom by thresholding this, so retuning that number costs a page
-   * reload rather than a planet build.
-   *
-   * <p>This runs once per output tile and therefore once per zoom, which is what makes the
-   * numbering scale-aware: the same 32-pixel cell holds one buoy at z14 and forty at z8. A cell
-   * straddling a tile boundary is split, so a feature can number differently on either side of a
-   * seam — the same artefact the label grids already have, and tolerable at this cell size.
-   */
-  /**
    * A lit aid standing on a structure lends the structure its reach. Mappers chart a lit corner
    * turbine as two co-located nodes — the turbine landmark and a light — which land in different
    * families and thin independently: the light survived while its turbine lost the structure budget
-   * to unlit mid-field peers, exactly inverting the selection a farm needs. Within two pixels is
-   * "standing on" through the zooms where budgets bite; beyond z13 everything draws.
+   * to unlit mid-field peers, exactly inverting the selection a farm needs. "Standing on" is a
+   * distance on the ground, not on screen: a fixed pixel radius spans kilometres at z6, where a
+   * windmill would inherit a nearby lighthouse's reach and outrank the marks a mariner needs.
    */
-  private static List<VectorTile.Feature> adoptColocatedLights(List<VectorTile.Feature> features) {
+  private static List<VectorTile.Feature> adoptColocatedLights(
+      List<VectorTile.Feature> features, TileCoord tile) {
     List<CoordinateXY> lights = new ArrayList<>();
     List<Object> reaches = new ArrayList<>();
     for (VectorTile.Feature feature : features) {
@@ -405,25 +399,49 @@ public class Seamap implements Profile {
       reaches.add(range);
     }
     if (lights.isEmpty()) return features;
+    double n = 1 << tile.z();
     List<VectorTile.Feature> out = new ArrayList<>(features.size());
     for (VectorTile.Feature feature : features) {
       if (feature.geometry().geomType() == GeometryType.POINT
           && SeamarkPriority.STRUCTURE.equals(feature.tags().get("family"))
           && feature.tags().get("light_range") == null) {
         CoordinateXY at = feature.geometry().firstCoordinate();
+        // Web Mercator stretches ground distance by cosh(y) at world y. Tile coordinates arrive
+        // rounded to a 1/16 px grid, so the pair may sit up to one diagonal step further apart
+        // than on the ground. Allowing that step means that wherever a step outgrows 20 m (below
+        // z9 at 52°N), a light up to a step away still adopts: about 130 m at z6 and 530 m at z4
+        // there. Nothing finer survives the rounding.
+        double stretch = Math.cosh(Math.PI * (1 - 2 * (tile.y() + at.y / 256) / n));
+        double radius =
+            COLOCATED_KM * 256 * n * stretch / EARTH_CIRCUMFERENCE_KM + Math.sqrt(2) / 16;
+        int nearest = -1;
         for (int i = 0; i < lights.size(); i++) {
           CoordinateXY light = lights.get(i);
-          if (Math.hypot(at.x - light.x, at.y - light.y) <= 2.0) {
-            feature = feature.copyWithExtraAttrs(Map.of("light_range", reaches.get(i)));
-            break;
+          double distance = Math.hypot(at.x - light.x, at.y - light.y);
+          if (distance <= radius) {
+            radius = distance;
+            nearest = i;
           }
         }
+        if (nearest >= 0)
+          feature = feature.copyWithExtraAttrs(Map.of("light_range", reaches.get(nearest)));
       }
       out.add(feature);
     }
     return out;
   }
 
+  /**
+   * Numbers each point by its position among its own presentation family within a grid cell, most
+   * important first, and writes that back as {@code cell_rank}. The style decides how many of a
+   * family survive at a given zoom by thresholding this, so retuning that number costs a page
+   * reload rather than a planet build.
+   *
+   * <p>This runs once per output tile and therefore once per zoom, which is what makes the
+   * numbering scale-aware: the same 32-pixel cell holds one buoy at z14 and forty at z8. A cell
+   * straddling a tile boundary is split, so a feature can number differently on either side of a
+   * seam — the same artefact the label grids already have, and tolerable at this cell size.
+   */
   private static List<VectorTile.Feature> numberPerCell(
       List<VectorTile.Feature> features, int zoom) {
     Map<String, List<VectorTile.Feature>> cells = new LinkedHashMap<>();

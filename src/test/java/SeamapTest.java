@@ -114,9 +114,22 @@ class SeamapTest {
   }
 
   private static Map<String, List<VectorTile.Feature>> numbered(VectorTile.Feature... features) {
+    // the North Sea, where a z12 pixel is about 23 metres
+    return numberedAt(TileCoord.ofXYZ(2100, 1350, 12), features);
+  }
+
+  private static Map<String, List<VectorTile.Feature>> numberedAt(
+      TileCoord tile, VectorTile.Feature... features) {
     Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
     layers.put("seamark", new ArrayList<>(List.of(features)));
-    return new Seamap().postProcessTileFeatures(TileCoord.ofXYZ(0, 0, 12), layers);
+    return new Seamap().postProcessTileFeatures(tile, layers);
+  }
+
+  private static Object tag(Map<String, List<VectorTile.Feature>> layers, String name, String key) {
+    for (VectorTile.Feature feature : layers.get("seamark")) {
+      if (name.equals(feature.tags().get("name"))) return feature.tags().get(key);
+    }
+    throw new AssertionError("no seamark named " + name);
   }
 
   private static Object cellRank(Map<String, List<VectorTile.Feature>> layers, String name) {
@@ -155,14 +168,72 @@ class SeamapTest {
   /** A lit aid standing on a turbine lends it its reach, so lit corners win the budget. */
   @Test
   void colocatedLightPromotesItsStructure() {
-    // two turbines in one cell; a light node stands a pixel from the higher-id one
+    // two turbines in one cell; a light node stands 12 metres from the higher-id one
     var litTurbine = seamark("lit corner", 20, 20, "type", "landmark", "category", "windmotor");
     var plainTurbine = seamark("mid field", 10, 10, "type", "landmark", "category", "windmotor");
     var light =
-        seamark("corner light", 21, 20, "type", "light_minor", "light_range", 5, "osm_id", 7L);
+        seamark("corner light", 20.5, 20, "type", "light_minor", "light_range", 5, "osm_id", 7L);
     var layers = numbered(plainTurbine, litTurbine, light);
     assertEquals(0, cellRank(layers, "lit corner"));
     assertEquals(1, cellRank(layers, "mid field"));
+  }
+
+  /** Tile pixels per kilometre on the ground at the centre of a tile. */
+  private static double pxPerKm(TileCoord tile) {
+    double n = 1 << tile.z();
+    return 256 * n * Math.cosh(Math.PI * (1 - 2 * (tile.y() + 0.5) / n)) / 40_075.017;
+  }
+
+  private static Object adopted(TileCoord tile, double dx, double dy, double x, double y) {
+    var turbine = seamark("turbine", x, y, "type", "landmark", "category", "windmotor");
+    var light = seamark("light", x + dx, y + dy, "type", "light_minor", "light_range", 5);
+    return tag(numberedAt(tile, turbine, light), "turbine", "light_range");
+  }
+
+  /**
+   * Co-location is a distance on the ground. At z6 over the Netherlands a pixel is about 1.5 km, so
+   * a windmill 2 km from a lighthouse sits barely a pixel away yet must not inherit its reach; a
+   * light a few metres off its structure adopts at every zoom.
+   */
+  @Test
+  void colocationIsMeasuredInMetres() {
+    var z6 = TileCoord.ofXYZ(33, 21, 6);
+    var windmill = seamark("windmill", 20, 20, "type", "landmark", "category", "windmotor");
+    var lighthouse =
+        seamark("lighthouse", 20 + 2 * pxPerKm(z6), 20, "type", "light_major", "light_range", 28);
+    assertNull(tag(numberedAt(z6, windmill, lighthouse), "windmill", "light_range"));
+    assertNull(adopted(z6, 0.5 * pxPerKm(z6), 0, 20, 20));
+
+    for (int z = 6; z <= 14; z++) {
+      int scale = 1 << (z - 6);
+      var tile = TileCoord.ofXYZ(33 * scale, 21 * scale, z);
+      assertEquals(5, adopted(tile, 0.005 * pxPerKm(tile), 0, 20, 20), "z" + z);
+    }
+
+    var z14 = TileCoord.ofXYZ(33 << 8, 21 << 8, 14);
+    assertEquals(5, adopted(z14, 0.015 * pxPerKm(z14), 0, 20, 20));
+    assertNull(adopted(z14, 0.03 * pxPerKm(z14), 0, 20, 20));
+  }
+
+  /**
+   * Tile coordinates arrive rounded to 1/16 px, which can push a pair just inside the radius a
+   * diagonal step apart: 19.5 m at the equator at z10 rounds to 0.18 px against 0.13 px.
+   */
+  @Test
+  void colocationAllowsForCoordinateRounding() {
+    assertEquals(5, adopted(TileCoord.ofXYZ(512, 512, 10), 0.09, 0.09, 20.03, 20.03));
+    assertEquals(5, adopted(TileCoord.ofXYZ(33, 21, 6), 0.0625, 0.0625, 20, 20));
+  }
+
+  /** A structure between two lights takes the reach of the one standing on it. */
+  @Test
+  void structureAdoptsTheNearestLight() {
+    var tile = TileCoord.ofXYZ(33 << 8, 21 << 8, 14);
+    double tenMetres = 0.01 * pxPerKm(tile);
+    var turbine = seamark("turbine", 20, 20, "type", "landmark", "category", "windmotor");
+    var far = seamark("far", 20 + 1.5 * tenMetres, 20, "type", "light_major", "light_range", 20);
+    var near = seamark("near", 20, 20 + 0.2 * tenMetres, "type", "light_minor", "light_range", 5);
+    assertEquals(5, tag(numberedAt(tile, turbine, far, near), "turbine", "light_range"));
   }
 
   /** Equal ranks break ties on the stable feature id, not planetiler's input order. */
