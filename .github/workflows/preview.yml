@@ -50,7 +50,7 @@ jobs:
       # Sprites are generated, not committed. mise supplies spreet at the
       # pinned version; npm ci must come first — the POI badges compose from
       # the @iconify-json packages.
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
       - run: npm ci
       - run: bin/sprites
 
