@@ -72,8 +72,8 @@ jobs:
 
           # Pick the first type from SERVER_TYPES with capacity in any location
           # (locations[].available is live stock), then still tolerate a create
-          # failure — stock can vanish between the query
-          # and the create — by falling through to the next candidate.
+          # failure — stock can vanish between the query and the create — by
+          # falling through to the next candidate.
           types_json=$(hcloud server-type list -o json)
           created=""
           for T in $SERVER_TYPES; do
