@@ -126,6 +126,9 @@ public class LandPolygons {
     }
   }
 
+  /** Seamap.cleanLand keeps rings that reach this edge, since they are clipped. */
+  static final int BUFFER_PIXELS = 4;
+
   /**
    * Processes land polygon features for vector tiles. Called from the main Profile.processFeature()
    * method.
@@ -136,8 +139,9 @@ public class LandPolygons {
   public static void processLandFeature(SourceFeature sf, FeatureCollector features) {
     // The shapefile splits continents into grid cells that fall below
     // planetiler's default 1px minimum at low zooms and vanish wholesale;
-    // keep them all — postProcessTileFeatures unions them back together.
-    features.polygon("land").setBufferPixels(4).setMinPixelSize(0);
+    // keep them all — postProcessTileFeatures unions them back together and
+    // applies the floor to the result.
+    features.polygon("land").setBufferPixels(BUFFER_PIXELS).setMinPixelSize(0);
   }
 
   /** Example main method to test download functionality. */
