@@ -11,6 +11,7 @@ import com.onthegomap.planetiler.reader.osm.OsmElement;
 import com.onthegomap.planetiler.reader.osm.OsmSourceFeature;
 import java.nio.file.Path;
 import java.util.*;
+import org.locationtech.jts.algorithm.Area;
 import org.locationtech.jts.geom.*;
 
 /**
@@ -23,6 +24,19 @@ import org.locationtech.jts.geom.*;
  * once the polygon itself is too small to hold one.
  */
 public class Seamap implements Profile {
+
+  private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(Seamap.class);
+
+  /** The archive's top zoom, which clients overzoom past: land keeps every ring there. */
+  private final int maxzoom;
+
+  public Seamap(int maxzoom) {
+    this.maxzoom = maxzoom;
+  }
+
+  public Seamap() {
+    this(com.onthegomap.planetiler.config.PlanetilerConfig.defaults().maxzoom());
+  }
 
   /** Seamark types that stay linear even when mapped as a closed way. */
   private static final Set<String> ALWAYS_LINEAR =
@@ -109,10 +123,9 @@ public class Seamap implements Profile {
       System.out.println("Depth data loaded successfully");
     }
 
-    Seamap profile = new Seamap();
-
-    Planetiler.create(arguments)
-        .setProfile(profile)
+    Planetiler planetiler = Planetiler.create(arguments);
+    planetiler
+        .setProfile(new Seamap(planetiler.config().maxzoom()))
         .addOsmSource("osm", dataDir.resolve(area + ".osm.pbf"), "geofabrik:" + area)
         .addShapefileSource("land", LandPolygons.ensureLandPolygons(dataDir))
         .overwriteOutput(dataDir.resolve("seamarks.pmtiles"))
@@ -338,6 +351,7 @@ public class Seamap implements Profile {
         if (allLand != null && allWater != null) {
           allLand = allLand.difference(allWater);
         }
+        if (allLand != null) allLand = cleanLand(allLand, tileCoord.z() < maxzoom);
 
         // Replace land layer with the cut result. If the result is empty
         // (water fully covers land in this tile), drop the layer so the
@@ -351,8 +365,8 @@ public class Seamap implements Profile {
           layers.put("land", List.of(newLandFeature));
         }
       } catch (Exception e) {
-        System.err.println(
-            "Error cutting water from land for tile " + tileCoord + ": " + e.getMessage());
+        // An ERR line stops bin/build-planet publishing: the tile would ship uncut and unfiltered.
+        LOGGER.error("Error cutting water from land for tile " + tileCoord, e);
       }
     }
 
@@ -492,6 +506,47 @@ public class Seamap implements Profile {
       out.add(light.copyWithExtraAttrs(inherited));
     }
     return out;
+  }
+
+  /**
+   * Below the top zoom, drops islands and ponds under 1 px², the same floor Planetiler applies to
+   * every other polygon. Land opts out of that floor so the shapefile's grid cells survive until
+   * the union, which leaves every skerry and pond whole: one z4 tile over Scandinavia carried 8.6k
+   * rings, nearly all specks, and ran MapLibre Native out of memory on an iPad. A ring clipped at
+   * the tile's buffer edge is only part of its feature, so it stays rather than being judged by the
+   * piece; the shared edge then matches the neighbouring tile. Nothing is simplified here, for the
+   * same reason: per-tile simplification steps the coastline at seams.
+   *
+   * <p>Rings are always re-oriented, because the overlay winds shells the opposite way to MVT and
+   * strict decoders reject the tile.
+   */
+  static Geometry cleanLand(Geometry land, boolean dropSpecks) {
+    if (dropSpecks) {
+      double edge = 256 + LandPolygons.BUFFER_PIXELS;
+      Envelope inside =
+          new Envelope(-LandPolygons.BUFFER_PIXELS, edge, -LandPolygons.BUFFER_PIXELS, edge);
+      inside.expandBy(-1e-6);
+      java.util.function.Predicate<LinearRing> speck =
+          ring ->
+              inside.contains(ring.getEnvelopeInternal())
+                  && Area.ofRing(ring.getCoordinateSequence()) < 1;
+      List<Polygon> kept = new ArrayList<>();
+      for (int i = 0; i < land.getNumGeometries(); i++) {
+        // An island in a dropped pond is a speck too, so nothing kept overlaps.
+        if (!(land.getGeometryN(i) instanceof Polygon polygon)
+            || speck.test(polygon.getExteriorRing())) continue;
+        List<LinearRing> holes = new ArrayList<>();
+        for (int h = 0; h < polygon.getNumInteriorRing(); h++) {
+          if (!speck.test(polygon.getInteriorRingN(h))) holes.add(polygon.getInteriorRingN(h));
+        }
+        kept.add(
+            land.getFactory()
+                .createPolygon(polygon.getExteriorRing(), holes.toArray(new LinearRing[0])));
+      }
+      land = land.getFactory().buildGeometry(kept);
+    }
+    // normalize() winds shells clockwise in y-up terms; MVT's y-down space wants the reverse.
+    return land.norm().reverse();
   }
 
   private static Geometry unionGeometries(List<VectorTile.Feature> features)

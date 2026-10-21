@@ -1,4 +1,5 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -13,7 +14,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.algorithm.Orientation;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
@@ -328,5 +331,74 @@ class SeamapTest {
     var layers =
         numbered(new VectorTile.Feature("seamark", 1, VectorTile.encodeGeometry(line), attrs));
     assertNull(cellRank(layers, "fairway"));
+  }
+
+  private static Polygon square(double x, double y, double size) {
+    return GF.createPolygon(
+        new Coordinate[] {
+          new Coordinate(x, y),
+          new Coordinate(x + size, y),
+          new Coordinate(x + size, y + size),
+          new Coordinate(x, y + size),
+          new Coordinate(x, y)
+        });
+  }
+
+  private static VectorTile.Feature tileFeature(String layer, Polygon polygon) {
+    return new VectorTile.Feature(layer, 1, VectorTile.encodeGeometry(polygon), Map.of());
+  }
+
+  /**
+   * A mainland reaching the buffer edge, cut by a visible lake and a sub-pixel pond, with a
+   * sub-pixel islet offshore and a sub-pixel piece of a bigger island clipped at the buffer edge.
+   */
+  private static Geometry cutLand(Seamap profile, int zoom) {
+    Map<String, List<VectorTile.Feature>> layers = new HashMap<>();
+    layers.put(
+        "land",
+        List.of(
+            tileFeature("land", square(-4, -4, 104)),
+            tileFeature("land", square(200, 200, 0.5)),
+            tileFeature("land", square(-4, 150, 0.5))));
+    layers.put(
+        "water",
+        List.of(
+            tileFeature("water", square(10, 10, 20)), tileFeature("water", square(60, 60, 0.5))));
+    try {
+      return profile
+          .postProcessTileFeatures(TileCoord.ofXYZ(0, 0, zoom), layers)
+          .get("land")
+          .get(0)
+          .geometry()
+          .decode();
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  private static int rings(Geometry geometry) {
+    int rings = 0;
+    for (int i = 0; i < geometry.getNumGeometries(); i++)
+      rings += 1 + ((Polygon) geometry.getGeometryN(i)).getNumInteriorRing();
+    return rings;
+  }
+
+  @Test
+  void landDropsSpecksBelowTopZoomButKeepsClippedRings() {
+    // mainland, lake and the clipped island stay; the free pond and islet go
+    assertEquals(3, rings(cutLand(new Seamap(), 4)));
+    assertEquals(5, rings(cutLand(new Seamap(), 14)));
+    // a regional build's top zoom keeps everything too
+    assertEquals(5, rings(cutLand(new Seamap(12), 12)));
+  }
+
+  /** MVT wants exterior rings clockwise in y-down tile space: positive shoelace area. */
+  @Test
+  void landRingsWindTheWayMvtExpects() {
+    for (int zoom : new int[] {4, 14}) {
+      Polygon land = (Polygon) cutLand(new Seamap(), zoom).getGeometryN(0);
+      assertTrue(Orientation.isCCW(land.getExteriorRing().getCoordinates()), "z" + zoom);
+      assertFalse(Orientation.isCCW(land.getInteriorRingN(0).getCoordinates()), "z" + zoom);
+    }
   }
 }
