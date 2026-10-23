@@ -41,8 +41,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       MESSAGE: "${{ github.event_name == 'pull_request' && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title) || format('main@{0}', github.sha) }}"
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
@@ -50,7 +50,7 @@ jobs:
       # Sprites are generated, not committed. mise supplies spreet at the
       # pinned version; npm ci must come first — the POI badges compose from
       # the @iconify-json packages.
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
       - run: npm ci
       - run: bin/sprites
 

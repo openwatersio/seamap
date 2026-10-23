@@ -12,6 +12,6 @@
     "format": "oxfmt"
   },
   "devDependencies": {
-    "vite-plus": "^0.2.8"
+    "vite-plus": "^0.2.9"
   }
 }

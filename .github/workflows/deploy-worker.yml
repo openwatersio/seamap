@@ -20,8 +20,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
@@ -29,7 +29,7 @@ jobs:
       # Sprites are generated, not committed, and wrangler uploads them as the
       # Worker's assets. mise supplies spreet at the pinned version; npm ci must
       # come first — the POI badges compose from the @iconify-json packages.
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
       - name: Install workspace (runs the style package's prepare — tsc → style/dist)
         run: npm ci
       - run: bin/sprites
@@ -75,13 +75,12 @@ jobs:
           # Registered in taginfo/taginfo-projects, so a 404 here breaks a URL
           # that lives in someone else's repo.
           check "taginfo"    200 "$BASE/taginfo.json" json
-          # tiles.json validates by version, so its ETag names the archive the
-          # pointer currently resolves to.
-          version=$(curl -sSI "$BASE/tiles.json" | tr -d '\r"' | awk 'tolower($1)=="etag:"{print $2}')
+          # tiles.json names the archive the pointer currently resolves to.
+          version=$(curl -sSI "$BASE/tiles.json" | tr -d '\r' | awk 'tolower($1)=="seamap-version:"{print $2}')
           if [ -n "$version" ]; then
             check "archive" 200 "$BASE/$version.pmtiles"
           else
-            echo "::error::tiles.json served no ETag — can't tell which archive is live"
+            echo "::error::tiles.json served no seamap-version header — can't tell which archive is live"
             fail=1
           fi
           exit $fail

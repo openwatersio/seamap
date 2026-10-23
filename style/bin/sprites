@@ -42,6 +42,13 @@ CELL = 32
 # index.test.ts fails if the style grows a fill pattern that is not listed here.
 PATTERN_ICONS = ("military", "no-entry", "no-anchor", "unsurveyed")
 
+# fill-pattern cannot scale, so a pattern's on-screen size is fixed by its raster: at overview
+# zooms the 32-unit cell is bigger than many of the areas it fills, and the glyph pokes out of
+# a corner or never repeats. Each glyph pattern also ships a half-size `-sm` variant — same
+# artwork, half the units — for the style to step down to. The stipple stays single-size: it is
+# texture, and halving it would read as a different (denser) convention, not a smaller symbol.
+SMALL_VARIANTS = ("military", "no-entry", "no-anchor")
+
 gen = Path(sys.argv[1])
 for name in PATTERN_ICONS:
     path = gen / f"{name}.svg"
@@ -56,8 +63,15 @@ for name in PATTERN_ICONS:
     cell = max(CELL, w, h)
     for attr in ("width", "height"):
         head = re.sub(rf'\b{attr}="[\d.]+"', f'{attr}="{cell:g}"', head, count=1)
-    head += f' viewBox="{(w - cell) / 2:g} {(h - cell) / 2:g} {cell:g} {cell:g}"'
-    path.write_text(head + svg[svg.index(">", svg.index("<svg")):])
+    box = f'viewBox="{(w - cell) / 2:g} {(h - cell) / 2:g} {cell:g} {cell:g}"'
+    path.write_text(head + f" {box}" + svg[svg.index(">", svg.index("<svg")):])
+    if name in SMALL_VARIANTS:
+        small = head
+        for attr, value in (("width", cell / 2), ("height", cell / 2)):
+            small = re.sub(rf'\b{attr}="[\d.]+"', f'{attr}="{value:g}"', small, count=1)
+        (gen / f"{name}-sm.svg").write_text(
+            small + f" {box}" + svg[svg.index(">", svg.index("<svg")):]
+        )
 PY
 
 # The landmark sources are drawn at their 1.3x display scale; a conspicuous

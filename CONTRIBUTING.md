@@ -16,7 +16,7 @@ How the chart looks is governed by the [design guidelines](docs/design/README.md
 
 ## Getting Started
 
-Tool versions are pinned in `mise.toml`: Java 21 (Planetiler targets 21 and Gradle 8 won't run on newer JDKs), Gradle, Node, and `spreet` for sprite packing. Install [mise](https://mise.jdx.dev) and run:
+Tool versions are pinned in `mise.toml`: Java 21 (Planetiler targets 21), Gradle, Node, and `spreet` for sprite packing. Install [mise](https://mise.jdx.dev) and run:
 
 ```bash
 mise install   # java, gradle, node, spreet — pinned in mise.toml
@@ -43,14 +43,14 @@ bin/run --area=monaco --force      # small build for a quick check
 
 Key files (Java sources are in the default package, `src/main/java/`):
 
-- `Seamap.java` — Planetiler `Profile`; `processFeature` (seamarks, land, water, wetland, waterway) and `postProcessTileFeatures`, which cuts all water out of land so Seascape's bathymetry shows through (the `water` layer stays for names only).
+- `Seamap.java` — Planetiler `Profile`; `processFeature` (seamarks, land, water, sea areas, wetland, waterway) and `postProcessTileFeatures`, which cuts all water out of land so Seascape's bathymetry shows through (the `water` layer stays for names only).
 - `Seamark.java` — OSM tag → seamark attribute extraction; IALA buoyage defaults; S-57 light abbreviation (`Fl(3).WRG.10s15m12M`).
 - `Lights.java` — light-sector arc/ray geometry generation.
 - `LandPolygons.java` — downloads + reads the global land shapefile.
 - `DepthCalculator.java` — looks up depth for rocks/wrecks from a Terrarium DEM (`--depth=`); needs the `imageio-webp` runtime dep.
 - `SeamarkZoomRules.java` — per-type min-zoom rules; derivation and recorded departures in [docs/design/zoom.md](docs/design/zoom.md).
 
-Output layers: `seamark`, `land`, `water`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map, glyphs, and land elevation from third-party infra (VersaTiles).
+Output layers: `seamark`, `land`, `water`, `sea_area`, `wetland`, `waterway`, `light`. **Bathymetry is NOT in these tiles** — depth shading, contours, and soundings come from the Seascape tiles via `@openwaters/seascape`. The style still pulls the base map and land elevation from third-party infra (VersaTiles). Label glyphs come from `https://tiles.openwaters.io/fonts`, built by [tile-fonts](https://github.com/openwatersio/tile-fonts).
 
 ### Documenting the tags it reads
 
@@ -121,4 +121,10 @@ When `@openwaters/seamap` has accumulated changes worth shipping:
 
 1. Bump `version` in `style/package.json` per the [versioning policy](style/README.md#versioning) — layer ids and icon naming are the contract.
 2. Commit, then `git tag v<version> && git push origin main --tags`.
-3. `.github/workflows/release-style.yml` does the rest: verifies the tag matches the package version, runs the style tests, publishes to npm (sprites rebuilt via `prepublishOnly`, provenance via trusted publishing), and creates the GitHub release with generated notes — edit them afterwards if the commit list needs a consumer-facing summary.
+3. `.github/workflows/release-style.yml` does the rest: verifies the tag matches the package version, runs the style tests, publishes to npm (sprites rebuilt via `prepublishOnly`, provenance via trusted publishing), and creates the GitHub release with generated notes, titled with the tag.
+4. Retitle the release and rewrite its notes for the [org release-notes guidance](https://github.com/openwatersio/.github/blob/main/docs/agents/releases.md#release-notes): a short headline in sentence case with no version, an opening line on what is new for people reading the chart and for developers embedding the style, breaking changes first, then user-visible changes with their PR links. Drop chores, CI and test changes, refactors, and bot dependency bumps; the generated notes include them all. Start from the generated text, edit it, and save it back:
+
+   ```sh
+   gh release view v$VERSION --repo openwatersio/seamap --json body --jq .body > notes.md
+   gh release edit v$VERSION --repo openwatersio/seamap --title "$HEADLINE" --notes-file notes.md
+   ```

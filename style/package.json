@@ -1,6 +1,6 @@
 {
   "name": "@openwaters/seamap",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "MapLibre GL style for Open Waters Seamap – base map, bathymetry, chart symbology",
   "license": "GPL-3.0",
   "repository": {
@@ -33,14 +33,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@maplibre/maplibre-gl-style-spec": "^25.0.0",
-    "@openwaters/seascape": "^0.2.1",
+    "@maplibre/maplibre-gl-style-spec": "^26.2.1",
+    "@openwaters/seascape": "^0.3.0",
     "@versatiles/style": "^5.12.1"
   },
   "devDependencies": {
     "@iconify-json/maki": "^1.2.5",
-    "@iconify-json/pinhead": "^1.2.16",
-    "@iconify-json/tabler": "^1.2.38",
+    "@iconify-json/pinhead": "^1.2.34",
+    "@iconify-json/tabler": "^1.2.42",
     "@iconify-json/temaki": "^1.2.6",
     "typescript": "^5.6.0",
     "vitest": "^4.1.9"

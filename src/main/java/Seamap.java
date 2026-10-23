@@ -3,6 +3,7 @@ import com.onthegomap.planetiler.Planetiler;
 import com.onthegomap.planetiler.Profile;
 import com.onthegomap.planetiler.VectorTile;
 import com.onthegomap.planetiler.config.Arguments;
+import com.onthegomap.planetiler.geo.GeometryException;
 import com.onthegomap.planetiler.geo.GeometryType;
 import com.onthegomap.planetiler.geo.TileCoord;
 import com.onthegomap.planetiler.reader.SourceFeature;
@@ -10,17 +11,32 @@ import com.onthegomap.planetiler.reader.osm.OsmElement;
 import com.onthegomap.planetiler.reader.osm.OsmSourceFeature;
 import java.nio.file.Path;
 import java.util.*;
+import org.locationtech.jts.algorithm.Area;
 import org.locationtech.jts.geom.*;
 
 /**
- * Planetiler profile for the nautical chart. Emits the seamark, light, land, water, wetland and
- * waterway layers; {@link Seamark#extractSeamarkAttributes} owns the OSM tag mapping, including the
- * derivations that invent a seamark type from plain tags (leisure=marina, route=ferry, ...).
+ * Planetiler profile for the nautical chart. Emits the seamark, light, land, water, sea_area,
+ * wetland and waterway layers; {@link Seamark#extractSeamarkAttributes} owns the OSM tag mapping,
+ * including the derivations that invent a seamark type from plain tags (leisure=marina,
+ * route=ferry, ...).
  *
  * <p>Harbours, landmarks and lights additionally emit a label point, so their name still places
  * once the polygon itself is too small to hold one.
  */
 public class Seamap implements Profile {
+
+  private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(Seamap.class);
+
+  /** The archive's top zoom, which clients overzoom past: land keeps every ring there. */
+  private final int maxzoom;
+
+  public Seamap(int maxzoom) {
+    this.maxzoom = maxzoom;
+  }
+
+  public Seamap() {
+    this(com.onthegomap.planetiler.config.PlanetilerConfig.defaults().maxzoom());
+  }
 
   /** Seamark types that stay linear even when mapped as a closed way. */
   private static final Set<String> ALWAYS_LINEAR =
@@ -39,6 +55,9 @@ public class Seamap implements Profile {
   /** Cell size for the per-family numbering, in tile pixels — a tile is 256 across. */
   private static final int CELL_PIXELS = 32;
 
+  /** A light node this close to a structure node on the ground stands on it. */
+  private static final double COLOCATED_KM = 0.02;
+
   /**
    * Storage backstop: the most of one family kept in a cell, whatever the tile holds. This is not
    * the selection mechanism — the style's per-family budgets in `style/layers/visibility.ts` decide
@@ -49,6 +68,27 @@ public class Seamap implements Profile {
   private static int cellCap(int zoom) {
     if (zoom >= 13) return Integer.MAX_VALUE;
     return zoom >= 11 ? 16 : 8;
+  }
+
+  /** The named-water-body category, or null if the feature is not one. */
+  private static String seaAreaCategory(Map<String, Object> tags) {
+    String natural = (String) tags.get("natural");
+    if ("bay".equals(natural) || "strait".equals(natural)) return natural;
+    String place = (String) tags.get("place");
+    return "sea".equals(place) || "ocean".equals(place) ? place : null;
+  }
+
+  /** A water body holds its name once it is this many pixels across. */
+  private static final double LABEL_SPAN_PIXELS = 40;
+
+  private static final double EARTH_CIRCUMFERENCE_KM = 40_075.017;
+
+  /** The zoom at which a body of this area reaches {@link #LABEL_SPAN_PIXELS}. */
+  private static int labelMinZoom(double areaKm2) {
+    double spanKm = Math.sqrt(areaKm2);
+    double zoom =
+        Math.log(LABEL_SPAN_PIXELS * EARTH_CIRCUMFERENCE_KM / (256 * spanKm)) / Math.log(2);
+    return Math.clamp((int) Math.ceil(zoom), 0, 14);
   }
 
   /**
@@ -86,10 +126,9 @@ public class Seamap implements Profile {
       System.out.println("Depth data loaded successfully");
     }
 
-    Seamap profile = new Seamap();
-
-    Planetiler.create(arguments)
-        .setProfile(profile)
+    Planetiler planetiler = Planetiler.create(arguments);
+    planetiler
+        .setProfile(new Seamap(planetiler.config().maxzoom()))
         .addOsmSource("osm", dataDir.resolve(area + ".osm.pbf"), "geofabrik:" + area)
         .addShapefileSource("land", LandPolygons.ensureLandPolygons(dataDir))
         .overwriteOutput(dataDir.resolve("seamarks.pmtiles"))
@@ -157,6 +196,25 @@ public class Seamap implements Profile {
         // does — at z<4 the Great Lakes rendered as land. Planetiler's pixel-size
         // dropping prunes small lakes at low zooms on its own.
         waterFeature.setMinZoom(0);
+      }
+
+      // Named water bodies: bays, straits, seas and oceans. None of them are natural=water, so
+      // the biggest names a chart carries — Chesapeake Bay, Kattegat, Strait of Gibraltar —
+      // come from nowhere else. A label point rather than the area: nothing renders the area,
+      // and one point places the name once instead of once per tile it crosses.
+      String seaArea = seaAreaCategory(tags);
+      if (seaArea != null && sf.canBePolygon() && tags.containsKey("name")) {
+        try {
+          double areaKm2 = sf.areaMeters() / 1e6;
+          features
+              .pointOnSurface("sea_area")
+              .setAttr("name", tags.get("name"))
+              .setAttr("category", seaArea)
+              .setAttr("area", Math.round(areaKm2))
+              .setMinZoom(labelMinZoom(areaKm2));
+        } catch (GeometryException e) {
+          System.err.println("Error measuring sea area for OSM ID " + sf.id() + ": " + e);
+        }
       }
 
       // Extract wetland / intertidal areas relevant for navigation:
@@ -274,7 +332,7 @@ public class Seamap implements Profile {
     List<VectorTile.Feature> seamarks = layers.get("seamark");
     if (seamarks != null && !seamarks.isEmpty()) {
       List<VectorTile.Feature> numbered =
-          numberPerCell(adoptColocatedLights(seamarks), tileCoord.z());
+          numberPerCell(adoptColocatedLights(seamarks, tileCoord), tileCoord.z());
       layers.put("seamark", numbered);
       List<VectorTile.Feature> lights = layers.get("light");
       if (lights != null && !lights.isEmpty()) {
@@ -296,6 +354,7 @@ public class Seamap implements Profile {
         if (allLand != null && allWater != null) {
           allLand = allLand.difference(allWater);
         }
+        if (allLand != null) allLand = cleanLand(allLand, tileCoord.z() < maxzoom);
 
         // Replace land layer with the cut result. If the result is empty
         // (water fully covers land in this tile), drop the layer so the
@@ -309,8 +368,8 @@ public class Seamap implements Profile {
           layers.put("land", List.of(newLandFeature));
         }
       } catch (Exception e) {
-        System.err.println(
-            "Error cutting water from land for tile " + tileCoord + ": " + e.getMessage());
+        // An ERR line stops bin/build-planet publishing: the tile would ship uncut and unfiltered.
+        LOGGER.error("Error cutting water from land for tile " + tileCoord, e);
       }
     }
 
@@ -318,24 +377,15 @@ public class Seamap implements Profile {
   }
 
   /**
-   * Numbers each point by its position among its own presentation family within a grid cell, most
-   * important first, and writes that back as {@code cell_rank}. The style decides how many of a
-   * family survive at a given zoom by thresholding this, so retuning that number costs a page
-   * reload rather than a planet build.
-   *
-   * <p>This runs once per output tile and therefore once per zoom, which is what makes the
-   * numbering scale-aware: the same 32-pixel cell holds one buoy at z14 and forty at z8. A cell
-   * straddling a tile boundary is split, so a feature can number differently on either side of a
-   * seam — the same artefact the label grids already have, and tolerable at this cell size.
-   */
-  /**
    * A lit aid standing on a structure lends the structure its reach. Mappers chart a lit corner
    * turbine as two co-located nodes — the turbine landmark and a light — which land in different
    * families and thin independently: the light survived while its turbine lost the structure budget
-   * to unlit mid-field peers, exactly inverting the selection a farm needs. Within two pixels is
-   * "standing on" through the zooms where budgets bite; beyond z13 everything draws.
+   * to unlit mid-field peers, exactly inverting the selection a farm needs. "Standing on" is a
+   * distance on the ground, not on screen: a fixed pixel radius spans kilometres at z6, where a
+   * windmill would inherit a nearby lighthouse's reach and outrank the marks a mariner needs.
    */
-  private static List<VectorTile.Feature> adoptColocatedLights(List<VectorTile.Feature> features) {
+  private static List<VectorTile.Feature> adoptColocatedLights(
+      List<VectorTile.Feature> features, TileCoord tile) {
     List<CoordinateXY> lights = new ArrayList<>();
     List<Object> reaches = new ArrayList<>();
     for (VectorTile.Feature feature : features) {
@@ -349,25 +399,49 @@ public class Seamap implements Profile {
       reaches.add(range);
     }
     if (lights.isEmpty()) return features;
+    double n = 1 << tile.z();
     List<VectorTile.Feature> out = new ArrayList<>(features.size());
     for (VectorTile.Feature feature : features) {
       if (feature.geometry().geomType() == GeometryType.POINT
           && SeamarkPriority.STRUCTURE.equals(feature.tags().get("family"))
           && feature.tags().get("light_range") == null) {
         CoordinateXY at = feature.geometry().firstCoordinate();
+        // Web Mercator stretches ground distance by cosh(y) at world y. Tile coordinates arrive
+        // rounded to a 1/16 px grid, so the pair may sit up to one diagonal step further apart
+        // than on the ground. Allowing that step means that wherever a step outgrows 20 m (below
+        // z9 at 52°N), a light up to a step away still adopts: about 130 m at z6 and 530 m at z4
+        // there. Nothing finer survives the rounding.
+        double stretch = Math.cosh(Math.PI * (1 - 2 * (tile.y() + at.y / 256) / n));
+        double radius =
+            COLOCATED_KM * 256 * n * stretch / EARTH_CIRCUMFERENCE_KM + Math.sqrt(2) / 16;
+        int nearest = -1;
         for (int i = 0; i < lights.size(); i++) {
           CoordinateXY light = lights.get(i);
-          if (Math.hypot(at.x - light.x, at.y - light.y) <= 2.0) {
-            feature = feature.copyWithExtraAttrs(Map.of("light_range", reaches.get(i)));
-            break;
+          double distance = Math.hypot(at.x - light.x, at.y - light.y);
+          if (distance <= radius) {
+            radius = distance;
+            nearest = i;
           }
         }
+        if (nearest >= 0)
+          feature = feature.copyWithExtraAttrs(Map.of("light_range", reaches.get(nearest)));
       }
       out.add(feature);
     }
     return out;
   }
 
+  /**
+   * Numbers each point by its position among its own presentation family within a grid cell, most
+   * important first, and writes that back as {@code cell_rank}. The style decides how many of a
+   * family survive at a given zoom by thresholding this, so retuning that number costs a page
+   * reload rather than a planet build.
+   *
+   * <p>This runs once per output tile and therefore once per zoom, which is what makes the
+   * numbering scale-aware: the same 32-pixel cell holds one buoy at z14 and forty at z8. A cell
+   * straddling a tile boundary is split, so a feature can number differently on either side of a
+   * seam — the same artefact the label grids already have, and tolerable at this cell size.
+   */
   private static List<VectorTile.Feature> numberPerCell(
       List<VectorTile.Feature> features, int zoom) {
     Map<String, List<VectorTile.Feature>> cells = new LinkedHashMap<>();
@@ -450,6 +524,47 @@ public class Seamap implements Profile {
       out.add(light.copyWithExtraAttrs(inherited));
     }
     return out;
+  }
+
+  /**
+   * Below the top zoom, drops islands and ponds under 1 px², the same floor Planetiler applies to
+   * every other polygon. Land opts out of that floor so the shapefile's grid cells survive until
+   * the union, which leaves every skerry and pond whole: one z4 tile over Scandinavia carried 8.6k
+   * rings, nearly all specks, and ran MapLibre Native out of memory on an iPad. A ring clipped at
+   * the tile's buffer edge is only part of its feature, so it stays rather than being judged by the
+   * piece; the shared edge then matches the neighbouring tile. Nothing is simplified here, for the
+   * same reason: per-tile simplification steps the coastline at seams.
+   *
+   * <p>Rings are always re-oriented, because the overlay winds shells the opposite way to MVT and
+   * strict decoders reject the tile.
+   */
+  static Geometry cleanLand(Geometry land, boolean dropSpecks) {
+    if (dropSpecks) {
+      double edge = 256 + LandPolygons.BUFFER_PIXELS;
+      Envelope inside =
+          new Envelope(-LandPolygons.BUFFER_PIXELS, edge, -LandPolygons.BUFFER_PIXELS, edge);
+      inside.expandBy(-1e-6);
+      java.util.function.Predicate<LinearRing> speck =
+          ring ->
+              inside.contains(ring.getEnvelopeInternal())
+                  && Area.ofRing(ring.getCoordinateSequence()) < 1;
+      List<Polygon> kept = new ArrayList<>();
+      for (int i = 0; i < land.getNumGeometries(); i++) {
+        // An island in a dropped pond is a speck too, so nothing kept overlaps.
+        if (!(land.getGeometryN(i) instanceof Polygon polygon)
+            || speck.test(polygon.getExteriorRing())) continue;
+        List<LinearRing> holes = new ArrayList<>();
+        for (int h = 0; h < polygon.getNumInteriorRing(); h++) {
+          if (!speck.test(polygon.getInteriorRingN(h))) holes.add(polygon.getInteriorRingN(h));
+        }
+        kept.add(
+            land.getFactory()
+                .createPolygon(polygon.getExteriorRing(), holes.toArray(new LinearRing[0])));
+      }
+      land = land.getFactory().buildGeometry(kept);
+    }
+    // normalize() winds shells clockwise in y-up terms; MVT's y-down space wants the reverse.
+    return land.norm().reverse();
   }
 
   private static Geometry unionGeometries(List<VectorTile.Feature> features)

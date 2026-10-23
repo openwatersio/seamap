@@ -126,6 +126,11 @@ export const taginfo = {
     },
     {
       key: "amenity",
+      value: "boat_rental",
+      description: "Drawn as a boat rental.",
+    },
+    {
+      key: "amenity",
       value: "boat_storage",
       description: "Drawn as boat storage.",
     },
@@ -296,6 +301,18 @@ export const taginfo = {
       key: "water",
       description: "Names the kind of water body — lake, reservoir and so on.",
     },
+    ...["bay", "strait"].map((value) => ({
+      key: "natural",
+      value,
+      description:
+        "Areas are named on the chart in sloping text, the convention for a water feature.",
+    })),
+    ...["sea", "ocean"].map((value) => ({
+      key: "place",
+      value,
+      description:
+        "Areas are named on the chart in sloping text, the convention for a water feature.",
+    })),
     ...["wetland", "mud", "shoal"].map((value) => ({
       key: "natural",
       value,

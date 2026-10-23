@@ -37,14 +37,48 @@ it("assembles a valid whole style", async () => {
   expect(whole.name).toBe("Open Waters Seamap");
   expect(whole.metadata).toBeUndefined(); // versatiles' license claim must not leak through
   const ids = whole.layers.map((l) => l.id);
-  for (const id of ["background", "buoys", "lights", "land_area"]) {
+  for (const id of ["background", "buoys", "lights", "land_area", "label-place-island"]) {
     expect(ids).toContain(id);
   }
+  // geographic names are background information: the chart symbology draws after them, so
+  // MapLibre places a buoy's label before a bay's (S-4 B-562.3)
+  expect(ids.indexOf("sea-areas")).toBeLessThan(ids.indexOf("buoys"));
   // sea-area fills sit below land; hazard points draw above it, and the coastline above its fill
   expect(ids.indexOf("restricted-areas")).toBeLessThan(ids.indexOf("land_area"));
   expect(ids.indexOf("rocks")).toBeGreaterThan(ids.indexOf("land_area"));
   expect(ids.indexOf("land_outline")).toBeGreaterThan(ids.indexOf("land_area"));
   expect(ids.at(-1)).toBe("lights-label");
+});
+
+// The stacks openwatersio/tile-fonts publishes at https://tiles.openwaters.io/fonts. Asking
+// for anything else — including the base map's own noto_sans_bold — renders as nothing.
+const PUBLISHED = [
+  "Noto Sans Regular",
+  "Noto Sans Italic",
+  "Noto Sans Medium",
+  "Noto Sans Medium Italic",
+  "Noto Sans SemiBold",
+  "Noto Sans SemiBold Italic",
+];
+
+it("asks only for fontstacks the glyph server publishes", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  expect(whole.glyphs).toBe("https://tiles.openwaters.io/fonts/{fontstack}/{range}.pbf");
+  const used = new Set<string>();
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (!v || typeof v !== "object") return;
+    const tf = (v as Record<string, unknown>)["text-font"];
+    if (Array.isArray(tf)) {
+      (tf[0] === "literal" ? tf[1] : tf).forEach((f: unknown) => {
+        if (typeof f === "string") used.add(f);
+      });
+    }
+    Object.values(v).forEach(walk);
+  };
+  walk(whole.layers);
+  expect(used.size).toBeGreaterThan(0);
+  expect([...used].filter((f) => !PUBLISHED.includes(f))).toEqual([]);
 });
 
 it("carries both land and sea hillshade layers without id collisions", async () => {
@@ -78,6 +112,7 @@ it("keeps layer ids and order stable", () => {
     "allowed-areas",
     "allowed-areas-labels",
     "restricted-areas",
+    "restricted-areas-stubs",
     "restricted-areas-label",
     "restricted-areas-fill",
     "restricted-areas-fill-pattern",
@@ -140,13 +175,46 @@ it("keeps layer ids and order stable", () => {
   ]);
 });
 
+describe("small craft facilities", () => {
+  const point = (properties: Record<string, unknown>) => ({ type: 1, properties }) as never;
+  const draws = (id: string, properties: Record<string, unknown>) => {
+    const layer = all.find((l) => l.id === id) as { filter: never };
+    return featureFilter(layer.filter, `layers.${id}.filter`).filter(
+      { zoom: 16 },
+      point(properties),
+      undefined as never,
+    );
+  };
+
+  // The badge and its label are one symbol, so seamark-label must not draw a second one for the
+  // same point: labels place first, and the badge would lose the collision to its own name.
+  it("leaves facility names to the badge layer", () => {
+    const facility = {
+      type: "small_craft_facility",
+      category: "boat_rental",
+      name: "Whiskey Creek Kayak Rentals",
+      cell_rank: 0,
+    };
+    expect(draws("small-craft-facilities", facility)).toBe(true);
+    expect(draws("seamark-label", facility)).toBe(false);
+  });
+
+  it("still names other points", () => {
+    expect(draws("seamark-label", { type: "pile", name: "Dolphin", cell_rank: 0 })).toBe(true);
+  });
+});
+
 describe("isolated dangers", () => {
   const layer = chartLayers({ safety: 2 }).symbols.find((l) => l.id === "isolated-dangers") as {
     filter: never;
   };
   const point = (properties: Record<string, unknown>) => ({ type: 1, properties }) as never;
   const highlighted = (properties: Record<string, unknown>) =>
-    featureFilter(layer.filter).filter({ zoom: 12 }, point(properties), undefined as never);
+    featureFilter(layer.filter, "layers.isolated-dangers.filter").filter(
+      { zoom: 12 },
+      point(properties),
+      undefined as never,
+    );
 
   it("rings a shoal hazard in navigable water", () => {
     expect(highlighted({ type: "wreck", depth: 1.5, surrounding_depth: 15 })).toBe(true);
@@ -168,7 +236,11 @@ describe("isolated dangers", () => {
       filter: never;
     };
     const ringed = (properties: Record<string, unknown>) =>
-      featureFilter(deep.filter).filter({ zoom: 12 }, point(properties), undefined as never);
+      featureFilter(deep.filter, "layers.isolated-dangers.filter").filter(
+        { zoom: 12 },
+        point(properties),
+        undefined as never,
+      );
     // a 35 m hazard is "shallow" at safety 40, but the tiles stop retaining hazards past 30 —
     // highlighting it would promise coverage the data does not have
     expect(ringed({ type: "rock", depth: 35, surrounding_depth: 50 })).toBe(false);
@@ -193,7 +265,11 @@ describe("thinning and decoration", () => {
   const layer = (id: string) =>
     chartLayers({ safety: 2 }).symbols.find((l) => l.id === id) as { filter: never };
   const draws = (id: string, zoom: number, properties: Record<string, unknown>) =>
-    featureFilter(layer(id).filter).filter({ zoom }, point(properties), undefined as never);
+    featureFilter(layer(id).filter, `layers.${id}.filter`).filter(
+      { zoom },
+      point(properties),
+      undefined as never,
+    );
 
   const buoy = { type: "buoy_lateral", family: "minor_aid", topmark_shape: "cone" };
   const turbine = { type: "landmark", family: "structure" };
@@ -298,7 +374,11 @@ describe("restricted access", () => {
   const point = (properties: Record<string, string>) => ({ type: 1, properties }) as never;
 
   const drawn = (id: string, properties: Record<string, string>) =>
-    featureFilter(layer(id).filter).filter({ zoom: 16 }, point(properties), undefined as never);
+    featureFilter(layer(id).filter, `layers.${id}.filter`).filter(
+      { zoom: 16 },
+      point(properties),
+      undefined as never,
+    );
 
   const slipway = { type: "small_craft_facility", category: "slipway" };
 
@@ -323,7 +403,10 @@ describe("restricted access", () => {
     expect(drawn("harhours", { type: "small_craft_facility", category: "fishing" })).toBe(false);
 
     for (const key of ["icon-opacity", "text-opacity"]) {
-      const compiled = createExpression(layer("harhours").paint[key]);
+      const compiled = createExpression(
+        layer("harhours").paint[key],
+        `layers.harhours.paint.${key}`,
+      );
       if (compiled.result !== "success") throw new Error(`${key} failed to compile`);
       const opacity = (access?: string) =>
         compiled.value.evaluate({ zoom: 12 }, point(access ? { access } : {}));
@@ -337,7 +420,10 @@ describe("restricted access", () => {
 describe("fuel dock labels", () => {
   const layout = (all.find((l) => l.id === "small-craft-facilities") as { layout: never })
     .layout as Record<string, unknown>;
-  const compiled = createExpression(layout["text-field"]);
+  const compiled = createExpression(
+    layout["text-field"],
+    "layers.small-craft-facilities.layout.text-field",
+  );
   if (compiled.result !== "success") throw new Error("text-field failed to compile");
   const label = (properties: Record<string, string>) =>
     compiled.value
@@ -369,7 +455,9 @@ it("pads every fill pattern the style uses", () => {
   for (const layer of all)
     walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
   expect(patterns.size).toBeGreaterThan(0);
-  expect([...patterns].filter((name) => !script.includes(`"${name}"`))).toEqual([]);
+  // `-sm` variants are generated from the padded base by the same script (SMALL_VARIANTS)
+  const bases = [...patterns].map((name) => name.replace(/-sm$/, ""));
+  expect(bases.filter((name) => !script.includes(`"${name}"`))).toEqual([]);
 });
 
 // The sprite sheet is rasterized at display resolution, so any icon-size above 1 upsamples the
@@ -380,7 +468,7 @@ it("never scales an icon above the sheet's resolution", () => {
   for (const layer of all) {
     const size = (layer as { layout?: Record<string, unknown> }).layout?.["icon-size"];
     if (size === undefined) continue;
-    const compiled = createExpression(size);
+    const compiled = createExpression(size, `layers.${layer.id}.layout.icon-size`);
     if (compiled.result !== "success") throw new Error(`${layer.id}: icon-size failed to compile`);
     for (let zoom = 0; zoom <= 22; zoom += 0.25) {
       for (const properties of variants) {
@@ -444,6 +532,56 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
     }
     expect(patterns.has("unsurveyed")).toBe(true);
     expect([...patterns].filter((name) => !icons.has(name))).toEqual([]);
+  });
+});
+
+// MapLibre loads a style's sprite sheets all or nothing: one image reference into a sheet that
+// fails to load blanks every seamark (#84).
+describe("base map sprites", async () => {
+  const whole = await style({
+    spriteBase: "https://example.com/sprites",
+    versatiles: "https://versatiles.example.com",
+    hillshade: false,
+  });
+  const references: string[] = [];
+  const walk = (node: unknown): void => {
+    if (typeof node === "string" && node.includes(":")) references.push(node);
+    // tag keys like seamark:type are not image references
+    else if (Array.isArray(node) && node[0] !== "get" && node[0] !== "has") node.forEach(walk);
+  };
+  for (const layer of whole.layers as { layout?: object; paint?: object }[]) {
+    for (const [property, value] of [
+      ...Object.entries(layer.layout ?? {}),
+      ...Object.entries(layer.paint ?? {}),
+    ]) {
+      if (property === "icon-image" || property.endsWith("-pattern")) walk(value);
+    }
+  }
+  const sheets = whole.sprite as { id: string; url: string }[];
+
+  // an unreferenced sheet still fails the load, so the list must be exact
+  it("declares only sheets that are published", () => {
+    expect(sheets).toEqual([
+      { id: "base", url: "https://versatiles.example.com/assets/sprites/base" },
+      sprite("https://example.com/sprites"),
+    ]);
+  });
+
+  it("names only sheets the style declares", () => {
+    const declared = new Set(sheets.map((s) => s.id));
+    const prefixes = new Set(references.map((r) => r.split(":", 1)[0]));
+    expect(prefixes.size).toBeGreaterThan(1);
+    expect([...prefixes].filter((p) => !declared.has(p))).toEqual([]);
+  });
+
+  // a copy of the ids in https://tiles.versatiles.org/assets/sprites/base.json
+  it("names only icons the base sheet carries", () => {
+    const icons = new Set(
+      JSON.parse(readFileSync("fixtures/versatiles-base-sprites.json", "utf8")),
+    );
+    const base = references.filter((r) => r.startsWith("base:")).map((r) => r.slice(5));
+    expect(base.length).toBeGreaterThan(0);
+    expect([...new Set(base)].filter((id) => !icons.has(id))).toEqual([]);
   });
 });
 

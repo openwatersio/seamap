@@ -44,7 +44,8 @@
       "poi-provisions": "maki:grocery",
       "poi-restaurant": "maki:restaurant",
       "poi-fish-cleaning": "pinhead:fish-under-fillet-knife",
-      "poi-fishing": "pinhead:barbed-hook"
+      "poi-fishing": "pinhead:barbed-hook",
+      "poi-boat-rental": "temaki:boat-rental"
     }
   }
 }
