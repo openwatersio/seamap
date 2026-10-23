@@ -15,12 +15,13 @@ The chart shows what you'd expect from a paper chart, drawn live from open data:
 
 ## Use the tiles
 
-Everything is served from `tiles.openwaters.io` and free to use with attribution (CC-BY, see [License](#license)):
+The tiles, style, and sprites are served from `tiles.openwaters.io` and free to use with attribution (CC-BY, see [License](#license)):
 
 - **TileJSON:** `https://tiles.openwaters.io/seamap/tiles.json` — vector tiles, zoom 0–14.
 - **Ready-made style:** `https://tiles.openwaters.io/seamap/style.json` — the complete chart (base map, bathymetry, symbology) for any MapLibre GL client.
-- **npm package:** [`@openwaters/seamap`](style/README.md) — the style as a library, composable with your own layers.
 - **Whole-planet download:** each build is a dated, immutable archive at `https://tiles.openwaters.io/seamap/<YYYY-MM-DD>.pmtiles` for offline use.
+
+To compose the chart with your own layers, use the npm package [`@openwaters/seamap`](style/README.md), the style as an [MIT-licensed](style/LICENSE) library.
 
 ## Contributing
 
@@ -41,4 +42,4 @@ Everything is served from `tiles.openwaters.io` and free to use with attribution
 
 The generated tiles, styles, and sprites served from `tiles.openwaters.io` are [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/). Attribute "© Open Waters: Seamap <https://openwaters.io/charts/seamap>". They derive from OpenStreetMap data, © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Each source above carries its own license and attribution requirements.
 
-Code is [GPL-3.0](LICENSE.md). This project is a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap), whose profile and style it grew from; the code inherited from it remains [MIT](LICENSE-MIT.md). The chart symbols are [used with permission](style/sprites/PROVENANCE.md).
+Code is [GPL-3.0](LICENSE.md), except the [`style/`](style/) npm package, which is [MIT](style/LICENSE) apart from its sprite sheet and the chart symbol sources it is built from. This project is a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap), whose profile and style it grew from; the code inherited from it remains [MIT](LICENSE-MIT.md). The chart symbols are [used with permission](style/sprites/PROVENANCE.md).

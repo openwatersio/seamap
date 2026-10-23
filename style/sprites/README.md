@@ -12,7 +12,7 @@ stdlib only.
 
 ## What's vendored
 
-From [quantenschaum/mapping] at `96b1104`, **GPL-3.0** — see `LICENSE` and
+From [quantenschaum/mapping] at `96b1104`, used with permission — see
 `PROVENANCE.md`, which the build copies next to the sheet it produces:
 
 - `icons/*.svg` — 172 maintained symbols (seeded from a chart-symbol
