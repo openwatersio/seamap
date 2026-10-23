@@ -150,8 +150,12 @@ export function labels(): LayerSpecification[] {
       filter: [
         "all",
         ["==", ["get", "type"], "landmark"],
+        // tiles from older builds carry an outlined landmark as a polygon beside its label point;
+        // drawing both would put a second symbol at the polygon's pole of inaccessibility
+        ["==", ["geometry-type"], "Point"],
         withinBudget,
-        // a bare "tower" with no name, colour or function is not worth a symbol
+        // a bare "tower" with no name, colour or function is not worth a symbol (Seamark.java keeps
+        // plain-tagged ones out of the tiles by the same test)
         [
           "any",
           ["!=", ["get", "category"], "tower"],

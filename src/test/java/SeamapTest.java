@@ -85,21 +85,97 @@ class SeamapTest {
     assertEquals(1, seamarkFeatures(sf).size());
   }
 
-  /** Polygon landmarks keep the extra pointOnSurface label alongside the polygon. */
+  /** A small triangle, the outline of a building. */
+  private static Polygon outline() {
+    return GF.createPolygon(
+        new Coordinate[] {
+          new Coordinate(0, 0),
+          new Coordinate(0, 0.001),
+          new Coordinate(0.001, 0.001),
+          new Coordinate(0, 0)
+        });
+  }
+
+  /** An outlined landmark ships as its label point alone; no layer draws the outline. */
   @Test
-  void polygonLandmarkEmitsLabelPoint() {
-    Polygon polygon =
-        GF.createPolygon(
-            new Coordinate[] {
-              new Coordinate(0, 0),
-              new Coordinate(0, 0.001),
-              new Coordinate(0.001, 0.001),
-              new Coordinate(0, 0)
-            });
+  void outlinedLandmarkEmitsOnlyItsLabelPoint() {
     SimpleFeature sf =
         SimpleFeature.create(
-            polygon, Map.of("seamark:type", "landmark", "seamark:name", "Test"), "osm", null, 2);
-    assertEquals(2, seamarkFeatures(sf).size());
+            outline(), Map.of("seamark:type", "landmark", "seamark:name", "Test"), "osm", null, 2);
+    var features = seamarkFeatures(sf);
+    assertEquals(1, features.size());
+    assertTrue(features.get(0).getGeometry() instanceof Point);
+  }
+
+  /** Towers, windmills and gasometers traced as building outlines are still landmarks. */
+  @Test
+  void outlinedManMadeLandmarks() {
+    for (Map<String, Object> tags :
+        List.<Map<String, Object>>of(
+            Map.of("man_made", "tower", "tower:type", "bell_tower", "name", "Campanile"),
+            Map.of("man_made", "windmill"),
+            Map.of("man_made", "gasometer"))) {
+      var features = seamarkFeatures(SimpleFeature.create(outline(), tags, "osm", null, 3));
+      assertEquals(1, features.size(), tags.toString());
+      assertTrue(features.get(0).getGeometry() instanceof Point, tags.toString());
+      assertEquals("landmark", features.get(0).getAttrsAtZoom(14).get("type"), tags.toString());
+    }
+  }
+
+  /** An unnamed radar tower is charted by its function. */
+  @Test
+  void unnamedRadarTowerIsALandmark() {
+    Point point = GF.createPoint(new Coordinate(-70.67, 41.42));
+    SimpleFeature sf =
+        SimpleFeature.create(
+            point, Map.of("man_made", "tower", "tower:type", "radar"), "osm", null, 5);
+    var features = seamarkFeatures(sf);
+    assertEquals(1, features.size());
+    assertEquals("radar", features.get(0).getAttrsAtZoom(14).get("function"));
+  }
+
+  /** An unnamed tower carrying a light stays, as the host its flare draws from. */
+  @Test
+  void unnamedTowerWithLightIsALandmark() {
+    Point point = GF.createPoint(new Coordinate(-70.67, 41.42));
+    SimpleFeature sf =
+        SimpleFeature.create(
+            point, Map.of("man_made", "tower", "seamark:light:colour", "red"), "osm", null, 8);
+    var features = seamarkFeatures(sf);
+    assertEquals(1, features.size());
+    assertEquals("red", features.get(0).getAttrsAtZoom(14).get("seamark:light:colour"));
+  }
+
+  /** An unnamed tower carrying a sector light stays, as the host its arcs follow. */
+  @Test
+  void unnamedTowerWithSectorLightIsALandmark() {
+    Point point = GF.createPoint(new Coordinate(-70.67, 41.42));
+    SimpleFeature sf =
+        SimpleFeature.create(
+            point,
+            Map.of(
+                "man_made", "tower",
+                "seamark:light:1:colour", "white",
+                "seamark:light:1:sector_start", "10",
+                "seamark:light:1:sector_end", "50",
+                "seamark:light:1:radius", "1"),
+            "osm",
+            null,
+            6);
+    assertEquals(1, seamarkFeatures(sf).size());
+    assertTrue(layerFeatures(sf, "light").size() > 0);
+  }
+
+  /** An unnamed tower with no charted function never draws, so it stays out of the tiles. */
+  @Test
+  void unnamedTowerIsNotALandmark() {
+    Point point = GF.createPoint(new Coordinate(-70.67, 41.42));
+    SimpleFeature sf =
+        SimpleFeature.create(
+            point, Map.of("man_made", "tower", "tower:type", "communication"), "osm", null, 4);
+    assertEquals(0, seamarkFeatures(sf).size());
+    SimpleFeature bare = SimpleFeature.create(point, Map.of("man_made", "tower"), "osm", null, 7);
+    assertEquals(0, seamarkFeatures(bare).size());
   }
 
   /** A seamark point at tile-pixel x/y, classified the way processFeature classifies it. */

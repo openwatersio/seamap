@@ -257,10 +257,16 @@ export const taginfo = {
       value,
       description: "Areas are drawn as a restricted area.",
     })),
-    ...["tower", "windmill", "gasometer"].map((value) => ({
+    {
+      key: "man_made",
+      value: "tower",
+      description:
+        "A tower that is named, carries a seamark light, or whose tower:type is radar, radio, television, light_support or leading, is drawn as a landmark, whether mapped as a node or an outline.",
+    },
+    ...["windmill", "gasometer"].map((value) => ({
       key: "man_made",
       value,
-      description: "Nodes are drawn as a landmark.",
+      description: "Drawn as a landmark, whether mapped as a node or an outline.",
     })),
     ...carried(
       ["tower:type", "windmill:type", "gasometer:type"],

@@ -7,6 +7,10 @@ public class Seamark {
 
   public static DepthCalculator depthCalculator = null;
 
+  /** Tower functions the landmarks layer draws unnamed (style/layers/labels.ts). */
+  private static final Set<String> CHARTED_TOWER_TYPES =
+      Set.of("radio", "radar", "television", "light_support", "leading");
+
   /** Import provenance: S-57 long names and source strings. Nothing renders them. */
   private static final Set<String> TAG_DENYLIST = Set.of("seamark:lnam", "seamark:source");
 
@@ -216,10 +220,17 @@ public class Seamark {
       attrs.put("type", "restricted_area");
       attrs.put("category", value(tags, "leisure"));
       attrs.put("name", value(tags, "name"));
-    } else if (sf.isPoint()
-        && ("tower".equals(value(tags, "man_made"))
-            || "windmill".equals(value(tags, "man_made"))
-            || "gasometer".equals(value(tags, "man_made")))) {
+    } else if (("tower".equals(value(tags, "man_made"))
+            && (value(tags, "name") != null
+                || (value(tags, "tower:type") != null
+                    && CHARTED_TOWER_TYPES.contains(value(tags, "tower:type")))
+                || tags.containsKey("seamark:light:colour")
+                || tags.containsKey("seamark:light:1:colour")))
+        // any other tower never draws (plain tags give no colour), but in the tiles it would
+        // still take a place in its cell's budget from a landmark that does; a light on one
+        // still needs it as the host its flare and sector arcs hang from
+        || "windmill".equals(value(tags, "man_made"))
+        || "gasometer".equals(value(tags, "man_made"))) {
       attrs.put("type", "landmark");
       attrs.put("category", value(tags, "man_made"));
       attrs.put("function", value(tags, value(tags, "man_made") + ":type"));
