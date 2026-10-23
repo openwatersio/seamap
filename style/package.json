@@ -33,7 +33,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@maplibre/maplibre-gl-style-spec": "^25.0.0",
+    "@maplibre/maplibre-gl-style-spec": "^26.2.1",
     "@openwaters/seascape": "^0.3.0",
     "@versatiles/style": "^5.12.1"
   },
