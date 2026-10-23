@@ -131,6 +131,18 @@ class SeamapTest {
     assertEquals("radar", features.get(0).getAttrsAtZoom(14).get("function"));
   }
 
+  /** An unnamed tower carrying a light stays, as the host its flare draws from. */
+  @Test
+  void unnamedTowerWithLightIsALandmark() {
+    Point point = GF.createPoint(new Coordinate(-70.67, 41.42));
+    SimpleFeature sf =
+        SimpleFeature.create(
+            point, Map.of("man_made", "tower", "seamark:light:colour", "red"), "osm", null, 8);
+    var features = seamarkFeatures(sf);
+    assertEquals(1, features.size());
+    assertEquals("red", features.get(0).getAttrsAtZoom(14).get("seamark:light:colour"));
+  }
+
   /** An unnamed tower carrying a sector light stays, as the host its arcs follow. */
   @Test
   void unnamedTowerWithSectorLightIsALandmark() {

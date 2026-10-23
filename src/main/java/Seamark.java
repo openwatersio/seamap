@@ -224,10 +224,11 @@ public class Seamark {
             && (value(tags, "name") != null
                 || (value(tags, "tower:type") != null
                     && CHARTED_TOWER_TYPES.contains(value(tags, "tower:type")))
+                || tags.containsKey("seamark:light:colour")
                 || tags.containsKey("seamark:light:1:colour")))
         // any other tower never draws (plain tags give no colour), but in the tiles it would
-        // still take a place in its cell's budget from a landmark that does; a sector light on
-        // one still needs it as the host its arcs hang from
+        // still take a place in its cell's budget from a landmark that does; a light on one
+        // still needs it as the host its flare and sector arcs hang from
         || "windmill".equals(value(tags, "man_made"))
         || "gasometer".equals(value(tags, "man_made"))) {
       attrs.put("type", "landmark");
