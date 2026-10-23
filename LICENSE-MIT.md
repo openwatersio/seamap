@@ -1,4 +1,4 @@
-This project is distributed under the GPL-3.0 (see LICENSE.md). It began as a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap); the code inherited from that project was contributed under the following MIT license and remains available under it.
+This project is distributed under the GPL-3.0 (see LICENSE.md), apart from the `style/` npm package, which is MIT (see style/LICENSE). It began as a fork of [prozessor13/seamap](https://github.com/prozessor13/seamap); the code inherited from that project was contributed under the following MIT license and remains available under it.
 
 MIT License
 

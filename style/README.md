@@ -88,4 +88,4 @@ Semver tracks the consumer-facing contract: renaming or reordering layer ids, ch
 
 ## License
 
-GPL-3.0. The chart symbols are adapted from [quantenschaum/mapping](https://github.com/quantenschaum/mapping) with permission, and the POI badges are built from permissively licensed glyph sets — see [sprites/PROVENANCE.md](sprites/PROVENANCE.md).
+The code is [MIT](LICENSE). The sprite sheet, and the icons and scripts in `sprites/` it is built from, are not: the chart symbols are adapted from [quantenschaum/mapping](https://github.com/quantenschaum/mapping) with permission, and the POI badges are built from permissively licensed glyph sets — see [sprites/PROVENANCE.md](sprites/PROVENANCE.md).

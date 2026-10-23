@@ -1,6 +1,6 @@
 # Sprite provenance
 
-The chart symbols are adapted from Adam Lucke's [quantenschaum/mapping], used with his permission.
+The chart symbols in this sprite sheet, and the source icons and `genicons.py`/`s57.py` scripts in seamap's `style/sprites/` that build it, are adapted from Adam Lucke's [quantenschaum/mapping], used with his permission.
 
 ## POI badges
 
