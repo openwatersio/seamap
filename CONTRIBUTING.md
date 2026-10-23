@@ -16,7 +16,7 @@ How the chart looks is governed by the [design guidelines](docs/design/README.md
 
 ## Getting Started
 
-Tool versions are pinned in `mise.toml`: Java 21 (Planetiler targets 21 and Gradle 8 won't run on newer JDKs), Gradle, Node, and `spreet` for sprite packing. Install [mise](https://mise.jdx.dev) and run:
+Tool versions are pinned in `mise.toml`: Java 21 (Planetiler targets 21), Gradle, Node, and `spreet` for sprite packing. Install [mise](https://mise.jdx.dev) and run:
 
 ```bash
 mise install   # java, gradle, node, spreet — pinned in mise.toml
