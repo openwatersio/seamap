@@ -276,6 +276,13 @@ describe("thinning and decoration", () => {
     for (const zoom of [7, 9, 11]) expect(draws("landmarks", zoom, t)).toBe(true);
   });
 
+  it("draws an outlined landmark once, from its label point", () => {
+    // tiles from older builds carry the outline beside the point; neither has a rank on it
+    const polygon = { type: 3, properties: turbine } as never;
+    expect(featureFilter(layer("landmarks").filter).filter({ zoom: 14 }, polygon)).toBe(false);
+    expect(draws("landmarks", 14, turbine)).toBe(true);
+  });
+
   /**
    * Each decoration waits for the zoom that can read it, not for one blanket threshold — two
    * cardinals alone in an empty view at z11 have every reason to show their topmarks.

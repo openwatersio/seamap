@@ -19,8 +19,8 @@ import org.locationtech.jts.geom.*;
  * including the derivations that invent a seamark type from plain tags (leisure=marina,
  * route=ferry, ...).
  *
- * <p>Harbours, landmarks and lights additionally emit a label point, so their name still places
- * once the polygon itself is too small to hold one.
+ * <p>Harbours and lights additionally emit a label point, so their name still places once the
+ * polygon itself is too small to hold one. An outlined landmark emits only that point.
  */
 public class Seamap implements Profile {
 
@@ -258,23 +258,29 @@ public class Seamap implements Profile {
       attrs.put("osm_id", sf.id());
       // anyGeometry() makes a polygon of any closed way, which is wrong for the types that are
       // linear however they're drawn — a TSS lane or a cable loop is never an area.
-      FeatureCollector.Feature feature =
-          sf.canBeLine() && ALWAYS_LINEAR.contains(type)
-              ? features.line("seamark")
-              : features.anyGeometry("seamark");
-      attrs.forEach((k, v) -> feature.setAttr(k, v));
-      feature.setId(featureId(sf));
-      feature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
-
-      // Which budget the feature draws from. Rank itself stays in the pipeline —
-      // postProcessTileFeatures recomputes it from these same attributes and emits only the
-      // per-cell position the style thresholds on.
       int rank = SeamarkPriority.rank(attrs);
-      feature.setAttr("family", SeamarkPriority.family(attrs));
-      feature.setSortKey(rank);
 
-      // add labels for small polygons in low zoomlevels; point sources are already
-      // points — a second centroid would duplicate them
+      // A landmark is charted as a symbol at a position, so an outlined one ships as its label
+      // point alone: the outline is bytes no layer draws, and a style that predates the
+      // landmarks layer's point-only filter would draw a second symbol from it.
+      if (sf.isPoint() || !"landmark".equals(type)) {
+        FeatureCollector.Feature feature =
+            sf.canBeLine() && ALWAYS_LINEAR.contains(type)
+                ? features.line("seamark")
+                : features.anyGeometry("seamark");
+        attrs.forEach((k, v) -> feature.setAttr(k, v));
+        feature.setId(featureId(sf));
+        feature.setMinZoom(SeamarkZoomRules.getMinZoom(attrs));
+
+        // Which budget the feature draws from. Rank itself stays in the pipeline —
+        // postProcessTileFeatures recomputes it from these same attributes and emits only the
+        // per-cell position the style thresholds on.
+        feature.setAttr("family", SeamarkPriority.family(attrs));
+        feature.setSortKey(rank);
+      }
+
+      // add labels for small polygons in low zoomlevels, and the one point an outlined landmark
+      // ships as; point sources are already points — a second centroid would duplicate them
       if (!sf.isPoint()
           && ("harbour".equals(type)
               || "landmark".equals(type)
