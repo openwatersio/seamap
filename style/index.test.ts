@@ -295,7 +295,13 @@ describe("thinning and decoration", () => {
   it("draws an outlined landmark once, from its label point", () => {
     // tiles from older builds carry the outline beside the point; neither has a rank on it
     const polygon = { type: 3, properties: turbine } as never;
-    expect(featureFilter(layer("landmarks").filter).filter({ zoom: 14 }, polygon)).toBe(false);
+    expect(
+      featureFilter(layer("landmarks").filter, "layers.landmarks.filter").filter(
+        { zoom: 14 },
+        polygon,
+        undefined as never,
+      ),
+    ).toBe(false);
     expect(draws("landmarks", 14, turbine)).toBe(true);
   });
 
