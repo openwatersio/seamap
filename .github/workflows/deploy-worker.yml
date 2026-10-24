@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -46,7 +46,7 @@ jobs:
   # and the style assembles.
   smoke-test:
     needs: deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Probe tiles.openwaters.io/seamap
         run: |
