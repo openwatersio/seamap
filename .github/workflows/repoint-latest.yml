@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   repoint:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     env:
       RCLONE_CONFIG_R2_TYPE: s3
       RCLONE_CONFIG_R2_PROVIDER: Cloudflare
