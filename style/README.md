@@ -37,7 +37,7 @@ const map = new maplibregl.Map({ style /* ... */ });
 ```
 
 - `sources({ url? })` — the `seamap` vector source (defaults to `https://tiles.openwaters.io/seamap/tiles.json`).
-- `layers({ font? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames the glyph fontstacks (`"Noto Sans Regular"`, `"Noto Sans Italic"`) to match your glyph server.
+- `layers({ font? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames the glyph fontstacks (`"Noto Sans Regular"`, `"Noto Sans Italic"`, and `"Noto Sans Medium Italic"` for hazard depths) to match your glyph server.
 - `sprite(base)` — the `style.sprite` entry pointing at wherever you serve the sheet.
 
 When tags compose a colour combination the sheet doesn't carry, the layers fall back to the shape's `generic` icon in the style itself (a `coalesce` of `image` expressions), so unusual marks never render as nothing.

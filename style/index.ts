@@ -53,7 +53,8 @@ export function sources({ url = DEFAULT_TILEJSON }: { url?: string } = {}): Reco
 export interface LayersOptions {
   /**
    * Rename glyph fontstacks to match the consumer's glyph server. The chart layers use
-   * "Noto Sans Regular" and "Noto Sans Italic", both served by the default glyph endpoint.
+   * "Noto Sans Regular", "Noto Sans Italic" and, for hazard depths, seascape's "Noto Sans Medium
+   * Italic", all served by the default glyph endpoint.
    */
   font?: (name: string) => string;
   /**
