@@ -1,6 +1,6 @@
 {
   "name": "@openwaters/seamap",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "MapLibre GL style for Open Waters Seamap – base map, bathymetry, chart symbology",
   "license": "MIT",
   "repository": {
