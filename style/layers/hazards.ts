@@ -1,8 +1,16 @@
 import type { ExpressionSpecification, LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { day } from "@openwaters/seascape";
 import { colors } from "./palette.js";
 import { TOKEN, sizeRamp, withinBudget } from "./visibility.js";
 
 const HAZARD_TYPES = ["rock", "wreck", "obstruction"];
+
+// decimetre digit → hair space + subscript glyph (U+2081–2089), as seascape's soundings set it;
+// the sounding stack ships these glyphs
+const SUBSCRIPT_MATCH = [1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap((d) => [
+  d,
+  " " + String.fromCharCode(0x2080 + d),
+]);
 
 /**
  * Booms, oil and security barriers, log ponds, ice booms and shark nets are all charted the same
@@ -58,10 +66,17 @@ const navigableSurround = (safety: number): ExpressionSpecification => [
  */
 export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecification[] {
   // the surveyed depth in the mariner's unit, floored toward shallower — the safe direction
-  // (S-4 B-412); metres print as tagged, often with a decimal
+  // (S-4 B-412). Metres set like seascape's soundings: whole metres, then the decimetre as a
+  // real subscript glyph after a hair space, omitted when zero. The epsilon keeps a tagged
+  // 3.3 (3.2999… in float) from flooring to 3.2.
+  const decimetres: ExpressionSpecification = ["floor", ["+", ["*", ["get", "depth"], 10], 1e-6]];
   const depthText: ExpressionSpecification =
     unit === "m"
-      ? ["to-string", ["get", "depth"]]
+      ? [
+          "concat",
+          ["to-string", ["floor", ["/", decimetres, 10]]],
+          ["match", ["%", decimetres, 10], ...SUBSCRIPT_MATCH, ""] as ExpressionSpecification,
+        ]
       : ["to-string", ["floor", ["*", ["get", "depth"], unit === "ft" ? 3.28084 : 0.546807]]];
   // A hazard shallower than the mariner's safety depth is never thinned. Rank is static and
   // cannot know that — it depends on a setting only the style holds — so the budget is the
@@ -303,7 +318,8 @@ export function hazards(safety = 2, unit: "m" | "ft" | "fm" = "m"): LayerSpecifi
       ],
       layout: {
         "text-field": depthText,
-        "text-font": ["Noto Sans Italic"],
+        // seascape's sounding face, so a hazard's depth reads as one more sounding
+        "text-font": day.soundingFont,
         "text-size": 10,
         // let the numeral find a clear side of the symbol, like the name labels do
         "text-variable-anchor": ["left", "right", "bottom", "top"],

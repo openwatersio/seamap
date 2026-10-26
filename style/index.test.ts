@@ -454,6 +454,29 @@ describe("fuel dock labels", () => {
   });
 });
 
+describe("hazard depth numerals", () => {
+  const layer = all.find((l) => l.id === "hazard-depths") as { layout: Record<string, unknown> };
+  const compiled = createExpression(
+    layer.layout["text-field"],
+    "layers.hazard-depths.layout.text-field",
+  );
+  if (compiled.result !== "success") throw new Error("text-field failed to compile");
+  const text = (depth: number) =>
+    compiled.value.evaluate({ zoom: 14 }, { type: 1, properties: { depth } } as never).toString();
+
+  it("sets the decimetre as a subscript, like seascape's soundings", () => {
+    expect(layer.layout["text-font"]).toEqual(["Noto Sans Medium Italic"]);
+    expect(text(3.3)).toBe("3 ₃");
+    expect(text(10.9)).toBe("10 ₉");
+    expect(text(2)).toBe("2");
+  });
+
+  it("floors toward shallower", () => {
+    expect(text(3.47)).toBe("3 ₄");
+    expect(text(12.05)).toBe("12");
+  });
+});
+
 // bin/sprites pads fill-pattern icons into a 32-unit repeat cell; one it doesn't know about
 // renders as a solid mass instead of chart hatching. It can't read the layer modules, so it
 // carries the list — keep the two in step.
