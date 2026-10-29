@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="60" viewBox="0 0 28 60">
+  <!-- S-52 AP(MARSHES1) marsh tuft, simplified: baseline, short bar, stem, two splayed
+       leaves in CHBRN, no fill — the ground colour under the pattern decides land vs
+       water. At 1.5 px/mm: ~5 mm glyph, 19 mm column pitch, 20 mm row pitch, half-pitch
+       stagger so the tile repeats as a rectangle (PresLib's 4 mm row shift doesn't). -->
+  <g stroke="#a19653" stroke-width="1" fill="none">
+    <g transform="translate(8,17)">
+      <path d="M -3.5,0 H 3.5 M -2,2 H 2 M 0,0 V -4.5 M 0,-2.5 L -2.5,-5 M 0,-2.5 L 2.5,-5" />
+    </g>
+    <g transform="translate(22,47)">
+      <path d="M -3.5,0 H 3.5 M -2,2 H 2 M 0,0 V -4.5 M 0,-2.5 L -2.5,-5 M 0,-2.5 L 2.5,-5" />
+    </g>
+  </g>
+</svg>
