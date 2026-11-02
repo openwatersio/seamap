@@ -43,6 +43,6 @@
     "@iconify-json/tabler": "^1.2.43",
     "@iconify-json/temaki": "^1.2.6",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.9"
+    "vitest": "^5.0.5"
   }
 }
