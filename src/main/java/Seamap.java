@@ -220,8 +220,8 @@ public class Seamap implements Profile {
       // Extract wetland / intertidal areas relevant for navigation:
       // tidal flats ("Wattenmeer"), salt marshes, mud and shoals that fall
       // dry between high and low water. These lie in the intertidal zone
-      // below the coastline, so they are rendered on top of water/bathymetry
-      // and are NOT cut out of the land polygons.
+      // below the coastline, so they are NOT cut out of the land polygons;
+      // the style decides which categories it draws, and where.
       String wetland = (String) tags.get("wetland");
       boolean isWetland =
           "wetland".equals(natural) || "mud".equals(natural) || "shoal".equals(natural);

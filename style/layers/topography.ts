@@ -11,8 +11,7 @@ import { colors } from "./palette.js";
  * Roads and railways stay behind the base-map preference: "a nautical chart is not intended
  * to serve as a road map" (§B-365), and shortbread can't limit them to the coastal strip
  * S-4 would keep. Water is not drawn here: style() lays these tiles' water polygons under the
- * bathymetry in the no-data tint, and the partly-surveyed portrayal rides seascape's depare
- * polygons.
+ * bathymetry in the partly-surveyed portrayal, which also rides seascape's depare polygons.
  *
  * Island, locality, and water-body names are names.ts's, drawn after these settlement names.
  */

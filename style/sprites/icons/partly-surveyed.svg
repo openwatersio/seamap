@@ -4,9 +4,9 @@
        out at small scales. At 1.5 px/mm: 2 mm × 0.64 mm dash, ~13 mm column pitch, 11 mm
        row pitch. Rows stagger at half pitch so the tile repeats as a rectangle (PresLib's
        3.02 mm row shift doesn't); integer-sized so spreet doesn't pad a seam column into
-       the repeat. Colour is CHGRD blended 50% over seascape's provisional tint, matching
-       the fill layer's base. Dash spacing is the semantics: sparse = partly surveyed,
+       the repeat. Light dashes, the way the old stipple's dots read: they sit on
+       seascape's hazard-tinted no-data fill. Dash spacing is the semantics: sparse = partly surveyed,
        dense (NODATA03) = unsurveyed — keep them apart if the dense variant is ever added. -->
-  <rect x="2" y="8" width="3" height="1" fill="#36719b" />
-  <rect x="12" y="24.5" width="3" height="1" fill="#36719b" />
+  <rect x="2" y="8" width="3" height="1" fill="#ffffff" fill-opacity="0.55" />
+  <rect x="12" y="24.5" width="3" height="1" fill="#ffffff" fill-opacity="0.55" />
 </svg>

@@ -24,6 +24,7 @@
  */
 import type {
   ExpressionSpecification,
+  FillLayerSpecification,
   LayerSpecification,
   SourceSpecification,
   StyleSpecification,
@@ -132,7 +133,11 @@ export interface StyleOptions {
   tiles?: string;
   /** Seascape bathymetry tiles base URL. */
   seascape?: string;
-  /** VersaTiles server for the base-map tiles and elevation. */
+  /**
+   * VersaTiles server for the base-map tiles and elevation. Another server must publish the
+   * same tile sets as tiles.versatiles.org: shortbread to z14, and terrarium elevation in
+   * 512 px tiles to z12.
+   */
   versatiles?: string;
   /** Base map label language. */
   language?: string;
@@ -186,6 +191,14 @@ export interface StyleOptions {
   coverage?: string;
 }
 
+/** The splice index just past a seascape layer, which must exist: a renamed id would
+ * otherwise slip the layers spliced after it to the bottom of the stack. */
+function after(layers: LayerSpecification[], id: string): number {
+  const i = layers.findIndex((l) => l.id === id);
+  if (i === -1) throw new Error(`seascape layer ${id} not found`);
+  return i + 1;
+}
+
 /**
  * The whole chart style: chart symbology and Seascape bathymetry over a
  * chart-styled base map, in nautical draw order. Async as API contract — the
@@ -217,14 +230,13 @@ export async function style({
     ? ["coalesce", ["get", `name_${language}`], ["get", "name"]]
     : ["get", "name"];
 
+  const vt = versatiles.replace(/\/+$/, "");
   const topo = topography(name);
   const base = basemapLayers(name);
 
   // Seascape bathymetry: depth shading, depth areas, contours, soundings.
-  const bathymetry = seascapeLayers(
-    { ...day, ...flavor },
-    { dem, vector, coverage, unit, safety, shading },
-  );
+  const fl = { ...day, ...flavor };
+  const bathymetry = seascapeLayers(fl, { dem, vector, coverage, unit, safety, shading });
   const seaHillshade = bathymetry.find((l) => l.id === "depth-hillshade");
   // set both ways so the option holds even if seascape's shipped default changes
   if (seaHillshade?.layout) seaHillshade.layout.visibility = depthHillshade ? "visible" : "none";
@@ -240,37 +252,30 @@ export async function style({
     | undefined;
   if (depare?.paint) depare.paint["fill-opacity"] = 1;
 
-  // ENC DEPARE features without depth values take the S-52 partly-surveyed portrayal —
-  // NODTA grey with sparse PRTSUR01 dashes (replacing seascape's flat provisional tint).
-  // Flat fill and dash pattern are separate layers: fixed-size pattern glyphs read as
-  // noise at small scales, so the dashes fade in only once the chart can carry them.
-  const noDepth = ["!", ["has", "drval1"]] as ExpressionSpecification;
+  // ENC DEPARE features without depth values take the S-52 partly-surveyed portrayal: sparse
+  // PRTSUR01 dashes over seascape's own no-data fill, which paints them in its hazard tint —
+  // water we hold no depth for warrants the same caution as known-unsafe water, and the dashes
+  // tell the two apart. Fixed-size pattern glyphs read as noise at small scales, so the dashes
+  // fade in only once the chart can carry them.
+  const dashes = (layer: Omit<FillLayerSpecification, "type" | "paint">): LayerSpecification => ({
+    ...layer,
+    type: "fill",
+    minzoom: 6,
+    paint: {
+      "fill-pattern": "freenauticalchart:partly-surveyed",
+      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 8, 1],
+      "fill-antialias": false,
+    },
+  });
   bathymetry.splice(
-    bathymetry.findIndex((l) => l.id === "depth-areas") + 1,
+    after(bathymetry, "depth-areas"),
     0,
-    {
-      id: "partly-surveyed",
-      type: "fill",
-      source: vector ?? "seascape-vector",
-      "source-layer": "depare",
-      filter: noDepth,
-      // antialias off: the fill must reach the tile edge, or the fade leaks the layers
-      // below as a hairline seam at every tile boundary
-      paint: { "fill-color": colors.noData, "fill-antialias": false },
-    },
-    {
+    dashes({
       id: "partly-surveyed-pattern",
-      type: "fill",
       source: vector ?? "seascape-vector",
       "source-layer": "depare",
-      minzoom: 6,
-      filter: noDepth,
-      paint: {
-        "fill-pattern": "freenauticalchart:partly-surveyed",
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0, 8, 1],
-        "fill-antialias": false,
-      },
-    },
+      filter: ["!", ["has", "drval1"]],
+    }),
   );
 
   // The whole style can place the wetland fills better than layers()' two groups promise a
@@ -281,11 +286,7 @@ export async function style({
   const isMarsh = (l: LayerSpecification) => l.id === "marshes";
   const areas = chart.areas.filter((l) => !isFlat(l));
   const symbols = chart.symbols.filter((l) => !isMarsh(l));
-  bathymetry.splice(
-    bathymetry.findIndex((l) => l.id === "partly-surveyed-pattern") + 1,
-    0,
-    ...chart.areas.filter(isFlat),
-  );
+  bathymetry.splice(after(bathymetry, "partly-surveyed-pattern"), 0, ...chart.areas.filter(isFlat));
 
   const h = typeof hillshade === "object" ? hillshade : {};
   const landHillshade: LayerSpecification[] = hillshade
@@ -318,7 +319,7 @@ export async function style({
     sources: {
       "versatiles-shortbread": {
         type: "vector",
-        tiles: [`${versatiles}/tiles/osm/{z}/{x}/{y}`],
+        tiles: [`${vt}/tiles/osm/{z}/{x}/{y}`],
         maxzoom: 14,
         attribution: OSM_ATTRIBUTION,
       },
@@ -326,7 +327,7 @@ export async function style({
         ? {
             elevation: {
               type: "raster-dem",
-              tiles: [`${versatiles}/tiles/elevation/{z}/{x}/{y}`],
+              tiles: [`${vt}/tiles/elevation/{z}/{x}/{y}`],
               tileSize: 512,
               maxzoom: 12,
               encoding: "terrarium",
@@ -343,19 +344,23 @@ export async function style({
         type: "background",
         paint: { "background-color": colors.background },
       },
-      // every water body in the no-data tint, under the bathymetry: water seascape leaves
-      // uncovered (a lake it has no data for, a seam where depare stops short, a tile that
-      // failed to load) must read as unknown, never as the deep-water band the background
-      // matches
-      ...["ocean", "water_polygons"].map((sourceLayer): LayerSpecification => ({
-        id: `no-data-${sourceLayer.replace("_", "-")}`,
-        type: "fill",
-        source: "versatiles-shortbread",
-        "source-layer": sourceLayer,
-        // glaciers are filed under water_polygons; topography draws them as land
-        filter: ["!=", ["get", "kind"], "glacier"],
-        paint: { "fill-color": colors.noData },
-      })),
+      // every water body in the partly-surveyed portrayal, under the bathymetry: water
+      // seascape leaves uncovered (a lake it has no data for, a seam where depare stops short,
+      // a tile that failed to load) must read as unsafe and unknown, never as the deep-water
+      // band the background matches
+      ...["ocean", "water_polygons"].flatMap((sourceLayer): LayerSpecification[] => {
+        const water = {
+          id: `no-data-${sourceLayer.replace("_", "-")}`,
+          source: "versatiles-shortbread",
+          "source-layer": sourceLayer,
+          // glaciers are filed under water_polygons; topography draws them as land
+          filter: ["!=", ["get", "kind"], "glacier"] as ExpressionSpecification,
+        };
+        return [
+          { ...water, type: "fill", paint: { "fill-color": fl.nodata } },
+          dashes({ ...water, id: `${water.id}-pattern` }),
+        ];
+      }),
       ...bathymetry,
       // sea areas below land, so a boundary sweeping the coast stops at the shore
       ...areas,

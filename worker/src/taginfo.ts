@@ -323,7 +323,7 @@ export const taginfo = {
       key: "natural",
       value: "wetland",
       description:
-        "Areas are charted by their wetland tag: tidal flats in the drying tint, salt marsh and other marsh with the marsh symbol.",
+        "Areas are charted by their wetland tag: tidal flats in the drying tint, salt marsh and other marsh with the marsh symbol. An area with no wetland tag takes the marsh symbol too.",
     },
     ...["mud", "shoal"].map((value) => ({
       key: "natural",
@@ -338,7 +338,8 @@ export const taginfo = {
     },
     {
       key: "surface",
-      description: "Charted as the nature of the ground over an intertidal area.",
+      description:
+        "Carried on intertidal areas as the nature of the ground; the chart does not draw it yet.",
     },
     {
       key: "waterway",
