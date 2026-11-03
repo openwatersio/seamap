@@ -6,7 +6,10 @@ import { colors } from "./palette.js";
  * categorised by the wetland tag). Two portrayals, following the S-52 model:
  *
  * - Tidal flats are depth information: a DEPIT drying-tint fill over the bathymetry,
- *   covering drying areas OSM knows about and the ENC data misses (S-4 §B-413).
+ *   covering drying areas OSM knows about, over the depth tints wherever the two overlap:
+ *   a flat drawn across a surveyed channel errs shallow (S-4 §B-413). Only
+ *   wetland=tidalflat says an area falls dry: a bare natural=shoal or natural=mud may be
+ *   a bank that never uncovers, and an opaque drying tint there would hide its soundings.
  * - Marsh is an overlay: the MARSHES1-style symbol pattern with no fill and no boundary,
  *   drawn above the land fill so the Group-1 surface underneath decides land vs water
  *   (S-4 §B-312.2, INT1 C33 — marsh "may be shown either side of the coastline").
@@ -24,7 +27,7 @@ export function tidalFlats(): LayerSpecification[] {
       source: "seamap",
       "source-layer": "wetland",
       minzoom: 7,
-      filter: ["in", ["get", "category"], ["literal", ["tidalflat", "mud", "shoal"]]],
+      filter: ["==", ["get", "category"], "tidalflat"],
       paint: { "fill-color": colors.intertidal },
     },
   ];

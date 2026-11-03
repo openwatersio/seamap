@@ -35,7 +35,7 @@ const PREFIX = "seamap/";
 // The tiles are CC-BY 4.0 (attribute "Open Waters: Seamap") and derive from
 // ODbL OSM data — both credits are required. Each atom is byte-identical to
 // the string the other sources in the full style emit (the OSM one copies the
-// VersaTiles bytes), so MapLibre's attribution control dedupes them; the
+// style's OSM_ATTRIBUTION), so MapLibre's attribution control dedupes them; the
 // Seascape credit arrives via its own TileJSONs and isn't repeated here.
 const ATTRIBUTION =
   '© <a href="https://openwaters.io/charts/seamap">Open Waters: Seamap</a> ' +

@@ -77,9 +77,9 @@ export interface LayersOptions {
 
 /**
  * The chart layers, referencing the `seamap` source from sources(). Split to
- * preserve draw order: `areas` (anchorage and restricted-area boundaries and
- * fills) belong below land fills, `symbols` (hazards, buoys, lights, topmarks,
- * landmarks, labels) on top of everything.
+ * preserve draw order: `areas` (tidal flats, anchorage and restricted-area
+ * boundaries and fills) belong below land fills, `symbols` (marsh overlay,
+ * hazards, buoys, lights, topmarks, landmarks, labels) on top of everything.
  */
 export function layers({ font, safety, unit }: LayersOptions = {}): {
   areas: LayerSpecification[];
@@ -273,7 +273,19 @@ export async function style({
     },
   );
 
-  const { areas, symbols } = layers({ safety, unit });
+  // The whole style can place the wetland fills better than layers()' two groups promise a
+  // composed stack: the opaque drying tint goes under the contours and soundings, which a
+  // flat must never hide, and the marsh tufts under the coastline and every label.
+  const chart = layers({ safety, unit });
+  const isFlat = (l: LayerSpecification) => l.id === "tidal-flats";
+  const isMarsh = (l: LayerSpecification) => l.id === "marshes";
+  const areas = chart.areas.filter((l) => !isFlat(l));
+  const symbols = chart.symbols.filter((l) => !isMarsh(l));
+  bathymetry.splice(
+    bathymetry.findIndex((l) => l.id === "partly-surveyed-pattern") + 1,
+    0,
+    ...chart.areas.filter(isFlat),
+  );
 
   const h = typeof hillshade === "object" ? hillshade : {};
   const landHillshade: LayerSpecification[] = hillshade
@@ -331,6 +343,19 @@ export async function style({
         type: "background",
         paint: { "background-color": colors.background },
       },
+      // every water body in the no-data tint, under the bathymetry: water seascape leaves
+      // uncovered (a lake it has no data for, a seam where depare stops short, a tile that
+      // failed to load) must read as unknown, never as the deep-water band the background
+      // matches
+      ...["ocean", "water_polygons"].map((sourceLayer): LayerSpecification => ({
+        id: `no-data-${sourceLayer.replace("_", "-")}`,
+        type: "fill",
+        source: "versatiles-shortbread",
+        "source-layer": sourceLayer,
+        // glaciers are filed under water_polygons; topography draws them as land
+        filter: ["!=", ["get", "kind"], "glacier"],
+        paint: { "fill-color": colors.noData },
+      })),
       ...bathymetry,
       // sea areas below land, so a boundary sweeping the coast stops at the shore
       ...areas,
@@ -343,6 +368,7 @@ export async function style({
       },
       ...topo.fills,
       ...(basemap ? base.fills : []),
+      ...chart.symbols.filter(isMarsh),
       ...landHillshade,
       ...(basemap ? base.lines : []),
       ...topo.lines,

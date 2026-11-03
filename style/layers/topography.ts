@@ -5,13 +5,14 @@ import { colors } from "./palette.js";
  * Chart topography from the VersaTiles shortbread tiles: land detail that belongs on the chart
  * whether or not the base-map preference is on. Selection follows S-4 §B-300 — land features
  * earn their place by being useful for a visual or radar fix from seaward: urban extent (lit
- * areas matter for identifying lights at night, §B-360.2), airports (§B-366), bridges over
- * navigable water (§B-381, mandatory), glaciers (§B-353.8), boundaries, and place names.
+ * areas matter for identifying lights at night, §B-360.2), airports (§B-366), bridges (§B-381
+ * makes those over navigable water mandatory; shortbread can't say what a bridge spans, so
+ * all its bridge polygons draw), glaciers (§B-353.8), boundaries, and place names.
  * Roads and railways stay behind the base-map preference: "a nautical chart is not intended
  * to serve as a road map" (§B-365), and shortbread can't limit them to the coastal strip
- * S-4 would keep. Unsurveyed water is not drawn from these tiles — that portrayal rides
- * seascape's depare polygons (the partly-surveyed layer), whose tile edges then never seam
- * against a second water fill.
+ * S-4 would keep. Water is not drawn here: style() lays these tiles' water polygons under the
+ * bathymetry in the no-data tint, and the partly-surveyed portrayal rides seascape's depare
+ * polygons.
  *
  * Island, locality, and water-body names are names.ts's, drawn after these settlement names.
  */
@@ -29,6 +30,7 @@ function place(
   minzoom: number,
   size: unknown,
   overrides: { layout?: Record<string, unknown>; paint?: Record<string, unknown> } = {},
+  kinds: string[] = [kind],
 ): LayerSpecification {
   return {
     id: `topo-place-${kind}`,
@@ -36,7 +38,7 @@ function place(
     source: SOURCE,
     "source-layer": "place_labels",
     minzoom,
-    filter: ["==", ["get", "kind"], kind],
+    filter: ["in", ["get", "kind"], ["literal", kinds]],
     layout: {
       "text-field": name,
       "text-font": FONT,
@@ -182,12 +184,20 @@ export function topography(name: ExpressionSpecification): {
           [12, 14],
         ],
       }),
-      place("city", name, 7, {
-        stops: [
-          [7, 11],
-          [10, 14],
-        ],
-      }),
+      // shortbread files national and state capitals under their own kinds, not city
+      place(
+        "city",
+        name,
+        7,
+        {
+          stops: [
+            [7, 11],
+            [10, 14],
+          ],
+        },
+        {},
+        ["city", "capital", "state_capital"],
+      ),
     ],
   };
 }

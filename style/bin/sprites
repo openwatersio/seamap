@@ -46,8 +46,7 @@ PATTERN_ICONS = ("military", "no-entry", "no-anchor", "partly-surveyed", "marsh"
 # fill-pattern cannot scale, so a pattern's on-screen size is fixed by its raster: at overview
 # zooms the 32-unit cell is bigger than many of the areas it fills, and the glyph pokes out of
 # a corner or never repeats. Each glyph pattern also ships a half-size `-sm` variant — same
-# artwork, half the units — for the style to step down to. The stipple stays single-size: it is
-# texture, and halving it would read as a different (denser) convention, not a smaller symbol.
+# artwork, half the units — for the style to step down to.
 SMALL_VARIANTS = ("military", "no-entry", "no-anchor")
 
 gen = Path(sys.argv[1])

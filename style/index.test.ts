@@ -8,6 +8,7 @@ import {
 import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { layers, sources, sprite, style } from "./index.ts";
 import { chartLayers } from "./layers/index.ts";
+import { colors } from "./layers/palette.ts";
 
 const { areas, symbols } = layers();
 const all = [...areas, ...symbols];
@@ -45,6 +46,17 @@ it("assembles a valid whole style", async () => {
   // sea-area fills sit below land; hazard points draw above it, and the coastline above its fill
   expect(ids.indexOf("restricted-areas")).toBeLessThan(ids.indexOf("land_area"));
   expect(ids.indexOf("rocks")).toBeGreaterThan(ids.indexOf("land_area"));
+  // an opaque drying tint must not hide the contours and soundings drawn over it
+  expect(ids.indexOf("tidal-flats")).toBeGreaterThan(ids.indexOf("depth-areas"));
+  expect(ids.indexOf("tidal-flats")).toBeLessThan(ids.indexOf("contour-lines"));
+  expect(ids.indexOf("tidal-flats")).toBeLessThan(ids.indexOf("soundings"));
+  // marsh tufts sit on the land fill, under the coastline and every label
+  expect(ids.indexOf("marshes")).toBeGreaterThan(ids.indexOf("land_area"));
+  expect(ids.indexOf("marshes")).toBeLessThan(ids.indexOf("land_outline"));
+  // (seascape's contour labels are symbols too, but they sit below land with the bathymetry)
+  const land = ids.indexOf("land_area");
+  const firstLabel = whole.layers.findIndex((l, i) => i > land && l.type === "symbol");
+  expect(ids.indexOf("marshes")).toBeLessThan(firstLabel);
   expect(ids.indexOf("land_outline")).toBeGreaterThan(ids.indexOf("land_area"));
   expect(ids.at(-1)).toBe("lights-label");
 });
@@ -468,17 +480,19 @@ describe("hazard depth numerals", () => {
 // bin/sprites pads fill-pattern icons into a 32-unit repeat cell; one it doesn't know about
 // renders as a solid mass instead of chart hatching. It can't read the layer modules, so it
 // carries the list — keep the two in step.
-it("pads every fill pattern the style uses", () => {
+it("pads every fill pattern the style uses", async () => {
   const script = readFileSync("bin/sprites", "utf8");
+  // the whole style too: partly-surveyed and glacier ride only in style()
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
   const patterns = new Set<string>();
   const walk = (node: unknown): void => {
     if (typeof node === "string" && node.startsWith("freenauticalchart:")) {
       patterns.add(node.split(":", 2)[1]);
     } else if (Array.isArray(node)) node.forEach(walk);
   };
-  for (const layer of all)
+  for (const layer of [...all, ...whole.layers])
     walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
-  expect(patterns.size).toBeGreaterThan(0);
+  expect(patterns).toContain("partly-surveyed");
   // `-sm` variants are generated from the padded base by the same script (SMALL_VARIANTS)
   const bases = [...patterns].map((name) => name.replace(/-sm$/, ""));
   expect(bases.filter((name) => !script.includes(`"${name}"`))).toEqual([]);
@@ -582,6 +596,52 @@ it("makes the base map a mariner preference", async () => {
   const removed = onIds.filter((id) => !offIds.includes(id));
   expect(removed.length).toBeGreaterThan(0);
   expect(removed.every((id) => id.startsWith("basemap-"))).toBe(true);
+});
+
+// Water seascape leaves uncovered must read as unknown, not as the deep band the background
+// matches: the shortbread water underpaint sits under every bathymetry layer, in the no-data
+// tint, whether or not the base map is on.
+it("underpaints all water in the no-data tint", async () => {
+  const whole = await style({
+    spriteBase: "https://example.com/sprites",
+    hillshade: false,
+    basemap: false,
+  });
+  const ids = whole.layers.map((l) => l.id);
+  for (const id of ["no-data-ocean", "no-data-water-polygons"]) {
+    expect(ids.indexOf(id)).toBeGreaterThan(ids.indexOf("background"));
+    expect(ids.indexOf(id)).toBeLessThan(ids.indexOf("depth-shading"));
+    const layer = whole.layers[ids.indexOf(id)] as { paint: Record<string, unknown> };
+    expect(layer.paint["fill-color"]).toBe(colors.noData);
+  }
+});
+
+// Only wetland=tidalflat says an area dries; a bare shoal or mud bank may never uncover.
+it("tints only tidal flats as drying", () => {
+  const layer = areas.find((l) => l.id === "tidal-flats") as { filter: never };
+  const dries = (category: string) =>
+    featureFilter(layer.filter, "layers.tidal-flats.filter").filter(
+      { zoom: 10 },
+      { type: 3, properties: { category } } as never,
+      undefined as never,
+    );
+  expect(dries("tidalflat")).toBe(true);
+  expect(dries("shoal")).toBe(false);
+  expect(dries("mud")).toBe(false);
+});
+
+// Shortbread files national and state capitals under their own place kinds, not city.
+it("labels capitals", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  const layer = whole.layers.find((l) => l.id === "topo-place-city") as { filter: never };
+  for (const kind of ["city", "capital", "state_capital"]) {
+    const matches = featureFilter(layer.filter, "layers.topo-place-city.filter").filter(
+      { zoom: 8 },
+      { type: 1, properties: { kind } } as never,
+      undefined as never,
+    );
+    expect(matches).toBe(true);
+  }
 });
 
 // ["==", "type", "ferry_route"] compares two constants and is always false, but it is valid

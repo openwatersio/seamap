@@ -29,9 +29,11 @@ export function chartLayers({ safety, unit }: { safety?: number; unit?: "m" | "f
   const clamped = Math.min(safety ?? 2, MAX_SAFETY_DEPTH);
   return {
     // tidal flats first: depth information, under every boundary and fill areas() draws
+    // (style() lowers them further, under the contours and soundings)
     areas: [...tidalFlats(), ...areas()],
     symbols: [
-      // the marsh overlay sits directly on the land/water fills, under all hazards
+      // the marsh overlay sits directly on the land/water fills, under all hazards (style()
+      // lowers it under the coastline and every label)
       ...marshes(),
       ...hazards(clamped, unit),
       ...routes(),
