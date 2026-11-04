@@ -319,19 +319,27 @@ export const taginfo = {
       description:
         "Areas are named on the chart in sloping text, the convention for a water feature.",
     })),
-    ...["wetland", "mud", "shoal"].map((value) => ({
+    {
+      key: "natural",
+      value: "wetland",
+      description:
+        "Areas are charted by their wetland tag: tidal flats in the drying tint, salt marsh and other marsh with the marsh symbol. An area with no wetland tag takes the marsh symbol too.",
+    },
+    ...["mud", "shoal"].map((value) => ({
       key: "natural",
       value,
       description:
-        "Areas are charted as intertidal ground — the tidal flats, salt marsh and shoals that fall dry between high and low water.",
+        "Areas are charted in the drying tint only with wetland=tidalflat; on its own the tag doesn't say whether the bank uncovers.",
     })),
     {
       key: "wetland",
-      description: "Gives an intertidal area its category, e.g. tidalflat or saltmarsh.",
+      description:
+        "Gives a wetland its chart portrayal: tidalflat dries, saltmarsh, marsh, swamp, reedbed and mangrove take the marsh symbol.",
     },
     {
       key: "surface",
-      description: "Charted as the nature of the ground over an intertidal area.",
+      description:
+        "Carried on intertidal areas as the nature of the ground; the chart does not draw it yet.",
     },
     {
       key: "waterway",
