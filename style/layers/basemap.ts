@@ -5,7 +5,9 @@ import { colors } from "./palette.js";
  * The base-map preference: land context beyond what a chart carries — roads and railways,
  * minor streets, buildings, landcover, street names — for the crew going ashore. S-4 omits or
  * heavily restricts all of it (§B-354, §B-362, §B-365, §B-371), so when shown it must never
- * compete: subdued washes and light neutral lines, drawn below every piece of chart content.
+ * compete: subdued washes and light neutral lines. The fills draw over the depth tints, as any land
+ * fill does, but below the coastline and every seamark. Street names place before the seamark
+ * labels, though seascape's soundings and contour labels, drawn with the bathymetry, yield to them.
  * style() includes these layers only when the `basemap` option (a mariner preference, on by
  * default) is set.
  */
@@ -150,6 +152,8 @@ export function basemap(name: ExpressionSpecification): {
         source: SOURCE,
         "source-layer": "street_labels",
         minzoom: 14,
+        // tunnels omitted, as on the road layers: their names would run across the water
+        filter: ["!=", ["get", "tunnel"], true],
         layout: {
           "symbol-placement": "line",
           "text-field": name,

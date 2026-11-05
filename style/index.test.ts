@@ -9,7 +9,6 @@ import type { LayerSpecification, StyleSpecification } from "@maplibre/maplibre-
 import { day, layers as seascapeLayers } from "@openwaters/seascape";
 import { layers, sources, sprite, style } from "./index.ts";
 import { chartLayers } from "./layers/index.ts";
-import { colors } from "./layers/palette.ts";
 
 const { flats, areas, marsh, symbols } = layers();
 const all = [...flats, ...areas, ...marsh, ...symbols];
@@ -638,11 +637,23 @@ it("underpaints all water in the no-data tint", async () => {
   });
   const ids = whole.layers.map((l) => l.id);
   for (const id of ["no-data-ocean", "no-data-water-polygons"]) {
-    expect(ids.indexOf(id)).toBeGreaterThan(ids.indexOf("background"));
-    expect(ids.indexOf(id)).toBeLessThan(ids.indexOf("depth-shading"));
+    for (const layerId of [id, `${id}-pattern`]) {
+      expect(ids.indexOf(layerId)).toBeGreaterThan(ids.indexOf("background"));
+      expect(ids.indexOf(layerId)).toBeLessThan(ids.indexOf("depth-shading"));
+    }
     const layer = whole.layers[ids.indexOf(id)] as { paint: Record<string, unknown> };
-    expect(layer.paint["fill-color"]).toBe(colors.noData);
+    // seascape's hazard tint: unknown depth warrants the caution of known-unsafe water
+    expect(layer.paint["fill-color"]).toBe(day.nodata);
   }
+  // a flavor override recolours the underpaint along with seascape's own no-data fill
+  const night = await style({
+    spriteBase: "https://example.com/sprites",
+    flavor: { nodata: "#123456" },
+  });
+  const underpaint = night.layers.find((l) => l.id === "no-data-ocean") as {
+    paint: Record<string, unknown>;
+  };
+  expect(underpaint.paint["fill-color"]).toBe("#123456");
 });
 
 // Only wetland=tidalflat says an area dries; a bare shoal or mud bank may never uncover.
@@ -657,6 +668,31 @@ it("tints only tidal flats as drying", () => {
   expect(dries("tidalflat")).toBe(true);
   expect(dries("shoal")).toBe(false);
   expect(dries("mud")).toBe(false);
+});
+
+// A typed-in server URL often ends in a slash; the tile templates must not double it.
+it("trims a trailing slash off the versatiles URL", async () => {
+  const whole = await style({
+    spriteBase: "https://example.com/sprites",
+    versatiles: "https://vt.example.com/",
+  });
+  const urls = Object.values(whole.sources).flatMap((s) => ("tiles" in s ? (s.tiles ?? []) : []));
+  expect(urls).toContain("https://vt.example.com/tiles/osm/{z}/{x}/{y}");
+  expect(urls).toContain("https://vt.example.com/tiles/elevation/{z}/{x}/{y}");
+});
+
+// A tunnel's road isn't drawn, so its name must not run across the water either.
+it("names no tunnels", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  const layer = whole.layers.find((l) => l.id === "basemap-street-label") as { filter: never };
+  const labelled = (properties: Record<string, unknown>) =>
+    featureFilter(layer.filter, "layers.basemap-street-label.filter").filter(
+      { zoom: 14 },
+      { type: 2, properties } as never,
+      undefined as never,
+    );
+  expect(labelled({ kind: "primary", name: "Strandvejen" })).toBe(true);
+  expect(labelled({ kind: "primary", name: "Øresund Tunnel", tunnel: true })).toBe(false);
 });
 
 // Shortbread files national and state capitals under their own place kinds, not city.

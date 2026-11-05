@@ -18,7 +18,7 @@ if (params.get("hillshade") === "") {
 }
 
 const inputs = [...document.querySelectorAll("[id^='opt-']")];
-// checkboxes spell true/false, like the style.json route, so a viewer URL's params carry over
+// checkboxes spell true/false, like the style.json route, so the options both take carry over
 const serialize = (el) =>
   el.type === "checkbox" ? (el.checked ? "true" : "false") : el.value.trim();
 const defaults = new Map(inputs.map((el) => [el, serialize(el)]));

@@ -45,8 +45,6 @@ export const day = {
   intertidal: "#58af9c",
   /** beaches and dunes, a going-ashore courtesy, slightly lighter than the land buff */
   sand: "#faf2d0",
-  /** partly-surveyed water: NODTA blended 50% over seascape's provisional tint */
-  noData: "#599ac3",
   /** glaciers: paper charts omit the land tint over ice (S-4 B-353.8) */
   glacier: "#ffffff",
 } as const;

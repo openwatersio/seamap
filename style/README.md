@@ -84,7 +84,7 @@ The symbology lives in [layers/](layers/), grouped by what it draws. Each module
 
 The order of that concatenation is load-bearing twice. Paint order is the obvious half. The other is symbol collision: MapLibre places symbols in _reverse_ draw order, so a layer listed later wins the anchor in a crowded harbour — which is why labels come last. `index.test.ts` asserts the full id order, so a reshuffle can't happen by accident.
 
-The base map is authored the same way but stays outside the `layers()` export — it only rides inside `style()`. [topography.ts](layers/topography.ts) is chart topography from the VersaTiles shortbread tiles (urban extent, airports, boundaries, place and island names), always drawn; [basemap.ts](layers/basemap.ts) is the land context behind the `basemap` mariner preference (roads and railways, minor streets, buildings, landcover, street names), styled to sit below every piece of chart content.
+The base map is authored the same way but stays outside the `layers()` export — it only rides inside `style()`. [topography.ts](layers/topography.ts) is chart topography from the VersaTiles shortbread tiles (urban extent, airports, bridges, glaciers, boundaries, settlement names), always drawn alongside [names.ts](layers/names.ts)'s island, locality, and water-body names; [basemap.ts](layers/basemap.ts) is the land context behind the `basemap` mariner preference (roads and railways, minor streets, buildings, landcover, street names), styled to sit below the coastline and every chart symbol and label.
 
 Layer geometry comes from the `seamark` and `light` layers of the seamap tiles; the symbols come from the sprite sheet, and because icon names are composed from tag values the two must move together.
 
