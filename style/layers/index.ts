@@ -11,8 +11,10 @@ import { labels } from "./labels.js";
 import { MAX_SAFETY_DEPTH } from "./visibility.js";
 
 /**
- * The chart symbology, split around the consumer's land fills: `areas` are sea areas that a
- * coastline must cover, `symbols` go on top of everything.
+ * The chart symbology, split by where each group sits in the consumer's stack: `flats` is the
+ * opaque drying tint, over the depth fills and under the contours and soundings it must never
+ * hide; `areas` are sea areas that a coastline must cover; `marsh` is the tuft overlay, on the
+ * land fills and under the coastline and every label; `symbols` go on top of everything.
  *
  * Draw order is this concatenation, and it is load-bearing twice over. Paint order is the obvious
  * half. The other is symbol collision: MapLibre places symbols in *reverse* draw order, so the
@@ -20,7 +22,9 @@ import { MAX_SAFETY_DEPTH } from "./visibility.js";
  * deliberate.
  */
 export function chartLayers({ safety, unit }: { safety?: number; unit?: "m" | "ft" | "fm" } = {}): {
+  flats: LayerSpecification[];
   areas: LayerSpecification[];
+  marsh: LayerSpecification[];
   symbols: LayerSpecification[];
 } {
   // The tiles only retain hazard context down to MAX_SAFETY_DEPTH: past it the pipeline may
@@ -28,13 +32,13 @@ export function chartLayers({ safety, unit }: { safety?: number; unit?: "m" | "f
   // hazards it appears to highlight. Clamp rather than honour a promise the data cannot keep.
   const clamped = Math.min(safety ?? 2, MAX_SAFETY_DEPTH);
   return {
-    // tidal flats first: depth information, under every boundary and fill areas() draws
-    // (style() lowers them further, under the contours and soundings)
-    areas: [...tidalFlats(), ...areas()],
+    // Neither wetland fill fits the areas/symbols split: the drying tint is depth information
+    // and belongs with the bathymetry, and marsh tufts at the bottom of symbols would cover the
+    // coastline and land labels.
+    flats: tidalFlats(),
+    areas: areas(),
+    marsh: marshes(),
     symbols: [
-      // the marsh overlay sits directly on the land/water fills, under all hazards (style()
-      // lowers it under the coastline and every label)
-      ...marshes(),
       ...hazards(clamped, unit),
       ...routes(),
       ...structures(),
