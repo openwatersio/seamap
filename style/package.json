@@ -33,15 +33,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@maplibre/maplibre-gl-style-spec": "^26.5.0",
+    "@maplibre/maplibre-gl-style-spec": "^26.5.1",
     "@openwaters/seascape": "^0.4.0"
   },
   "devDependencies": {
-    "@iconify-json/maki": "^1.2.5",
-    "@iconify-json/pinhead": "^1.2.36",
+    "@iconify-json/maki": "^1.2.6",
+    "@iconify-json/pinhead": "^1.2.39",
     "@iconify-json/tabler": "^1.2.43",
-    "@iconify-json/temaki": "^1.2.6",
+    "@iconify-json/temaki": "^1.2.7",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
