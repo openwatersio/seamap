@@ -13,9 +13,12 @@
  * Composed path — sources() + layers() hand over just the chart symbology for
  * a style you assemble yourself:
  *
- *   const { areas, symbols } = layers();
- *   // areas go below land fills and labels, symbols on top of everything
- *   layers: [...myBaseLayers, ...areas, ...myLandLayers, ...symbols]
+ *   const { flats, areas, marsh, symbols } = layers();
+ *   layers: [
+ *     ...myWaterFills, ...flats, ...myContoursAndSoundings,
+ *     ...areas, ...myLandFills, ...marsh, ...myLandLinesAndLabels,
+ *     ...symbols,
+ *   ]
  *
  * The sprite sheet ships in the package at sprites/dist/ — serve it under a
  * stable path (MapLibre appends .json/.png/@2x itself) and point spriteBase /
@@ -78,17 +81,22 @@ export interface LayersOptions {
 
 /**
  * The chart layers, referencing the `seamap` source from sources(). Split to
- * preserve draw order: `areas` (tidal flats, anchorage and restricted-area
- * boundaries and fills) belong below land fills, `symbols` (marsh overlay,
- * hazards, buoys, lights, topmarks, landmarks, labels) on top of everything.
+ * preserve draw order: `flats` (the opaque tidal-flat drying tint) over the
+ * depth fills but under contours and soundings; `areas` (anchorage and
+ * restricted-area boundaries and fills) below land fills; `marsh` (the tuft
+ * overlay) on the land fills but under the coastline and every label;
+ * `symbols` (hazards, buoys, lights, topmarks, landmarks, labels) on top of
+ * everything.
  */
 export function layers({ font, safety, unit }: LayersOptions = {}): {
+  flats: LayerSpecification[];
   areas: LayerSpecification[];
+  marsh: LayerSpecification[];
   symbols: LayerSpecification[];
 } {
-  const { areas, symbols } = chartLayers({ safety, unit });
+  const { flats, areas, marsh, symbols } = chartLayers({ safety, unit });
   if (font) {
-    for (const layer of [...areas, ...symbols]) {
+    for (const layer of [...flats, ...areas, ...marsh, ...symbols]) {
       const layout = "layout" in layer ? (layer.layout as { "text-font"?: string[] }) : undefined;
       if (layout?.["text-font"]) layout["text-font"] = layout["text-font"].map(font);
       // format expressions carry their own fontstacks in {"text-font": ["literal", [...]]}
@@ -96,7 +104,7 @@ export function layers({ font, safety, unit }: LayersOptions = {}): {
       if (layout && "text-field" in layout) renameFormatFonts((layout as any)["text-field"], font);
     }
   }
-  return { areas, symbols };
+  return { flats, areas, marsh, symbols };
 }
 
 function renameFormatFonts(expr: unknown, font: (name: string) => string): void {
@@ -278,15 +286,10 @@ export async function style({
     }),
   );
 
-  // The whole style can place the wetland fills better than layers()' two groups promise a
-  // composed stack: the opaque drying tint goes under the contours and soundings, which a
-  // flat must never hide, and the marsh tufts under the coastline and every label.
-  const chart = layers({ safety, unit });
-  const isFlat = (l: LayerSpecification) => l.id === "tidal-flats";
-  const isMarsh = (l: LayerSpecification) => l.id === "marshes";
-  const areas = chart.areas.filter((l) => !isFlat(l));
-  const symbols = chart.symbols.filter((l) => !isMarsh(l));
-  bathymetry.splice(after(bathymetry, "partly-surveyed-pattern"), 0, ...chart.areas.filter(isFlat));
+  const { flats, areas, marsh, symbols } = layers({ safety, unit });
+  // the opaque drying tint goes over the depth fills and under the contours and soundings,
+  // which a flat must never hide
+  bathymetry.splice(after(bathymetry, "partly-surveyed-pattern"), 0, ...flats);
 
   const h = typeof hillshade === "object" ? hillshade : {};
   const landHillshade: LayerSpecification[] = hillshade
@@ -373,7 +376,8 @@ export async function style({
       },
       ...topo.fills,
       ...(basemap ? base.fills : []),
-      ...chart.symbols.filter(isMarsh),
+      // marsh tufts on the land fills, under the coastline and every label
+      ...marsh,
       ...landHillshade,
       ...(basemap ? base.lines : []),
       ...topo.lines,

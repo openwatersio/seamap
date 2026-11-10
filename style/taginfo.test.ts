@@ -112,7 +112,7 @@ it("documents every tag the profile reads", () => {
 });
 
 it("documents every OSM key the style filters on", () => {
-  const { areas, symbols } = layers();
+  const chart = Object.values(layers()).flat();
   const read = new Set<string>();
   const walk = (node: unknown) => {
     if (Array.isArray(node)) {
@@ -123,7 +123,7 @@ it("documents every OSM key the style filters on", () => {
       Object.values(node).forEach(walk);
     }
   };
-  walk([...areas, ...symbols]);
+  walk(chart);
 
   // Derived attributes the profile computes are bare words (type, color,
   // topmark_shape); a colon means it came straight off the OSM feature. The
