@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="22" viewBox="0 0 24 22">
+  <!-- Paper glacier strokes (S-4 §B-353.8: scattered short blue lines), transparent ground:
+       the flat white fill is its own layer, so the strokes can fade out at small scales
+       where fixed-size pattern glyphs read as noise. Deliberately not the ECDIS AC(NODTA)
+       grey, which would read as the partly-surveyed water pattern. Scatter positions
+       approximate the ICEARE04 lattice at 1.5 px/mm. -->
+  <g stroke="#7ea8c4" stroke-width="1" fill="none">
+    <path d="M 2,4 H 5" />
+    <path d="M 14,2 H 17" />
+    <path d="M 8,8 H 11" />
+    <path d="M 19,10 H 22" />
+    <path d="M 3,14 H 6" />
+    <path d="M 12,17 H 15" />
+    <path d="M 20,19 H 23" />
+  </g>
+</svg>

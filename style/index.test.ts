@@ -8,6 +8,7 @@ import {
 import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { layers, sources, sprite, style } from "./index.ts";
 import { chartLayers } from "./layers/index.ts";
+import { day } from "@openwaters/seascape";
 
 const { areas, symbols } = layers();
 const all = [...areas, ...symbols];
@@ -26,7 +27,7 @@ it("produces a valid style", () => {
 it("assembles a valid whole style", async () => {
   const whole = await style({
     spriteBase: "https://example.com/sprites",
-    hillshade: false, // keeps the builder offline (no elevation TileJSON fetch)
+    hillshade: false,
     // seascape passthrough options
     unit: "ft",
     safety: 3,
@@ -35,7 +36,6 @@ it("assembles a valid whole style", async () => {
   });
   expect(validateStyleMin(whole)).toEqual([]);
   expect(whole.name).toBe("Open Waters Seamap");
-  expect(whole.metadata).toBeUndefined(); // versatiles' license claim must not leak through
   const ids = whole.layers.map((l) => l.id);
   for (const id of ["background", "buoys", "lights", "land_area", "label-place-island"]) {
     expect(ids).toContain(id);
@@ -46,6 +46,17 @@ it("assembles a valid whole style", async () => {
   // sea-area fills sit below land; hazard points draw above it, and the coastline above its fill
   expect(ids.indexOf("restricted-areas")).toBeLessThan(ids.indexOf("land_area"));
   expect(ids.indexOf("rocks")).toBeGreaterThan(ids.indexOf("land_area"));
+  // an opaque drying tint must not hide the contours and soundings drawn over it
+  expect(ids.indexOf("tidal-flats")).toBeGreaterThan(ids.indexOf("depth-areas"));
+  expect(ids.indexOf("tidal-flats")).toBeLessThan(ids.indexOf("contour-lines"));
+  expect(ids.indexOf("tidal-flats")).toBeLessThan(ids.indexOf("soundings"));
+  // marsh tufts sit on the land fill, under the coastline and every label
+  expect(ids.indexOf("marshes")).toBeGreaterThan(ids.indexOf("land_area"));
+  expect(ids.indexOf("marshes")).toBeLessThan(ids.indexOf("land_outline"));
+  // (seascape's contour labels are symbols too, but they sit below land with the bathymetry)
+  const land = ids.indexOf("land_area");
+  const firstLabel = whole.layers.findIndex((l, i) => i > land && l.type === "symbol");
+  expect(ids.indexOf("marshes")).toBeLessThan(firstLabel);
   expect(ids.indexOf("land_outline")).toBeGreaterThan(ids.indexOf("land_area"));
   expect(ids.at(-1)).toBe("lights-label");
 });
@@ -82,32 +93,19 @@ it("asks only for fontstacks the glyph server publishes", async () => {
 });
 
 it("carries both land and sea hillshade layers without id collisions", async () => {
-  const tilejson = {
-    tilejson: "3.0.0",
-    tiles: ["dem://{z}/{x}/{y}"],
-    minzoom: 0,
-    maxzoom: 12,
-    bounds: [-180, -85, 180, 85],
-    attribution: "elevation",
-    encoding: "terrarium",
-  };
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = (async () => new Response(JSON.stringify(tilejson))) as typeof fetch;
-  try {
-    const whole = await style({ spriteBase: "https://example.com/sprites" });
-    expect(validateStyleMin(whole)).toEqual([]);
-    const hillshades = whole.layers.filter((l) => l.type === "hillshade").map((l) => l.id);
-    expect(hillshades).toContain("hillshade"); // land (versatiles elevation)
-    expect(hillshades).toContain("depth-hillshade"); // sea (seascape bathymetry)
-  } finally {
-    globalThis.fetch = realFetch;
-  }
+  const whole = await style({ spriteBase: "https://example.com/sprites" });
+  expect(validateStyleMin(whole)).toEqual([]);
+  const hillshades = whole.layers.filter((l) => l.type === "hillshade").map((l) => l.id);
+  expect(hillshades).toContain("hillshade"); // land (versatiles elevation)
+  expect(hillshades).toContain("depth-hillshade"); // sea (seascape bathymetry)
 });
 
 // Consumers splice these into their own stacks and key runtime tweaks off ids,
 // so renames and reorders are breaking changes.
 it("keeps layer ids and order stable", () => {
   expect(areas.map((l) => l.id)).toEqual([
+    // tidal flats are depth information, under every boundary and fill
+    "tidal-flats",
     // allowed before restricted: RESARE outranks ACHARE where they overlap
     "allowed-areas",
     "allowed-areas-labels",
@@ -118,6 +116,8 @@ it("keeps layer ids and order stable", () => {
     "restricted-areas-fill-pattern",
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
+    // the marsh overlay sits directly on the land/water fills, under all hazards
+    "marshes",
     // hazards — point symbols draw above land so the coastline never hides them
     "hazard-areas-fill",
     "hazard-areas",
@@ -480,17 +480,19 @@ describe("hazard depth numerals", () => {
 // bin/sprites pads fill-pattern icons into a 32-unit repeat cell; one it doesn't know about
 // renders as a solid mass instead of chart hatching. It can't read the layer modules, so it
 // carries the list — keep the two in step.
-it("pads every fill pattern the style uses", () => {
+it("pads every fill pattern the style uses", async () => {
   const script = readFileSync("bin/sprites", "utf8");
+  // the whole style too: partly-surveyed and glacier ride only in style()
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
   const patterns = new Set<string>();
   const walk = (node: unknown): void => {
     if (typeof node === "string" && node.startsWith("freenauticalchart:")) {
       patterns.add(node.split(":", 2)[1]);
     } else if (Array.isArray(node)) node.forEach(walk);
   };
-  for (const layer of all)
+  for (const layer of [...all, ...whole.layers])
     walk((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
-  expect(patterns.size).toBeGreaterThan(0);
+  expect(patterns).toContain("partly-surveyed");
   // `-sm` variants are generated from the padded base by the same script (SMALL_VARIANTS)
   const bases = [...patterns].map((name) => name.replace(/-sm$/, ""));
   expect(bases.filter((name) => !script.includes(`"${name}"`))).toEqual([]);
@@ -551,8 +553,8 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
     expect([...literals].filter((name) => !icons.has(name))).toEqual([]);
   });
 
-  // style() adds fill patterns the layers() walk above never sees (the unsurveyed
-  // water stipple); check every chart-sheet pattern in the whole style resolves
+  // style() adds fill patterns the layers() walk above never sees (the partly-surveyed
+  // no-data dashes); check every chart-sheet pattern in the whole style resolves
   it("contains every fill pattern the whole style references", async () => {
     const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
     const patterns = new Set<string>();
@@ -566,68 +568,116 @@ describe.skipIf(!existsSync(spriteIndex))("sprite sheet", () => {
     for (const layer of whole.layers) {
       collect((layer as { paint?: { "fill-pattern"?: unknown } }).paint?.["fill-pattern"]);
     }
-    expect(patterns.has("unsurveyed")).toBe(true);
+    expect(patterns.has("partly-surveyed")).toBe(true);
     expect([...patterns].filter((name) => !icons.has(name))).toEqual([]);
   });
 });
 
-// MapLibre loads a style's sprite sheets all or nothing: one image reference into a sheet that
-// fails to load blanks every seamark (#84).
-describe("base map sprites", async () => {
-  const whole = await style({
-    spriteBase: "https://example.com/sprites",
-    versatiles: "https://versatiles.example.com",
-    hillshade: false,
-  });
-  const references: string[] = [];
-  const walk = (node: unknown): void => {
-    if (typeof node === "string" && node.includes(":")) references.push(node);
-    // tag keys like seamark:type are not image references
-    else if (Array.isArray(node) && node[0] !== "get" && node[0] !== "has") node.forEach(walk);
-  };
-  for (const layer of whole.layers as { layout?: object; paint?: object }[]) {
-    for (const [property, value] of [
-      ...Object.entries(layer.layout ?? {}),
-      ...Object.entries(layer.paint ?? {}),
-    ]) {
-      if (property === "icon-image" || property.endsWith("-pattern")) walk(value);
-    }
-  }
-  const sheets = whole.sprite as { id: string; url: string }[];
-
-  // an unreferenced sheet still fails the load, so the list must be exact
-  it("declares only sheets that are published", () => {
-    expect(sheets).toEqual([
-      { id: "base", url: "https://versatiles.example.com/assets/sprites/base" },
-      sprite("https://example.com/sprites"),
-    ]);
-  });
-
-  it("names only sheets the style declares", () => {
-    const declared = new Set(sheets.map((s) => s.id));
-    const prefixes = new Set(references.map((r) => r.split(":", 1)[0]));
-    expect(prefixes.size).toBeGreaterThan(1);
-    expect([...prefixes].filter((p) => !declared.has(p))).toEqual([]);
-  });
-
-  // a copy of the ids in https://tiles.versatiles.org/assets/sprites/base.json
-  it("names only icons the base sheet carries", () => {
-    const icons = new Set(
-      JSON.parse(readFileSync("fixtures/versatiles-base-sprites.json", "utf8")),
-    );
-    const base = references.filter((r) => r.startsWith("base:")).map((r) => r.slice(5));
-    expect(base.length).toBeGreaterThan(0);
-    expect([...new Set(base)].filter((id) => !icons.has(id))).toEqual([]);
-  });
+// MapLibre loads a style's sprite sheets all or nothing: one sheet that fails to load blanks
+// every seamark (#84). The base map draws no icons, so the chart's own sheet is the only one.
+it("declares only the chart's sprite sheet", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  expect(whole.sprite).toEqual([sprite("https://example.com/sprites")]);
 });
 
-// Charts never draw a centerline through navigable water (S-57 UOC §4.7.6),
-// and OSM centerlines run through wide rivers too — so none survive.
-it("drops waterway centerlines", async () => {
-  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+// The base map is a mariner preference: turning it off removes exactly the
+// basemap-* layers, never the chart's topography (place names, urban extent,
+// and partly-surveyed water are chart content).
+it("makes the base map a mariner preference", async () => {
+  const opts = { spriteBase: "https://example.com/sprites", hillshade: false };
+  const on = await style(opts);
+  const off = await style({ ...opts, basemap: false });
+  expect(validateStyleMin(off)).toEqual([]);
+  const onIds = on.layers.map((l) => l.id);
+  const offIds = off.layers.map((l) => l.id);
+  for (const id of ["topo-urban", "topo-bridge", "topo-place-city", "label-place-island"]) {
+    expect(offIds).toContain(id);
+  }
+  const removed = onIds.filter((id) => !offIds.includes(id));
+  expect(removed.length).toBeGreaterThan(0);
+  expect(removed.every((id) => id.startsWith("basemap-"))).toBe(true);
+});
+
+// Water seascape leaves uncovered must read as unknown, not as the deep band the background
+// matches: the shortbread water underpaint sits under every bathymetry layer, in the no-data
+// tint, whether or not the base map is on.
+it("underpaints all water in the no-data tint", async () => {
+  const whole = await style({
+    spriteBase: "https://example.com/sprites",
+    hillshade: false,
+    basemap: false,
+  });
   const ids = whole.layers.map((l) => l.id);
-  for (const id of ["water-river", "water-canal", "water-stream", "water-ditch"]) {
-    expect(ids).not.toContain(id);
+  for (const id of ["no-data-ocean", "no-data-water-polygons"]) {
+    for (const layerId of [id, `${id}-pattern`]) {
+      expect(ids.indexOf(layerId)).toBeGreaterThan(ids.indexOf("background"));
+      expect(ids.indexOf(layerId)).toBeLessThan(ids.indexOf("depth-shading"));
+    }
+    const layer = whole.layers[ids.indexOf(id)] as { paint: Record<string, unknown> };
+    // seascape's hazard tint: unknown depth warrants the caution of known-unsafe water
+    expect(layer.paint["fill-color"]).toBe(day.nodata);
+  }
+  // a flavor override recolours the underpaint along with seascape's own no-data fill
+  const night = await style({
+    spriteBase: "https://example.com/sprites",
+    flavor: { nodata: "#123456" },
+  });
+  const underpaint = night.layers.find((l) => l.id === "no-data-ocean") as {
+    paint: Record<string, unknown>;
+  };
+  expect(underpaint.paint["fill-color"]).toBe("#123456");
+});
+
+// Only wetland=tidalflat says an area dries; a bare shoal or mud bank may never uncover.
+it("tints only tidal flats as drying", () => {
+  const layer = areas.find((l) => l.id === "tidal-flats") as { filter: never };
+  const dries = (category: string) =>
+    featureFilter(layer.filter, "layers.tidal-flats.filter").filter(
+      { zoom: 10 },
+      { type: 3, properties: { category } } as never,
+      undefined as never,
+    );
+  expect(dries("tidalflat")).toBe(true);
+  expect(dries("shoal")).toBe(false);
+  expect(dries("mud")).toBe(false);
+});
+
+// A typed-in server URL often ends in a slash; the tile templates must not double it.
+it("trims a trailing slash off the versatiles URL", async () => {
+  const whole = await style({
+    spriteBase: "https://example.com/sprites",
+    versatiles: "https://vt.example.com/",
+  });
+  const urls = Object.values(whole.sources).flatMap((s) => ("tiles" in s ? (s.tiles ?? []) : []));
+  expect(urls).toContain("https://vt.example.com/tiles/osm/{z}/{x}/{y}");
+  expect(urls).toContain("https://vt.example.com/tiles/elevation/{z}/{x}/{y}");
+});
+
+// A tunnel's road isn't drawn, so its name must not run across the water either.
+it("names no tunnels", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  const layer = whole.layers.find((l) => l.id === "basemap-street-label") as { filter: never };
+  const labelled = (properties: Record<string, unknown>) =>
+    featureFilter(layer.filter, "layers.basemap-street-label.filter").filter(
+      { zoom: 14 },
+      { type: 2, properties } as never,
+      undefined as never,
+    );
+  expect(labelled({ kind: "primary", name: "Strandvejen" })).toBe(true);
+  expect(labelled({ kind: "primary", name: "Øresund Tunnel", tunnel: true })).toBe(false);
+});
+
+// Shortbread files national and state capitals under their own place kinds, not city.
+it("labels capitals", async () => {
+  const whole = await style({ spriteBase: "https://example.com/sprites", hillshade: false });
+  const layer = whole.layers.find((l) => l.id === "topo-place-city") as { filter: never };
+  for (const kind of ["city", "capital", "state_capital"]) {
+    const matches = featureFilter(layer.filter, "layers.topo-place-city.filter").filter(
+      { zoom: 8 },
+      { type: 1, properties: { kind } } as never,
+      undefined as never,
+    );
+    expect(matches).toBe(true);
   }
 });
 

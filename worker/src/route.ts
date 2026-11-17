@@ -25,6 +25,7 @@ export interface StyleQuery {
   safety?: number;
   shading?: "relief" | "bands";
   language?: string;
+  basemap?: boolean;
 }
 
 /**
@@ -50,9 +51,14 @@ export function styleQuery(p: URLSearchParams): StyleQuery | string {
     if (shading !== "relief" && shading !== "bands") return "shading must be relief or bands";
     q.shading = shading;
   }
-  // The base map's label language: passed through to @versatiles/style, which
-  // falls back to the local name for anything it doesn't carry.
+  // The base map's label language; the style falls back to the local name for
+  // anything the tiles don't carry.
   const language = p.get("language");
   if (language !== null) q.language = language;
+  const basemap = p.get("basemap");
+  if (basemap !== null) {
+    if (basemap !== "true" && basemap !== "false") return "basemap must be true or false";
+    q.basemap = basemap === "true";
+  }
   return q;
 }

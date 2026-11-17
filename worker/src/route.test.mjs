@@ -39,6 +39,9 @@ assert.deepEqual(q("unit=ft&safety=3.5&shading=bands&language=de"), {
   language: "de",
 });
 assert.deepEqual(q("safety=0"), { safety: 0 }); // 0 = off, not "absent"
+assert.deepEqual(q("basemap=false"), { basemap: false });
+assert.deepEqual(q("basemap=true"), { basemap: true });
+assert.equal(typeof q("basemap=0"), "string");
 assert.equal(typeof q("unit=fathoms"), "string");
 assert.equal(typeof q("safety=-1"), "string");
 assert.equal(typeof q("safety=deep"), "string");

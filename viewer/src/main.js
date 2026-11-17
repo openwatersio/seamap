@@ -18,12 +18,15 @@ if (params.get("hillshade") === "") {
 }
 
 const inputs = [...document.querySelectorAll("[id^='opt-']")];
-const serialize = (el) => (el.type === "checkbox" ? (el.checked ? "1" : "0") : el.value.trim());
+// checkboxes spell true/false, like the style.json route, so the options both take carry over
+const serialize = (el) =>
+  el.type === "checkbox" ? (el.checked ? "true" : "false") : el.value.trim();
 const defaults = new Map(inputs.map((el) => [el, serialize(el)]));
 for (const el of inputs) {
   const name = el.id.slice(4);
   if (!params.has(name)) continue;
-  if (el.type === "checkbox") el.checked = params.get(name) !== "0";
+  // the style.json route spells booleans true/false; accept that here too
+  if (el.type === "checkbox") el.checked = !["0", "false"].includes(params.get(name));
   else el.value = params.get(name);
 }
 
