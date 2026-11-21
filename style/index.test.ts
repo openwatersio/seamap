@@ -5,13 +5,13 @@ import {
   featureFilter,
   validateStyleMin,
 } from "@maplibre/maplibre-gl-style-spec";
-import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
+import type { LayerSpecification, StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
+import { day, layers as seascapeLayers } from "@openwaters/seascape";
 import { layers, sources, sprite, style } from "./index.ts";
 import { chartLayers } from "./layers/index.ts";
-import { day } from "@openwaters/seascape";
 
-const { areas, symbols } = layers();
-const all = [...areas, ...symbols];
+const { flats, areas, marsh, symbols } = layers();
+const all = [...flats, ...areas, ...marsh, ...symbols];
 
 it("produces a valid style", () => {
   const style: StyleSpecification = {
@@ -19,7 +19,7 @@ it("produces a valid style", () => {
     glyphs: "https://example.com/glyphs/{fontstack}/{range}.pbf",
     sprite: [sprite("https://example.com/sprites")],
     sources: sources(),
-    layers: [...areas, ...symbols],
+    layers: all,
   };
   expect(validateStyleMin(style)).toEqual([]);
 });
@@ -59,6 +59,35 @@ it("assembles a valid whole style", async () => {
   expect(ids.indexOf("marshes")).toBeLessThan(firstLabel);
   expect(ids.indexOf("land_outline")).toBeGreaterThan(ids.indexOf("land_area"));
   expect(ids.at(-1)).toBe("lights-label");
+});
+
+// A composer following the README recipe over seascape's bathymetry gets the same wetland
+// placement style() does: neither fill can land over soundings, the coastline, or a label.
+it("keeps the composed wetland fills off chart detail", () => {
+  const wetland = (l: LayerSpecification) => "source-layer" in l && l["source-layer"] === "wetland";
+  expect([...areas, ...symbols].filter(wetland)).toEqual([]);
+
+  const bathymetry = seascapeLayers(day, {});
+  const contours = bathymetry.findIndex((l) => l.id === "contour-lines");
+  const stack: LayerSpecification[] = [
+    ...bathymetry.slice(0, contours),
+    ...flats,
+    ...bathymetry.slice(contours),
+    ...areas,
+    { id: "my-land", type: "fill", source: "mine", paint: {} },
+    ...marsh,
+    { id: "my-coastline", type: "line", source: "mine", paint: {} },
+    { id: "my-place-label", type: "symbol", source: "mine", layout: {} },
+    ...symbols,
+  ];
+  const ids = stack.map((l) => l.id);
+  expect(ids.indexOf("tidal-flats")).toBeGreaterThan(ids.indexOf("depth-areas"));
+  for (const id of ["contour-lines", "contour-labels", "soundings"]) {
+    expect(ids.indexOf("tidal-flats")).toBeLessThan(ids.indexOf(id));
+  }
+  expect(ids.indexOf("marshes")).toBeGreaterThan(ids.indexOf("my-land"));
+  expect(ids.indexOf("marshes")).toBeLessThan(ids.indexOf("my-coastline"));
+  expect(ids.indexOf("marshes")).toBeLessThan(ids.indexOf("my-place-label"));
 });
 
 // The stacks openwatersio/tile-fonts publishes at https://tiles.openwaters.io/fonts. Asking
@@ -103,9 +132,10 @@ it("carries both land and sea hillshade layers without id collisions", async () 
 // Consumers splice these into their own stacks and key runtime tweaks off ids,
 // so renames and reorders are breaking changes.
 it("keeps layer ids and order stable", () => {
+  // the wetland fills ride in groups of their own, so no consumer stacks them over chart detail
+  expect(flats.map((l) => l.id)).toEqual(["tidal-flats"]);
+  expect(marsh.map((l) => l.id)).toEqual(["marshes"]);
   expect(areas.map((l) => l.id)).toEqual([
-    // tidal flats are depth information, under every boundary and fill
-    "tidal-flats",
     // allowed before restricted: RESARE outranks ACHARE where they overlap
     "allowed-areas",
     "allowed-areas-labels",
@@ -116,8 +146,6 @@ it("keeps layer ids and order stable", () => {
     "restricted-areas-fill-pattern",
   ]);
   expect(symbols.map((l) => l.id)).toEqual([
-    // the marsh overlay sits directly on the land/water fills, under all hazards
-    "marshes",
     // hazards — point symbols draw above land so the coastline never hides them
     "hazard-areas-fill",
     "hazard-areas",
@@ -630,7 +658,7 @@ it("underpaints all water in the no-data tint", async () => {
 
 // Only wetland=tidalflat says an area dries; a bare shoal or mud bank may never uncover.
 it("tints only tidal flats as drying", () => {
-  const layer = areas.find((l) => l.id === "tidal-flats") as { filter: never };
+  const layer = flats.find((l) => l.id === "tidal-flats") as { filter: never };
   const dries = (category: string) =>
     featureFilter(layer.filter, "layers.tidal-flats.filter").filter(
       { zoom: 10 },

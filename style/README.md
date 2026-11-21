@@ -24,20 +24,28 @@ Glyphs come from `https://tiles.openwaters.io/fonts` ([tile-fonts](https://githu
 ```js
 import { sources, layers, sprite } from "@openwaters/seamap";
 
-const { areas, symbols } = layers();
+const { flats, areas, marsh, symbols } = layers();
 const style = {
   version: 8,
   sources: { ...mySources, ...sources() },
   sprite: [mySprite, sprite(new URL("sprites", document.baseURI).href)],
-  // areas go below land fills and labels; symbols on top of everything
-  layers: [...myBaseLayers, ...areas, ...myLandLayers, ...symbols],
+  layers: [
+    ...myWaterFills, // depth tints and other water fills
+    ...flats, // opaque drying tint: over the depth tints, under contours and soundings
+    ...myContoursAndSoundings,
+    ...areas, // sea areas: below land, so the coastline covers their edges
+    ...myLandFills,
+    ...marsh, // marsh tufts: on the land fills, under the coastline and labels
+    ...myLandLinesAndLabels, // coastline, roads, place names
+    ...symbols, // on top of everything
+  ],
 };
 
 const map = new maplibregl.Map({ style /* ... */ });
 ```
 
 - `sources({ url? })` — the `seamap` vector source (defaults to `https://tiles.openwaters.io/seamap/tiles.json`).
-- `layers({ font? })` — the chart layers, split into `areas` and `symbols` to preserve draw order around your land layers. `font` renames the glyph fontstacks (`"Noto Sans Regular"`, `"Noto Sans Italic"`, and `"Noto Sans Medium Italic"` for hazard depths) to match your glyph server.
+- `layers({ font?, safety?, unit? })` — the chart layers, split into four groups to preserve draw order around your own layers. `flats` is an opaque fill, so it must go under your contours and soundings. `marsh` is a symbol pattern, so it must go under your coastline and labels. `font` renames the glyph fontstacks (`"Noto Sans Regular"`, `"Noto Sans Italic"`, and `"Noto Sans Medium Italic"` for hazard depths) to match your glyph server.
 - `sprite(base)` — the `style.sprite` entry pointing at wherever you serve the sheet.
 
 When tags compose a colour combination the sheet doesn't carry, the layers fall back to the shape's `generic` icon in the style itself (a `coalesce` of `image` expressions), so unusual marks never render as nothing.
@@ -62,11 +70,11 @@ The same run composes the `poi-*` badges via `bin/poi-badges`, pulling glyphs fr
 
 ## Chart layers
 
-The symbology lives in [layers/](layers/), grouped by what it draws. Each module exports one function returning its layers in draw order; [layers/index.ts](layers/index.ts) concatenates them and makes the `areas`/`symbols` split.
+The symbology lives in [layers/](layers/), grouped by what it draws. Each module exports one function returning its layers in draw order; [layers/index.ts](layers/index.ts) concatenates them into the `flats`/`areas`/`marsh`/`symbols` groups.
 
 | module                                | draws                                                                                                          |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [wetlands.ts](layers/wetlands.ts)     | tidal flats and marshes from the tiles' wetland layer                                                          |
+| [wetlands.ts](layers/wetlands.ts)     | tidal flats (`flats`) and marshes (`marsh`) from the tiles' wetland layer                                      |
 | [areas.ts](layers/areas.ts)           | rocks, wrecks and obstructions, seabed quality, restricted and allowed areas                                   |
 | [routes.ts](layers/routes.ts)         | traffic separation schemes, ferry routes, navigation lines and tracks, submarine cables and pipelines          |
 | [structures.ts](layers/structures.ts) | piers and breakwaters, piles and dolphins, platforms, cranes, shore stations, harbours, small craft facilities |
