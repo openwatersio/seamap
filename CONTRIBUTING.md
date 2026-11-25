@@ -3,6 +3,8 @@
 > [!NOTE]
 > This is a guide to contributing code for this project for humans and AI agents. If you want to improve the data on the chart, see [improving chart data](docs/OSM.md).
 
+Every change follows the org-wide [rigor rules](https://github.com/openwatersio/.github/blob/main/docs/agents/rigor.md). The first of them: when something fails or looks wrong, find the cause and fix it there instead of working around it.
+
 This project is:
 
 - [./src](./src) - a [Planetiler](https://github.com/onthegomap/planetiler) profile that converts OpenStreetMap `seamark:*` data and other data relevant to marine navigation into PMTiles vector tiles.
