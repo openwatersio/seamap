@@ -28,7 +28,8 @@ values are written against. Two departures from upstream:
 - The S-57-keyed icons (`BCNSHP/`, `BOYSHP/`, `TOPSHP/`, `CATLMK/`) are dropped;
   they address ENC attribute codes our OSM tiles don't carry.
 - Icons the style uses as a fill pattern are padded into a 32-unit repeat cell
-  first. MapLibre tiles pattern images edge to edge, so tight-cropped hatch
+  first, unless they carry their own `viewBox` repeat cell (the S-52 lattices
+  `partly-surveyed`, `marsh`, `glacier`). MapLibre tiles pattern images edge to edge, so tight-cropped hatch
   marks read as a solid mass; upstream never hits this because its own style
   doesn't hatch restricted areas.
 - The landmark icons and light stars are drawn larger than upstream's — 1.3x

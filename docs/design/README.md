@@ -75,7 +75,8 @@ These are intentional departures from the standards. Anything else is either com
 - **Green conservation areas** — strictly magenta in S-52, but a chart where bird sanctuaries and military zones share one colour is worse to use.
 - **Tiled area patterns and boundary-repeated symbols** instead of single centred symbols, which assume cursor-pick and a fixed scale; tiling is right for a pannable map.
 - **Ferry routes in blue-violet** to keep them out of the magenta soup.
-- **Background matching the deepest depth band** rather than S-52's no-data grey — the bathymetry is global, so an unloaded tile is a loading flash, and a grey flash is worse UX for no safety gain.
+- **Background matching the deepest depth band** rather than S-52's no-data grey — it shows only where no tiles reach. Every OSM water body beneath the bathymetry is underpainted in the partly-surveyed portrayal, so water the bathymetry doesn't cover (a gap, a lake without data, a tile that hasn't loaded) reads as unsafe and unknown rather than deep. Over open ocean an unloaded tile flashes that tint, the price of never showing missing depth as deep water.
+- **Unknown-depth water in the hazard tint** rather than S-52's NODTA grey — seascape paints it the colour of known-unsafe water, which is how ECDIS treats it for the safety check, and the sparse PRTSUR01 dashes tell the two apart once the chart can carry a pattern.
 - **Near-black coastline** rather than S-52's grey — paper-black is the better read on a light chart.
 - **Safety depth defaults to 2 m**, not IMO's deep-draught defaults — right for this audience, and a setting by design.
 - **`icon-overlap: "always"` on marks** — MapLibre silently dropping an aid to navigation is strictly worse than overlap. Density is governed by budgets instead; see [Visibility](visibility.md).

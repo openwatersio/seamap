@@ -50,7 +50,7 @@ export function names({
       source: SHORTBREAD,
       "source-layer": "place_labels",
       filter: ["==", ["get", "kind"], "locality"],
-      // as dense as the base map's hamlets, and worth no more room than they get
+      // as dense as the base map's villages, and worth no more room than they get
       minzoom: 11,
       layout: {
         "text-field": label,
