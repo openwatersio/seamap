@@ -12,9 +12,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: npm
@@ -22,7 +22,7 @@ jobs:
 
       # prepublishOnly rebuilds the sprites; mise supplies spreet at the
       # pinned version, and the POI badges compose from @iconify-json.
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@v5.3.0
       - run: npm ci
 
       - name: Check tag matches package version

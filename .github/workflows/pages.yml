@@ -24,9 +24,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           cache: npm
@@ -34,7 +34,7 @@ jobs:
       # Sprites are generated, not committed; without this step the deployed
       # viewer has no chart symbols. mise supplies spreet at the pinned version;
       # npm ci must come first — the POI badges compose from @iconify-json.
-      - uses: jdx/mise-action@v5
+      - uses: jdx/mise-action@v5.3.0
       - run: npm ci
       - run: bin/sprites
 
@@ -42,9 +42,9 @@ jobs:
       # Change to /  when this moves to a custom domain (e.g. openwaters.io).
       - run: npm run build --workspace viewer -- --base=/seamap/
 
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/configure-pages@v6.0.0
+      - uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: viewer/dist
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v5.0.1
